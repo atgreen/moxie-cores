@@ -1,0 +1,5 @@
+To test this thing out, cd into soc/muskoka/sim and run "make".
+Then run ./a.out; Ctrl-C to break out; type "finish".
+Now fire up gtkwave like so..
+$ gtkwave dump.vcd ../gtkwave/muskoka.sav
+And you're done.
