@@ -113,11 +113,6 @@ module cpu_execute (/*AUTOARG*/
       current_state <= next_state;
     end
 
-  always @(posedge clk_i)
-    begin
-       branch_target <= PC_o + 
-    end
-    
   always @(posedge rst_i or posedge clk_i)
     if (rst_i) begin
        pipeline_control_bits_o <= 5'b00000;
