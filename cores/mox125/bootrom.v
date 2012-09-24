@@ -1,6 +1,6 @@
 // bootrom.v - Simple ROM module
 //
-// Copyright (c) 2011  Anthony Green.  All Rights Reserved.
+// Copyright (c) 2011, 2012  Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -30,8 +30,8 @@ module bootrom (/*AUTOARG*/
     output        wb_ack_o
   );
 
-  reg  [7:0] rom[0:1023];
-  wire [8:0]  index;
+  reg  [7:0] rom[0:2559];
+  wire [8:0] index;
 
   assign index = wb_adr_i[9:0];
   assign wb_ack_o = wb_stb_i & wb_cyc_i;

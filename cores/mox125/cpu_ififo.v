@@ -91,19 +91,7 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 		    || (op == 8'h36) // ldo.b
 		    || (op == 8'h37) // sto.b
 		    || (op == 8'h38) // ldo.s
-		    || (op == 8'h39) // sto.s
-		    // Easy optimization.. all insns with two high bits on
-		    // are 48-bits long.
-		    || (op == 8'hc0) // beq
-		    || (op == 8'hc4) // bne
-		    || (op == 8'hc8) // blt
-		    || (op == 8'hcc) // bgt
-		    || (op == 8'hd0) // bltu
-		    || (op == 8'hd4) // bgtu
-		    || (op == 8'hd8) // bge
-		    || (op == 8'hdc) // ble
-		    || (op == 8'he0) // bgeu
-		    || (op == 8'he4)); // bleu
+		    || (op == 8'h39)); // sto.s
   endfunction
 
   assign PC = (newPC_p_i ? PC_i : next_PC);

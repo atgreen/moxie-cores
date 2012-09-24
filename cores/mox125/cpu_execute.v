@@ -73,7 +73,7 @@ module cpu_execute (/*AUTOARG*/
   output [0:0] stall_o;
   reg [0:0]    stall_o;
 
-  reg [31:0]   CC_result;
+  reg [4:0]   CC_result;
   
   output       branch_flag_o;
   output [31:0] branch_target_o;
@@ -99,20 +99,42 @@ module cpu_execute (/*AUTOARG*/
    reg [0:0] 	register_wea_o;
    reg [0:0] 	register_web_o;
 
-   reg [31:0] 	branch_target;
+  reg [31:0] 	branch_target;
+
+  wire cc_eq, cc_gt, cc_lt, cc_gtu, cc_ltu;
+  
+  assign cc_eq = regA_i == regB_i;
+  assign cc_gt = regA_i > regB_i;
+  assign cc_lt = regA_i < regB_i;
+  assign cc_ltu = cc_lt; /* FIXME */
+  assign cc_gtu = cc_gt; /* FIXME */
+  
+  wire branch_condition;
+
+  assign branch_condition =
+       ((op_i == `OP_BEQ) & CC_result[4])
+       | ((op_i == `OP_BNE) & !CC_result[0])
+       | ((op_i == `OP_BLT) & CC_result[1])
+       | ((op_i == `OP_BLTU) & CC_result[2])
+       | ((op_i == `OP_BGT) & CC_result[3])
+       | ((op_i == `OP_BLTU) & CC_result[4])
+       | ((op_i == `OP_BLE) & (CC_result[0] | CC_result[1]))
+       | ((op_i == `OP_BGE) & (CC_result[0] | CC_result[2]))
+       | ((op_i == `OP_BLEU) & (CC_result[0] | CC_result[3]))
+       | ((op_i == `OP_BGEU) & (CC_result[0] | CC_result[4]));
 
   always @(posedge rst_i or posedge clk_i)
     if (rst_i == 1) begin
       branch_flag_o <= 0;
       current_state <= STATE_READY;
-      CC_result <= 0;
+      CC_result <= 5'b0;
     end else begin
       register_wea_o = pipeline_control_bits_i[`PCB_WA];
       register_web_o = pipeline_control_bits_i[`PCB_WB];
-      branch_flag_o <= (op_i == `OP_JMPA) || (current_state == STATE_JSR1);
+      branch_flag_o <= branch_condition || (op_i == `OP_JMPA) || (current_state == STATE_JSR1);
       current_state <= next_state;
     end
-
+  
   always @(posedge rst_i or posedge clk_i)
     if (rst_i) begin
        pipeline_control_bits_o <= 5'b00000;
@@ -230,7 +252,7 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_CMP:
 		  begin
-		    CC_result <= regA_i - regB_i;
+		    CC_result <= {cc_eq, cc_lt, cc_gt, cc_ltu, cc_gtu};
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end

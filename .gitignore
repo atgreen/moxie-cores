@@ -1,4 +1,12 @@
 *~
 #*
 a.out
+*.vcd
 bootrom.x
+tools/gcc
+tools/src
+tools/build
+tools/root
+
+
+
