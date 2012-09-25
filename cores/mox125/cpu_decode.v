@@ -22,7 +22,8 @@
 module cpu_decode (/*AUTOARG*/
   // Outputs
   pipeline_control_bits_o, register0_write_index_o,
-  register1_write_index_o, operand_o, riA_o, riB_o, op_o, PC_o,
+  register1_write_index_o, operand_o, pcrel_offset_o, riA_o, riB_o,
+  op_o, PC_o,
   // Inputs
   rst_i, clk_i, stall_i, opcode_i, operand_i, valid_i, PC_i
   );
@@ -44,12 +45,14 @@ module cpu_decode (/*AUTOARG*/
    output [3:0] 	   register0_write_index_o;
    output [3:0] 	   register1_write_index_o;
    output [31:0] 	   operand_o;
+   output [9:0] 	   pcrel_offset_o;
    output [3:0] 	   riA_o;
    output [3:0] 	   riB_o;
    output [5:0] 	   op_o;
    output [31:0] 	   PC_o;
 
    reg [5:0] 		   op_o;
+   reg [9:0] 		   pcrel_offset_o;
    wire [3:0] 		   riA_o;
    wire [3:0] 		   riB_o;
    reg [31:0] 		   operand_o;
@@ -81,6 +84,7 @@ module cpu_decode (/*AUTOARG*/
 
   always @(posedge clk_i)
     if (! stall_i) begin
+      pcrel_offset_o <= opcode_i[9:0];
       if (opcode_i[15] == 0)
 	pipeline_control_bits_o <= control;
       else

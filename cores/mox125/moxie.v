@@ -67,6 +67,7 @@ module moxie (/*AUTOARG*/
   wire [31:0] xw_PC;
   wire [`PCB_WIDTH-1:0] dx_pipeline_control_bits;
   wire [5:0]  dx_op;
+  wire [9:0]  dx_pcrel_offset;
   wire [`PCB_WIDTH-1:0] xw_pipeline_control_bits;
   wire [0:0]  xr_register0_write_enable;
   wire [0:0]  xr_register1_write_enable;
@@ -176,6 +177,7 @@ module moxie (/*AUTOARG*/
 			   .PC_o (dx_PC),
 			   .riA_o (dr_reg_index1),
 			   .riB_o (dr_reg_index2),
+			   .pcrel_offset_o (dx_pcrel_offset),
 			   .op_o (dx_op));
 
   cpu_execute stage_execute (// Inputs
@@ -186,6 +188,7 @@ module moxie (/*AUTOARG*/
 			     .op_i           (dx_op),
 			     .PC_i           (dx_PC),
 			     .PC_o           (xw_PC),
+			     .pcrel_offset_i (dx_pcrel_offset),
 			     .operand_i		(dx_operand[31:0]),
 			     .regA_i (forward_0 ? xr_reg0_result : rx_reg_value1),
 			     .regB_i (forward_1 ? xr_reg0_result : rx_reg_value2),

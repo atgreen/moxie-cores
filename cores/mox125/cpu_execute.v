@@ -28,7 +28,8 @@ module cpu_execute (/*AUTOARG*/
   // Inputs
   rst_i, clk_i, stall_i, riA_i, riB_i, regA_i, regB_i,
   pipeline_control_bits_i, register0_write_index_i,
-  register1_write_index_i, operand_i, op_i, sp_i, fp_i, PC_i
+  register1_write_index_i, operand_i, op_i, sp_i, fp_i, PC_i,
+  pcrel_offset_i
   );
 
   parameter [1:0] STATE_READY = 2'b00,
@@ -54,6 +55,7 @@ module cpu_execute (/*AUTOARG*/
   input [31:0] sp_i;
   input [31:0] fp_i;
   input [31:0] PC_i;
+  input [9:0]  pcrel_offset_i;
   
   // --- Outputs --------------------------------------------------
   output register_wea_o;
@@ -73,7 +75,7 @@ module cpu_execute (/*AUTOARG*/
   output [0:0] stall_o;
   reg [0:0]    stall_o;
 
-  reg [4:0]   CC_result;
+  reg [0:4]   CC_result;
   
   output       branch_flag_o;
   output [31:0] branch_target_o;
@@ -110,9 +112,8 @@ module cpu_execute (/*AUTOARG*/
   assign cc_gtu = cc_gt; /* FIXME */
   
   wire branch_condition;
-
   assign branch_condition =
-       ((op_i == `OP_BEQ) & CC_result[4])
+       ((op_i == `OP_BEQ) & CC_result[0])
        | ((op_i == `OP_BNE) & !CC_result[0])
        | ((op_i == `OP_BLT) & CC_result[1])
        | ((op_i == `OP_BLTU) & CC_result[2])
@@ -123,6 +124,9 @@ module cpu_execute (/*AUTOARG*/
        | ((op_i == `OP_BLEU) & (CC_result[0] | CC_result[3]))
        | ((op_i == `OP_BGEU) & (CC_result[0] | CC_result[4]));
 
+  wire pcrel_branch_target;
+  assign pcrel_branch_target = (pcrel_offset_i << 1) + PC_i + 2;
+  
   always @(posedge rst_i or posedge clk_i)
     if (rst_i == 1) begin
       branch_flag_o <= 0;
@@ -180,67 +184,66 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_BAD:
 		  begin
-		    // $display ("Executing OP_BAD");
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end
 		`OP_BEQ:
 		  begin
-		    branch_target_o <= regA_i;
+		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end
 		`OP_BGE:
 		  begin
-		    $display ("Executing OP_BGE");
+		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end
 		`OP_BGEU:
 		  begin
-		    $display ("Executing OP_BGEU");
+		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end
 		`OP_BGT:
 		  begin
-		    $display ("Executing OP_BGT");
+		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end
 		`OP_BGTU:
 		  begin
-		    $display ("Executing OP_BGTU");
+		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end
 		`OP_BLE:
 		  begin
-		    $display ("Executing OP_BLE");
+		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end
 		`OP_BLEU:
 		  begin
-		    $display ("Executing OP_BLEU");
+		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end
 		`OP_BLT:
 		  begin
-		    $display ("Executing OP_BLT");
+		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end
 		`OP_BLTU:
 		  begin
-		    $display ("Executing OP_BLTU");
+		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end
 		`OP_BNE:
 		  begin
-		    $display ("Executing OP_BNE");
+		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    stall_o <= 0;
 		  end
