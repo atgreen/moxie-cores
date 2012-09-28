@@ -19,12 +19,11 @@
 
 module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 		   )(/*AUTOARG*/
-  // Outputs
-  PC_o, opcode_o, operand_o, valid_o, empty_o, full_o,
-  // Inputs
-  rst_i, clk_i, write_en_i, read_en_i, stall_i, data_i, newPC_p_i,
-  PC_i
-  );
+   // Outputs
+   PC_o, opcode_o, operand_o, valid_o, empty_o, full_o,
+   // Inputs
+   rst_i, clk_i, write_en_i, read_en_i, data_i, newPC_p_i, PC_i
+   );
   
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
@@ -32,8 +31,6 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
   input write_en_i ; // assert high to write data
   input read_en_i ; // assert high to read data
 
-  input stall_i;
-  
   input [31:0] data_i ; // data to write
 
   input [0:0]  newPC_p_i;
@@ -100,7 +97,7 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
     next_PC <= PC_i;
   
   always @(posedge clk_i or posedge rst_i)
-    if (rst_i == 1) begin
+    if (rst_i | newPC_p_i) begin
       opcode_o <= 0;
       operand_o <= 0;
       read_ptr <= 0;
@@ -108,162 +105,160 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
       ptr_gap <= 0;
       full_o <= 0;
       valid_o <= 0;
+      next_PC <= PC_i;
     end else begin
-      if (stall_i == 1) begin
-      end else begin
-	PC_o <= (newPC_p_i ? PC_i : PC);
-	// $display ("A %x buffer[read_ptr] = 0x%x", read_ptr, buffer[read_ptr][15:8]);
-	// $display ("A BUFFER = 0x%x%x%x%x", buffer[0], buffer[1], buffer[2], buffer[3]);
-	// $display ("A buffer_empty = %x", buffer_empty);
-	// $display ("A ptr_gap = 0x%x", ptr_gap);
-	// $display ("A 0x%x", !is_long_insn(buffer[read_ptr][15:8]));
-	// $display ("A 0x%x", buffer[read_ptr][15:8]);
-	if (buffer_empty ? !is_long_insn(data_i[31:24]) : !is_long_insn(buffer[read_ptr][15:8])) begin
+       PC_o <= (newPC_p_i ? PC_i : PC);
+       // $display ("A %x buffer[read_ptr] = 0x%x", read_ptr, buffer[read_ptr][15:8]);
+       // $display ("A BUFFER = 0x%x%x%x%x", buffer[0], buffer[1], buffer[2], buffer[3]);
+       // $display ("A buffer_empty = %x", buffer_empty);
+       // $display ("A ptr_gap = 0x%x", ptr_gap);
+       // $display ("A 0x%x", !is_long_insn(buffer[read_ptr][15:8]));
+       // $display ("A 0x%x", buffer[read_ptr][15:8]);
+       if (buffer_empty ? !is_long_insn(data_i[31:24]) : !is_long_insn(buffer[read_ptr][15:8])) begin
 	  // This is a 16-bit instruction (either from input or from buffer).
 	  //	$display ("B");
 	  if (write_en_i && (!read_en_i) && (can_write_32)) begin
-	    //	  $display ("Z");
-	    buffer[write_ptr] <= data_i[31:16];
-	    buffer[(write_ptr+1)%4] <= data_i[15:0];
-	    write_ptr <= (write_ptr + 2) % 4;
-	    valid_o <= 0;
-	    ptr_gap = ptr_gap + 2;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     //	  $display ("Z");
+	     buffer[write_ptr] <= data_i[31:16];
+	     buffer[(write_ptr+1)%4] <= data_i[15:0];
+	     write_ptr <= (write_ptr + 2) % 4;
+	     valid_o <= 0;
+	     ptr_gap = ptr_gap + 2;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if ((!write_en_i) && read_en_i && (can_read_16)) begin
-	    // $display ("Y");
-	    opcode_o <= buffer[read_ptr];
-	    valid_o <= 1;
-	    next_PC <= PC + 2;
-	    read_ptr <= (read_ptr + 1) % 4;
-	    ptr_gap = ptr_gap - 1;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     // $display ("Y");
+	     opcode_o <= buffer[read_ptr];
+	     valid_o <= 1;
+	     next_PC <= PC + 2;
+	     read_ptr <= (read_ptr + 1) % 4;
+	     ptr_gap = ptr_gap - 1;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && buffer_empty) begin
-	    //	   $display ("X");
-	    opcode_o <= data_i[31:16];
-	    buffer[0] <= data_i[15:0];
-	    write_ptr <= 1;
-	    read_ptr <= 0;
-	    ptr_gap = 1;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
-	    valid_o <= 1;
-	    next_PC <= PC + 2;
+	     //	   $display ("X");
+	     opcode_o <= data_i[31:16];
+	     buffer[0] <= data_i[15:0];
+	     write_ptr <= 1;
+	     read_ptr <= 0;
+	     ptr_gap = 1;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     valid_o <= 1;
+	     next_PC <= PC + 2;
 	  end
 	  else if (write_en_i && read_en_i && buffer_full) begin
-	    //	   $display ("W- ERROR");
-	    opcode_o <= buffer[read_ptr];
-	    valid_o <= 1;
-	    next_PC <= PC + 2;
-	    read_ptr <= (read_ptr + 1) % 4;
-	    ptr_gap = ptr_gap - 1;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     //	   $display ("W- ERROR");
+	     opcode_o <= buffer[read_ptr];
+	     valid_o <= 1;
+	     next_PC <= PC + 2;
+	     read_ptr <= (read_ptr + 1) % 4;
+	     ptr_gap = ptr_gap - 1;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && (can_write_32) && (can_read_16)) begin
-	    buffer[write_ptr] <= data_i[31:16];
-	    buffer[(write_ptr+1)%4] <= data_i[15:0];
-	    write_ptr <= (write_ptr + 2) % 4;
-	    opcode_o <= buffer[read_ptr];
-	    read_ptr <= (read_ptr + 1) % 4;
-	    valid_o <= 1;
-	    next_PC <= PC + 2;
-	    ptr_gap = ptr_gap + 1;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     buffer[write_ptr] <= data_i[31:16];
+	     buffer[(write_ptr+1)%4] <= data_i[15:0];
+	     write_ptr <= (write_ptr + 2) % 4;
+	     opcode_o <= buffer[read_ptr];
+	     read_ptr <= (read_ptr + 1) % 4;
+	     valid_o <= 1;
+	     next_PC <= PC + 2;
+	     ptr_gap = ptr_gap + 1;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
 	  end 
 	  else begin
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
-	    // #1 $display ("U - ERROR %x %x %x %x %x %x", write_en_i, read_en_i, write_ptr, read_ptr, ptr
-	    // _gap, full_o);
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     // #1 $display ("U - ERROR %x %x %x %x %x %x", write_en_i, read_en_i, write_ptr, read_ptr, ptr
+	     // _gap, full_o);
 	  end
-	end else begin
+       end else begin
 	  if (write_en_i && (!read_en_i) && (can_write_32)) begin
-	    buffer[write_ptr] <= data_i[31:16];
-	    buffer[(write_ptr+1)%4] <= data_i[15:0];
-	    write_ptr <= write_ptr + 2;
-	    ptr_gap = ptr_gap + 2;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     buffer[write_ptr] <= data_i[31:16];
+	     buffer[(write_ptr+1)%4] <= data_i[15:0];
+	     write_ptr <= write_ptr + 2;
+	     valid_o <= 0;
+	     ptr_gap = ptr_gap + 2;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if ((!write_en_i) && read_en_i && (can_read_48)) begin
-	     // #1 $display ("A(%x) - [%x, %x, %x, %x]", read_ptr, buffer[0], buffer[1], buffer[2], buffer[3]);
-	    opcode_o <= buffer[read_ptr];
-	    operand_o[31:16] <= buffer[(read_ptr+1)%4];
-	    operand_o[15:0] <= buffer[(read_ptr+2)%4];
-	    valid_o <= 1;
-	    next_PC <= PC + 6;
-	    read_ptr <= read_ptr + 3;
-	    ptr_gap = ptr_gap - 3;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     opcode_o <= buffer[read_ptr];
+	     operand_o[31:16] <= buffer[(read_ptr+1)%4];
+	     operand_o[15:0] <= buffer[(read_ptr+2)%4];
+	     valid_o <= 1;
+	     next_PC <= PC + 6;
+	     read_ptr <= read_ptr + 3;
+	     ptr_gap = ptr_gap - 3;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && buffer_empty) begin
-	    buffer[write_ptr] <= data_i[31:16];
-	    buffer[write_ptr+1] <= data_i[15:0];
-	    write_ptr <= write_ptr + 2;
-	    valid_o <= 0;
-	    ptr_gap = ptr_gap + 2;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     buffer[write_ptr] <= data_i[31:16];
+	     buffer[write_ptr+1] <= data_i[15:0];
+	     write_ptr <= write_ptr + 2;
+	     valid_o <= 0;
+	     ptr_gap = ptr_gap + 2;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && buffer_full) begin
-	    opcode_o <= buffer[read_ptr];
-	    operand_o[31:16] <= buffer[read_ptr+1];
-	    operand_o[15:0] <= buffer[read_ptr+2];
-	    valid_o <= 1;
-	    next_PC <= PC + 6;
-	    read_ptr <= read_ptr + 3;
-	    ptr_gap = ptr_gap - 3;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     opcode_o <= buffer[read_ptr];
+	     operand_o[31:16] <= buffer[read_ptr+1];
+	     operand_o[15:0] <= buffer[read_ptr+2];
+	     valid_o <= 1;
+	     next_PC <= PC + 6;
+	     read_ptr <= read_ptr + 3;
+	     ptr_gap = ptr_gap - 3;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && (can_write_32) && (can_read_48)) begin
-	    buffer[write_ptr] <= data_i[31:16];
-	    buffer[write_ptr+1] <= data_i[15:0];
-	    write_ptr <= write_ptr + 2;
-	    opcode_o <= buffer[read_ptr];
-	    operand_o[31:16] <= buffer[read_ptr+1];
-	    operand_o[15:0] <= buffer[read_ptr+2];
-	    read_ptr <= read_ptr + 3;
-	    valid_o <= 1;
-	    next_PC <= PC + 6;
-	    ptr_gap = ptr_gap - 1;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     buffer[write_ptr] <= data_i[31:16];
+	     buffer[write_ptr+1] <= data_i[15:0];
+	     write_ptr <= write_ptr + 2;
+	     opcode_o <= buffer[read_ptr];
+	     operand_o[31:16] <= buffer[read_ptr+1];
+	     operand_o[15:0] <= buffer[read_ptr+2];
+	     read_ptr <= read_ptr + 3;
+	     valid_o <= 1;
+	     next_PC <= PC + 6;
+	     ptr_gap = ptr_gap - 1;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && (ptr_gap == 2)) begin
-	    buffer[(write_ptr)%4] <= data_i[31:16];
-	    buffer[(write_ptr+1)%4] <= data_i[15:0];
-	    write_ptr <= (write_ptr + 2) % 4;
-	    opcode_o <= buffer[read_ptr];
-	    operand_o[31:16] <= buffer[(read_ptr+1)%4];
-	    operand_o[15:0] <= data_i[31:16];
-	    read_ptr <= (read_ptr + 3) % 4;
-	    valid_o <= 1;
-	    next_PC <= PC + 6;
-	    ptr_gap = 1;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     buffer[(write_ptr)%4] <= data_i[31:16];
+	     buffer[(write_ptr+1)%4] <= data_i[15:0];
+	     write_ptr <= (write_ptr + 2) % 4;
+	     opcode_o <= buffer[read_ptr];
+	     operand_o[31:16] <= buffer[(read_ptr+1)%4];
+	     operand_o[15:0] <= data_i[31:16];
+	     read_ptr <= (read_ptr + 3) % 4;
+	     valid_o <= 1;
+	     next_PC <= PC + 6;
+	     ptr_gap = 1;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && (ptr_gap == 1)) begin
-	    opcode_o <= buffer[read_ptr];
-	    operand_o[31:16] <= data_i[31:16];
-	    operand_o[15:0] <= data_i[15:0];
-	    read_ptr <= (read_ptr + 1) % 4; // FIXME: this is probably not needed
-	    valid_o <= 1;
-	    next_PC <= PC + 6;
-	    ptr_gap = 0;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4)); // FIXME: neither is this
+	     opcode_o <= buffer[read_ptr];
+	     operand_o[31:16] <= data_i[31:16];
+	     operand_o[15:0] <= data_i[15:0];
+	     read_ptr <= (read_ptr + 1) % 4; // FIXME: this is probably not needed
+	     valid_o <= 1;
+	     next_PC <= PC + 6;
+	     ptr_gap = 0;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4)); // FIXME: neither is this
 	  end 
 	  else if (write_en_i && read_en_i && (ptr_gap == 3)) begin
-	    buffer[write_ptr] <= data_i[31:16];
-	    buffer[write_ptr+1] <= data_i[15:0];
-	    write_ptr <= write_ptr + 2;
-	    opcode_o <= buffer[read_ptr];
-	    operand_o[31:16] <= buffer[(read_ptr+1)%4];
-	    operand_o[15:0] <= buffer[(read_ptr+2)%4];
-	    read_ptr <= read_ptr + 3;
-	    valid_o <= 1;
-	    next_PC <= PC + 6;
-	    ptr_gap = ptr_gap - 1;
-	    full_o = ((ptr_gap == 3) || (ptr_gap == 4)); // FIXME: this is probably not needed
+	     buffer[write_ptr] <= data_i[31:16];
+	     buffer[write_ptr+1] <= data_i[15:0];
+	     write_ptr <= write_ptr + 2;
+	     opcode_o <= buffer[read_ptr];
+	     operand_o[31:16] <= buffer[(read_ptr+1)%4];
+	     operand_o[15:0] <= buffer[(read_ptr+2)%4];
+	     read_ptr <= read_ptr + 3;
+	     valid_o <= 1;
+	     next_PC <= PC + 6;
+	     ptr_gap = ptr_gap - 1;
+	     full_o = ((ptr_gap == 3) || (ptr_gap == 4)); // FIXME: this is probably not needed
 	  end
-	end
-	  // else #1 $display ("L ERROR ptr_gap = 0x%x", ptr_gap);
-      end  
+       end
+       // else #1 $display ("L ERROR ptr_gap = 0x%x", ptr_gap);
     end
 endmodule
 

@@ -95,7 +95,7 @@ module moxie (/*AUTOARG*/
   wire [3:0]  dr_reg_index1;
   wire [3:0]  dr_reg_index2;
 
-  wire [0:0]  stall_x;
+  wire [0:0]  flush_x;
 
   reg [0:0]  wb_I_stb_o;
 
@@ -156,9 +156,9 @@ module moxie (/*AUTOARG*/
 			 // Inputs
 			 .rst_i			(rst_i),
 			 .clk_i			(clk_i),
-			 .branch_flag_i (xf_branch_flag),
-			 .branch_target_i (xf_branch_target),
-			 .stall_i               (stall_x),
+			 .branch_flag_i         (xf_branch_flag),
+			 .branch_target_i       (xf_branch_target),
+			 .stall_i               (1'b0),
 			 .imem_data_i           (wb_I_dat_i[31:0]));
     
   cpu_decode stage_decode (// Inputs
@@ -168,7 +168,7 @@ module moxie (/*AUTOARG*/
 			   .operand_i		(fd_operand[31:0]),
 			   .PC_i                (fd_PC[31:0]),
 			   .valid_i		(fd_valid),
-			   .stall_i             (stall_x),
+			   .flush_i             (flush_x),
 			   // Outputs
 			   .pipeline_control_bits_o (dx_pipeline_control_bits),
 			   .register0_write_index_o (dx_register0_write_index),
@@ -181,10 +181,10 @@ module moxie (/*AUTOARG*/
 			   .op_o (dx_op));
 
   cpu_execute stage_execute (// Inputs
-			     .rst_i			(rst_i),
-			     .clk_i			(clk_i),
-			     .stall_i        (0),
-			     .stall_o        (stall_x),
+			     .rst_i	     (rst_i),
+			     .clk_i	     (clk_i),
+			     .flush_i        (0),
+			     .flush_o        (flush_x),
 			     .op_i           (dx_op),
 			     .PC_i           (dx_PC),
 			     .PC_o           (xw_PC),
