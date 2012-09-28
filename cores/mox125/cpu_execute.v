@@ -91,7 +91,7 @@ module cpu_execute (/*AUTOARG*/
   reg [31:0] 	reg1_result_o;
   reg [31:0] 	mem_result_o;
 
-  reg [31:0] 		   PC_o;
+  reg [31:0] 	PC_o;
 
   reg [1:0] 	current_state, next_state;
   
@@ -102,12 +102,17 @@ module cpu_execute (/*AUTOARG*/
    reg [0:0] 	register_web_o;
 
   wire cc_eq, cc_gt, cc_lt, cc_gtu, cc_ltu;
-  
+  wire [31:0] cc_AsubB;
+  wire [31:0] cc_BsubA;
+
+  assign cc_AsubB = regA_i - regB_i;
+  assign cc_BsubA = regB_i - regA_i;
+   
   assign cc_eq = regA_i == regB_i;
   assign cc_gt = regA_i > regB_i;
   assign cc_lt = regA_i < regB_i;
-  assign cc_ltu = cc_lt; /* FIXME */
-  assign cc_gtu = cc_gt; /* FIXME */
+  assign cc_ltu = regA_i[31] ^ regB_i[31] ? regA_i[31] : cc_AsubB[31];
+  assign cc_gtu = regA_i[31] ^ regB_i[31] ? regB_i[31] : cc_BsubA[31];
   
   wire branch_condition;
   assign branch_condition =
@@ -116,7 +121,7 @@ module cpu_execute (/*AUTOARG*/
        | ((op_i == `OP_BLT) & CC_result[1])
        | ((op_i == `OP_BLTU) & CC_result[2])
        | ((op_i == `OP_BGT) & CC_result[3])
-       | ((op_i == `OP_BLTU) & CC_result[4])
+       | ((op_i == `OP_BGTU) & CC_result[4])
        | ((op_i == `OP_BLE) & (CC_result[0] | CC_result[1]))
        | ((op_i == `OP_BGE) & (CC_result[0] | CC_result[2]))
        | ((op_i == `OP_BLEU) & (CC_result[0] | CC_result[3]))
@@ -125,39 +130,40 @@ module cpu_execute (/*AUTOARG*/
   wire[31:0] pcrel_branch_target;
   assign pcrel_branch_target = {20'b0,pcrel_offset_i,1'b0} + PC_i + 32'd2;
 
-  always @(posedge rst_i or posedge clk_i)
-    if (rst_i == 1) begin
-      branch_flag_o <= 0;
-      current_state <= STATE_READY;
-      CC_result <= 5'b0;
-    end else begin
-      register_wea_o = pipeline_control_bits_i[`PCB_WA];
-      register_web_o = pipeline_control_bits_i[`PCB_WB];
-      branch_flag_o <= branch_condition | (op_i == `OP_JMPA) | (current_state == STATE_JSR1);
-      current_state <= branch_condition ? STATE_READY : next_state;
+  always @(posedge clk_i)
+    begin
+       if (! rst_i) begin
+	  register_wea_o = pipeline_control_bits_i[`PCB_WA];
+	  register_web_o = pipeline_control_bits_i[`PCB_WB];
+       end
     end
   
   always @(posedge rst_i or posedge clk_i)
     if (rst_i) begin
-       pipeline_control_bits_o <= 5'b00000;
+      pipeline_control_bits_o <= 5'b00000;
       flush_o <= 0;
-    end else
-      if (branch_flag_o | flush_i)
-        begin
-	  /* We've just branched, so ignore any incoming instruction.  */
-	  $display ("EXECUTE STALL");
-	  pipeline_control_bits_o <= 5'b00000;
- 	  next_state <= STATE_READY; 
-	  flush_o <= 0;
-	end
-      else begin
-	pipeline_control_bits_o <= pipeline_control_bits_i;
-	PC_o <= PC_i;
-	case (current_state)
-	  STATE_READY:
-	    begin
-	      case (op_i)
-		`OP_ADD_L:
+      branch_flag_o <= 0;
+      current_state <= STATE_READY;
+      next_state <= STATE_READY;
+    end else begin
+       branch_flag_o <= branch_condition | (op_i == `OP_JMPA) | (current_state == STATE_JSR1);
+       current_state <= branch_condition ? STATE_READY : next_state;
+       if (branch_flag_o | flush_i)
+         begin
+	    /* We've just branched, so ignore any incoming instruction.  */
+	    $display ("EXECUTE STALL");
+	    pipeline_control_bits_o <= 5'b00000;
+ 	    next_state <= STATE_READY; 
+	    flush_o <= 0;
+	 end
+       else begin
+	  pipeline_control_bits_o <= pipeline_control_bits_i;
+	  PC_o <= PC_i;
+	  case (current_state)
+	    STATE_READY:
+	      begin
+		 case (op_i)
+		   `OP_ADD_L:
 		  begin
 		    reg0_result_o <= regA_i + regB_i;
 		    register0_write_index_o <= register0_write_index_i;
@@ -588,5 +594,6 @@ module cpu_execute (/*AUTOARG*/
 	      flush_o <= 0;
 	    end
 	endcase
-      end
+       end
+    end
 endmodule // cpu_execute;

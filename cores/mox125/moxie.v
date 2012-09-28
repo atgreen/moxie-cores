@@ -17,6 +17,8 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 // 02110-1301, USA.
 
+`include "defines.v"
+
 module moxie (/*AUTOARG*/
   // Outputs
   wb_I_dat_o, wb_I_adr_o, wb_I_we_o, wb_I_cyc_o, wb_I_stb_o,
@@ -169,6 +171,7 @@ module moxie (/*AUTOARG*/
 			   .PC_i                (fd_PC[31:0]),
 			   .valid_i		(fd_valid),
 			   .flush_i             (flush_x),
+			   .stall_i             (1'b0),
 			   // Outputs
 			   .pipeline_control_bits_o (dx_pipeline_control_bits),
 			   .register0_write_index_o (dx_register0_write_index),

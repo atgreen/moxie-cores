@@ -30,9 +30,9 @@ reg `WORD memory `MEM;
   wire [31:0] r12 = memory[14];
   wire [31:0] r13 = memory[15];
   
-always @(negedge clock) begin
-    if (we)  
-      memory[write_addr] <= write_data;
+always @(posedge clock) begin
+   if (we)  
+     #1 memory[write_addr] <= write_data;
 end
 
 always @(posedge clock) begin

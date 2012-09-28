@@ -74,7 +74,7 @@ set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/cpu_write.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/cpu_registerfile.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/dcache.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/bootrom.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/moxie.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/mox125.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/wishbone/wb_intercon.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/altera_sdram/sdram.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/altera_sdram/sdram_controller.v

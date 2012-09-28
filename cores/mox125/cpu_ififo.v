@@ -20,7 +20,7 @@
 module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 		   )(/*AUTOARG*/
    // Outputs
-   PC_o, opcode_o, operand_o, valid_o, empty_o, full_o,
+   PC_o, opcode_o, operand_o, valid_o, full_o,
    // Inputs
    rst_i, clk_i, write_en_i, read_en_i, data_i, newPC_p_i, PC_i
    );
@@ -43,7 +43,6 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
   output [15:0] opcode_o; // opcode_o for newly read instruction
   output [31:0] operand_o; // data operand_o for newly read instruction
   output [0:0]	valid_o;
-  output [0:0]	empty_o ;
   output [0:0]	full_o ;
   
   reg [1:0]    read_ptr, write_ptr; // write and read pointers
@@ -62,8 +61,6 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
   assign can_read_48 =  ((ptr_gap != 0) && (ptr_gap != 1) && (ptr_gap != 2));
   assign buffer_full = ptr_gap == 4;
   assign buffer_empty = ptr_gap == 0;
-
-  assign empty_o = buffer_empty;
 
   // This is a rediculous bit of logic.  We should try to recode the
   // moxie instructions so that we can determine the length with less
@@ -93,21 +90,18 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 
   assign PC = (newPC_p_i ? PC_i : next_PC);
 
-  always @(negedge rst_i)
-    next_PC <= PC_i;
-  
   always @(posedge clk_i or posedge rst_i)
     if (rst_i | newPC_p_i) begin
       opcode_o <= 0;
       operand_o <= 0;
       read_ptr <= 0;
       write_ptr <= 0;
-      ptr_gap <= 0;
-      full_o <= 0;
+      ptr_gap = 0;
+      full_o = 0;
       valid_o <= 0;
       next_PC <= PC_i;
     end else begin
-       PC_o <= (newPC_p_i ? PC_i : PC);
+       PC_o <= PC;
        // $display ("A %x buffer[read_ptr] = 0x%x", read_ptr, buffer[read_ptr][15:8]);
        // $display ("A BUFFER = 0x%x%x%x%x", buffer[0], buffer[1], buffer[2], buffer[3]);
        // $display ("A buffer_empty = %x", buffer_empty);
@@ -258,7 +252,6 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 	     full_o = ((ptr_gap == 3) || (ptr_gap == 4)); // FIXME: this is probably not needed
 	  end
        end
-       // else #1 $display ("L ERROR ptr_gap = 0x%x", ptr_gap);
     end
 endmodule
 

@@ -66,9 +66,9 @@ module cpu_registerfile (/*AUTOARG*/
 		     .read_data_0(value0_o),
 		     .read_addr_1(reg_read_index1_i),
 		     .read_data_1(value1_o),
-		     .read_addr_2(0),
+		     .read_addr_2(4'b0),
 		     .read_data_2(fp_o),
-		     .read_addr_3(1),
+		     .read_addr_3(4'b1),
 		     .read_data_3(sp_o));
    
 endmodule // cpu_registerfile

@@ -20,20 +20,21 @@
 `include "defines.v"
 
 module cpu_decode (/*AUTOARG*/
-  // Outputs
-  pipeline_control_bits_o, register0_write_index_o,
-  register1_write_index_o, operand_o, pcrel_offset_o, riA_o, riB_o,
-  op_o, PC_o,
-  // Inputs
-  rst_i, clk_i, flush_i, opcode_i, operand_i, valid_i, PC_i
-  );
+   // Outputs
+   pipeline_control_bits_o, register0_write_index_o,
+   register1_write_index_o, operand_o, pcrel_offset_o, riA_o, riB_o,
+   op_o, PC_o,
+   // Inputs
+   rst_i, clk_i, stall_i, flush_i, opcode_i, operand_i, valid_i, PC_i
+   );
 
    // --- Clock and Reset ------------------------------------------
    input  rst_i, clk_i;
 
-   // --- Pipeline interlock ---------------------------------------
+   // --- Pipeline interlock and flush -----------------------------
+   input  stall_i;
    input  flush_i;
-   
+
    // --- Instructions ---------------------------------------------
    input [15:0] opcode_i;	
    input [31:0] operand_i;	
@@ -77,13 +78,13 @@ module cpu_decode (/*AUTOARG*/
 
    always @(posedge clk_i)
      begin
-	if (! flush_i) begin
+	if (! stall_i) begin
 	   PC_o <= PC_i;
 	end
      end
 
   always @(posedge clk_i)
-    if (! flush_i) begin
+    if (! stall_i) begin
       pcrel_offset_o <= opcode_i[9:0];
       if (opcode_i[15] == 0)
 	pipeline_control_bits_o <= control;

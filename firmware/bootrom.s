@@ -27,9 +27,6 @@ beq_1_test:
 	cmp		$r0,$r0
 	beq		beq_1_pass
 	jsra fail+0x1000
-	inc $r6, 1
-	inc $r6, 1
-	inc $r6, 1
 beq_1_pass:
 
 	# BEQ false test
