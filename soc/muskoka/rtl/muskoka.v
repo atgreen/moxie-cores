@@ -18,22 +18,27 @@
 // 02110-1301, USA.
 
 module muskoka (/*AUTOARG*/
-  // Outputs
-  uart_txd_o,
-  // Inputs
-  rst_i, clk_i
-  );
+   // Outputs
+   hex0_, hex1_, hex2_, hex3_, uart_txd_o,
+   // Inputs
+   rst_i, clk_i
+   );
    
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
   reg 	 rst;
+
+  output [6:0] hex0_;
+  output [6:0] hex1_;
+  output [6:0] hex2_;
+  output [6:0] hex3_;
 
   // --- UART -----------------------------------------------------
   output  uart_txd_o;
 
   // Always zero
   wire [0:0] zero = 0;
-  
+
   // Moxie/Wishbone interface
   wire [31:0] iw2mx_dat;
   wire [31:0] mx2iw_dat;
@@ -179,4 +184,13 @@ module muskoka (/*AUTOARG*/
 	      .wb_D_stb_o (mx2dw_stb),
 	      .wb_D_ack_i (dw2mx_ack));
 
+/*   hex_display hex16 (.num (mx2iw_adr[19:4]),
+		      .en  (1'b1),
+		      
+		      .hex0 (hex0_),
+		      .hex1 (hex1_),
+		      .hex2 (hex2_),
+		      .hex3 (hex3_));
+
+*/
 endmodule // muskoka

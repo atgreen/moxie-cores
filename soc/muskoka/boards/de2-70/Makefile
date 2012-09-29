@@ -5,11 +5,15 @@ PROJECT = muskoka
 
 ASSIGNMENT_FILES = $(PROJECT).qpf $(PROJECT).qsf
 
-all: smart.log $(PROJECT).asm.rpt
+all: bootrom.vh microcode.bin smart.log $(PROJECT).asm.rpt
 
-bootrom.vh: ../../../../bootrom.s
-	moxie-elf-as -o bootrom.x ../../../../bootrom.s
+bootrom.vh: ../../../../firmware/bootrom.s
+	moxie-elf-as -o bootrom.x $<
 	moxie-elf-objcopy -O verilog bootrom.x bootrom.vh
+
+microcode.bin: ../../../../cores/mox125/microcode.org ../../../../scripts/microcoder.lisp
+	cp ../../../../cores/mox125/microcode.org .
+	sbcl --load ../../../../scripts/microcoder.lisp
 
 map: smart.log $(PROJECT).map.rpt
 fit: smart.log $(PROJECT).fit.rpt

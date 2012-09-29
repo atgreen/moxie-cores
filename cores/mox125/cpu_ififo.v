@@ -90,7 +90,7 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 
   assign PC = (newPC_p_i ? PC_i : next_PC);
 
-  always @(posedge clk_i or posedge rst_i)
+  always @(posedge clk_i)
     if (rst_i | newPC_p_i) begin
       opcode_o <= 0;
       operand_o <= 0;

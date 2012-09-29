@@ -17,6 +17,8 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 // 02110-1301, USA.
 
+`include "defines.h"
+
 module cpu_write (/*AUTOARG*/
   // Outputs
   register_write_index_o, register_wea_o, reg_result_o,

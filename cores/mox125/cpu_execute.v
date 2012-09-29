@@ -17,7 +17,7 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 // 02110-1301, USA.
 
-`include "defines.v"
+`include "defines.h"
 
 module cpu_execute (/*AUTOARG*/
   // Outputs
@@ -169,6 +169,7 @@ module cpu_execute (/*AUTOARG*/
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		     $display ("0x%x: add.l", PC_i);
 		  end
 		`OP_AND:
 		  begin
@@ -176,95 +177,109 @@ module cpu_execute (/*AUTOARG*/
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		     $display ("0x%x: and", PC_i);
 		  end
 		`OP_ASHL:
 		  begin
-		    $display ("Executing OP_ASHL");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		     $display ("0x%x: ashl", PC_i);
 		  end
 		`OP_ASHR:
 		  begin
-		    $display ("Executing OP_ASHR");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		     $display ("0x%x: ashr", PC_i);
 		  end
 		`OP_BAD:
 		  begin
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		     $display ("0x%x: bad", PC_i);
 		  end
 		`OP_BEQ:
 		  begin
 		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    flush_o <= branch_condition;
+		     $display ("0x%x: beq", PC_i);
 		  end
 		`OP_BGE:
 		  begin
 		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    flush_o <= branch_condition;
+		     $display ("0x%x: bge", PC_i);
 		  end
 		`OP_BGEU:
 		  begin
 		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    flush_o <= branch_condition;
+		     $display ("0x%x: bgeu", PC_i);
 		  end
 		`OP_BGT:
 		  begin
 		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    flush_o <= branch_condition;
+		     $display ("0x%x: bgt", PC_i);
 		  end
 		`OP_BGTU:
 		  begin
 		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    flush_o <= branch_condition;
+		     $display ("0x%x: bgtu", PC_i);
 		  end
 		`OP_BLE:
 		  begin
 		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    flush_o <= branch_condition;
+		     $display ("0x%x: ble", PC_i);
 		  end
 		`OP_BLEU:
 		  begin
 		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    flush_o <= branch_condition;
+		     $display ("0x%x: bleu", PC_i);
 		  end
 		`OP_BLT:
 		  begin
 		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    flush_o <= branch_condition;
+		     $display ("0x%x: blt", PC_i);
 		  end
 		`OP_BLTU:
 		  begin
 		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    flush_o <= branch_condition;
+		     $display ("0x%x: bltu", PC_i);
 		  end
 		`OP_BNE:
 		  begin
 		    branch_target_o <= pcrel_branch_target;
 		    next_state <= STATE_READY;
 		    flush_o <= branch_condition;
+		     $display ("0x%x: bne", PC_i);
 		  end
 		`OP_BRK:
 		  begin
 		    $display ("Executing OP_BRK");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		     $display ("0x%x: brk", PC_i);
 		  end
 		`OP_CMP:
 		  begin
 		    CC_result <= {cc_eq, cc_lt, cc_gt, cc_ltu, cc_gtu};
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		     $display ("0x%x: cmp", PC_i);
 		  end
 		`OP_DEC:
 		  begin
@@ -305,6 +320,7 @@ module cpu_execute (/*AUTOARG*/
 		    branch_target_o <= operand_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 1;
+		     $display ("0x%x: jmpa", PC_i);
 		  end
 		`OP_JSR:
 		  begin
@@ -315,12 +331,14 @@ module cpu_execute (/*AUTOARG*/
 		    register0_write_index_o <= 1; // $sp
 		    next_state <= STATE_JSR1;
 		    flush_o <= 1;
+		     $display ("0x%x: jsr", PC_i);
 		  end
 		`OP_JSRA:
 		  begin
 		    $display ("Executing OP_JSRA");
 		    next_state <= STATE_JSR1;
 		    flush_o <= 1;
+		     $display ("0x%x: jsra", PC_i);
 		  end
 		`OP_LDA_B:
 		  begin
@@ -359,6 +377,7 @@ module cpu_execute (/*AUTOARG*/
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		     $display ("0x%x: ldi.l", PC_i);
 		  end
 		`OP_LDI_S:
 		  begin
@@ -567,6 +586,7 @@ module cpu_execute (/*AUTOARG*/
 		    reg0_result_o <= regA_i ^ regB_i;
 		    register0_write_index_o <= register0_write_index_i;
 		    flush_o <= 0;
+		     $display ("0x%x: xor", PC_i);
 		  end
 	      endcase // case (op_i)
 	    end // case: STATE_READY

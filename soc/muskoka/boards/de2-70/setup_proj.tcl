@@ -19,6 +19,36 @@ set_location_assignment -to clk_i PIN_N2
 # Assign pushbutton[0] to the reset signal.
 set_location_assignment -to rst_i PIN_G26
 
+set_location_assignment PIN_V13 -to hex0_[6]
+set_location_assignment PIN_V14 -to hex0_[5]
+set_location_assignment PIN_AE11 -to hex0_[4]
+set_location_assignment PIN_AD11 -to hex0_[3]
+set_location_assignment PIN_AC12 -to hex0_[2]
+set_location_assignment PIN_AB12 -to hex0_[1]
+set_location_assignment PIN_AF10 -to hex0_[0]
+set_location_assignment PIN_AB24 -to hex1_[6]
+set_location_assignment PIN_AA23 -to hex1_[5]
+set_location_assignment PIN_AA24 -to hex1_[4]
+set_location_assignment PIN_Y22 -to hex1_[3]
+set_location_assignment PIN_W21 -to hex1_[2]
+set_location_assignment PIN_V21 -to hex1_[1]
+set_location_assignment PIN_V20 -to hex1_[0]
+set_location_assignment PIN_Y24 -to hex2_[6]
+set_location_assignment PIN_AB25 -to hex2_[5]
+set_location_assignment PIN_AB26 -to hex2_[4]
+set_location_assignment PIN_AC26 -to hex2_[3]
+set_location_assignment PIN_AC25 -to hex2_[2]
+set_location_assignment PIN_V22 -to hex2_[1]
+set_location_assignment PIN_AB23 -to hex2_[0]
+set_location_assignment PIN_Y23 -to hex3_[0]
+set_location_assignment PIN_AA25 -to hex3_[1]
+set_location_assignment PIN_AA26 -to hex3_[2]
+set_location_assignment PIN_Y26 -to hex3_[3]
+set_location_assignment PIN_Y25 -to hex3_[4]
+set_location_assignment PIN_U22 -to hex3_[5]
+set_location_assignment PIN_W24 -to hex3_[6]
+
+
 # SRAM address lines - 18bits
 set_location_assignment -to imem_address_o[0] PIN_AE4
 set_location_assignment -to imem_address_o[1] PIN_AF4
@@ -66,17 +96,35 @@ create_base_clock -fmax "50 MHz" -target PIN_N2 clk50_i
 set_global_assignment -name VERILOG_FILE muskoka_de2.v
 set_global_assignment -name VERILOG_FILE pll.v
 set_global_assignment -name VERILOG_FILE ../../rtl/muskoka.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/cpu_fetch.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/cpu_ififo.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/cpu_decode.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/cpu_execute.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/cpu_write.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/cpu_registerfile.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/dcache.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/bootrom.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/moxie/mox125.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/hex_display/hex_display.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/hex_display/seg_7.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/mox125/cpu_fetch.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/mox125/cpu_ififo.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/mox125/cpu_decode.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/mox125/cpu_execute.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/mox125/cpu_write.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/mox125/cpu_registerfile.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/mox125/dcache.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/mox125/bootrom.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/mox125/microcode.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/mox125/moxie.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/wishbone/wb_intercon.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/altera_sdram/sdram.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/altera_sdram/sdram_controller.v
-
-project_close
+set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/LVT_2w4r.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/MEM_1w1r.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/MEM_1w4r.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/MEM_2w4r.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/MUX_WORD_2to1.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/raminfr.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/timescale.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_debug_if.v  
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_defines.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_receiver.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_regs.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_rfifo.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_sync_flops.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_tfifo.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_top.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_transmitter.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_wb.v
