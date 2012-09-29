@@ -1,4 +1,4 @@
-// opcode_def.v - Opcode Definitions
+// opcode_def.h - Opcode Definitions
 //
 // Copyright (c) 2009 Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.

@@ -1,4 +1,4 @@
-// defines.v - Common definitions
+// defines.h - Common definitions
 //
 // Copyright (c) 2010, 2012 Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
