@@ -31,12 +31,12 @@ reg `WORD memory `MEM;
   wire [31:0] r13 = memory[15];
   
 always @(posedge clock) begin
-   if (we)  
-     #1 memory[write_addr] <= write_data;
+   # 1 if (we)  
+     memory[write_addr] <= write_data;
 end
 
 always @(posedge clock) begin
-    read_data <= memory[read_addr];
+  read_data <= (we & (read_addr == write_addr)) ? write_data : memory[read_addr];
 end
 
 endmodule
