@@ -146,12 +146,10 @@ module moxie (/*AUTOARG*/
   assign wb_I_cyc_o = wb_I_stb_o;
   
   // Forwarding logic.  
-
-  wire forward_0 = maybe_forward_0 & dx_pipeline_control_bits[`PCB_RA];
-  wire forward_1 = maybe_forward_1 & dx_pipeline_control_bits[`PCB_RB];
-
   reg maybe_forward_0;
   reg maybe_forward_1;
+  wire forward_0 = maybe_forward_0 & dx_pipeline_control_bits[`PCB_RA];
+  wire forward_1 = maybe_forward_1 & dx_pipeline_control_bits[`PCB_RB];
   
   cpu_fetch stage_fetch (// Outputs
 			 .opcode		(fd_opcode[15:0]),
