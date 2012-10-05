@@ -45,16 +45,6 @@ module cpu_registerfile (/*AUTOARG*/
    input [0:3] reg_write_index0_i, reg_write_index1_i;
    input [0:3] reg_read_index0_i, reg_read_index1_i;
 
-  always @(posedge clk_i)
-    begin
-      if (write_enable0_i) begin
-	$display("%x <= %x", reg_write_index0_i, value0_i);
-      end
-      if (write_enable1_i) begin
-	$display("%x <= %x", reg_write_index1_i, value1_i);
-      end
-    end
-   
   MEM_2w4r mem_2w4r (.clock(clk_i),
 		     .we0(write_enable0_i),
 		     .we1(write_enable1_i),
