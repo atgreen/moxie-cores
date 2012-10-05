@@ -1,0 +1,23 @@
+SOURCES = $(wildcard ../../../../cores/mox125/*.v) \
+	  $(wildcard ../../../../cores/wishbone/*.v) \
+	  $(wildcard ../../../../cores/LVT-regs/*.v) \
+	  $(wildcard ../../../../cores/uart16550/rtl/verilog/*.v) \
+	  $(wildcard ../../rtl/*.v)
+
+PROJECT = muskoka
+
+all: $(PROJECT).ngd
+
+$(PROJECT).prj: $(SOURCES)
+	rm -f $(PROJECT).prj
+	for i in `echo $^`; do \
+		echo "verilog work $$i" >> $@; \
+	done;
+
+$(PROJECT).ngd: $(PROJECT).prj $(PROJECT).xst
+	xst -ifn $(PROJECT).xst
+
+clean: 
+	-rm -rf *.prj *.ngd *.srp *~ *.lso *.xrpt xst _xmsgs
+
+
