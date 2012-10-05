@@ -4,7 +4,8 @@ MSOURCES = sim.v testram.v \
 	$(wildcard ../../../cores/mox125/*.h) \
 	$(wildcard ../../../cores/wishbone/*.v) \
 	$(wildcard ../../../cores/LVT-regs/*.v) \
-	$(wildcard ../../../cores/uart16550/rtl/verilog/*.v) 
+	$(wildcard ../../../cores/uart16550/rtl/verilog/*.v) \
+	$(wildcard ../../../cores/hex_display/*.v)
 
 PROJECT = muskoka
 
