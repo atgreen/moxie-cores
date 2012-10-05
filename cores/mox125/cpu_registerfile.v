@@ -70,5 +70,5 @@ module cpu_registerfile (/*AUTOARG*/
 		     .read_data_2(fp_o),
 		     .read_addr_3(4'b1),
 		     .read_data_3(sp_o));
-   
+  
 endmodule // cpu_registerfile

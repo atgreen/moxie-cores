@@ -146,9 +146,13 @@ module moxie (/*AUTOARG*/
   assign wb_I_cyc_o = wb_I_stb_o;
   
   // Forwarding logic.  
-  reg forward_0;
-  reg forward_1;
 
+  wire forward_0 = maybe_forward_0 & dx_pipeline_control_bits[`PCB_RA];
+  wire forward_1 = maybe_forward_1 & dx_pipeline_control_bits[`PCB_RB];
+
+  reg maybe_forward_0;
+  reg maybe_forward_1;
+  
   cpu_fetch stage_fetch (// Outputs
 			 .opcode		(fd_opcode[15:0]),
 			 .valid		        (fd_valid),
@@ -226,12 +230,10 @@ module moxie (/*AUTOARG*/
       // If we're writing to the same register we're about to read
       // from, then forward the value we're writing back into the
       // pipeline instead of reading from the register file.
-      forward_0 <= xr_register0_write_enable
-		   & (dx_pipeline_control_bits[`PCB_RA]
-		      & (dx_register0_write_index == dr_reg_index1));
-      forward_1 <= xr_register0_write_enable
-		   & (dx_pipeline_control_bits[`PCB_RB]
-		      & (dx_register0_write_index == dr_reg_index2));
+      maybe_forward_0 <= xr_register0_write_enable
+			 & (dx_register0_write_index == dr_reg_index1);
+      maybe_forward_1 <= xr_register0_write_enable
+			 & (dx_register0_write_index == dr_reg_index2);
     end
 
 endmodule // moxie

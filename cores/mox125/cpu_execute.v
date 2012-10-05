@@ -109,10 +109,10 @@ module cpu_execute (/*AUTOARG*/
   assign cc_BsubA = regB_i - regA_i;
    
   assign cc_eq = regA_i == regB_i;
-  assign cc_gt = regA_i > regB_i;
-  assign cc_lt = regA_i < regB_i;
-  assign cc_ltu = regA_i[31] ^ regB_i[31] ? regA_i[31] : cc_AsubB[31];
-  assign cc_gtu = regA_i[31] ^ regB_i[31] ? regB_i[31] : cc_BsubA[31];
+  assign cc_lt = regA_i[31] ^ regB_i[31] ? regA_i[31] : cc_AsubB[31];
+  assign cc_gt = regA_i[31] ^ regB_i[31] ? regB_i[31] : cc_BsubA[31];
+  assign cc_gtu = regA_i > regB_i;
+  assign cc_ltu = regA_i < regB_i;
   
   wire branch_condition;
   assign branch_condition =
@@ -130,10 +130,12 @@ module cpu_execute (/*AUTOARG*/
   wire[31:0] pcrel_branch_target;
   assign pcrel_branch_target = {20'b0,pcrel_offset_i,1'b0} + PC_i + 32'd2;
 
+  wire [7:0] incdec_value = pcrel_offset_i[7:0];
+    
   always @(posedge clk_i)
     begin
        if (! rst_i) begin
-	  register_wea_o = pipeline_control_bits_i[`PCB_WA];
+	  register_wea_o = pipeline_control_bits_i[`PCB_WA] ;
 	  register_web_o = pipeline_control_bits_i[`PCB_WB];
        end
     end
@@ -283,11 +285,11 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_DEC:
 		  begin
-		     // $display ("EXECUTE OP_DEC: 0x%x", operand_i);
-		    reg0_result_o <= regA_i - operand_i;
+		    reg0_result_o <= regA_i - incdec_value;
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		     $display ("0x%x: dec", PC_i);
 		  end
 		`OP_DIV_L:
 		  begin
@@ -303,11 +305,11 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_INC:
 		  begin
-		     // $display ("EXECUTE OP_INC: 0x%x", operand_i);
-		    reg0_result_o <= regA_i + operand_i;
+		    reg0_result_o <= regA_i + incdec_value;
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		     $display ("0x%x: inc", PC_i);
 		  end
 		`OP_JMP:
 		  begin
@@ -335,14 +337,12 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_JSRA:
 		  begin
-		    $display ("Executing OP_JSRA");
 		    next_state <= STATE_JSR1;
 		    flush_o <= 1;
-		     $display ("0x%x: jsra", PC_i);
+		    $display ("0x%x: jsra", PC_i);
 		  end
 		`OP_LDA_B:
 		  begin
-		    $display ("Executing OP_LDA_B");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
 		  end
@@ -354,7 +354,6 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_LDA_S:
 		  begin
-		    $display ("Executing OP_LDA_S");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
 		  end
