@@ -111,6 +111,8 @@ set_global_assignment -name VERILOG_FILE ../../../../cores/mox125/moxie.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/wishbone/wb_intercon.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/altera_sdram/sdram.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/altera_sdram/sdram_controller.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/hex_display/hex_display.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/hex_display/seg_7.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/LVT_2w4r.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/MEM_1w1r.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/MEM_1w4r.v
