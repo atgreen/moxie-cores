@@ -31,9 +31,9 @@ module bootrom (/*AUTOARG*/
   );
 
   reg  [7:0] rom[0:8191];
-  wire [9:0] index;
+  wire [10:0] index;
 
-  assign index = wb_adr_i[9:0];
+  assign index = wb_adr_i[10:0];
   assign wb_ack_o = wb_stb_i & wb_cyc_i;
   assign wb_dat_o = {rom[index],rom[index+1],rom[index+2],rom[index+3]};
 
