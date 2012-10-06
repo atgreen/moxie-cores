@@ -26,6 +26,7 @@ nop_test_pass:
 beq_1_test:
 	cmp		$r0,$r0
 	beq		beq_1_pass
+beq_1_fail:	
 	jsra fail+0x1000
 beq_1_pass:
 

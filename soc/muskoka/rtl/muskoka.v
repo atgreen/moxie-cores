@@ -184,7 +184,7 @@ module muskoka (/*AUTOARG*/
 	      .wb_D_stb_o (mx2dw_stb),
 	      .wb_D_ack_i (dw2mx_ack));
 
-/*   hex_display hex16 (.num (mx2iw_adr[19:4]),
+   hex_display hex16 (.num (mx2iw_adr[19:4]),
 		      .en  (1'b1),
 		      
 		      .hex0 (hex0_),
@@ -192,5 +192,4 @@ module muskoka (/*AUTOARG*/
 		      .hex2 (hex2_),
 		      .hex3 (hex3_));
 
-*/
 endmodule // muskoka
