@@ -139,7 +139,7 @@ module cpu_execute (/*AUTOARG*/
 	  register_web_o = pipeline_control_bits_i[`PCB_WB];
        end
     end
-  
+
   always @(posedge rst_i or posedge clk_i)
     if (rst_i) begin
       pipeline_control_bits_o <= 5'b00000;
@@ -153,7 +153,6 @@ module cpu_execute (/*AUTOARG*/
        if (branch_flag_o | flush_i)
          begin
 	    /* We've just branched, so ignore any incoming instruction.  */
-	    $display ("EXECUTE STALL");
 	    pipeline_control_bits_o <= 5'b00000;
  	    next_state <= STATE_READY; 
 	    flush_o <= 0;
@@ -183,12 +182,16 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_ASHL:
 		  begin
+		     reg0_result_o <= regA_i <<< regB_i;
+		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
 		     $display ("0x%x: ashl", PC_i);
 		  end
 		`OP_ASHR:
 		  begin
+		     reg0_result_o <= regA_i >>> regB_i;
+		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
 		     $display ("0x%x: ashr", PC_i);
@@ -316,6 +319,7 @@ module cpu_execute (/*AUTOARG*/
 		    branch_target_o <= regA_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 1;
+		     $display ("0x%x: jmp", PC_i);
 		  end
 		`OP_JMPA:
 		  begin
@@ -343,108 +347,128 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_LDA_B:
 		  begin
+		    memory_address_o <= operand_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: lda.b", PC_i);
 		  end
 		`OP_LDA_L: 
 		  begin
 		    memory_address_o <= operand_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: lda.l", PC_i);
 		  end
 		`OP_LDA_S:
 		  begin
+		    memory_address_o <= operand_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: lda.s", PC_i);
 		  end
 		`OP_LD_B:
 		  begin
-		    $display ("Executing OP_LD_B");
+		    memory_address_o <= regB_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: ld.b", PC_i);
 		  end
 		`OP_LDI_B:
 		  begin
-		    $display ("Executing OP_LDI_B");
-		    next_state <= STATE_READY;
-		    flush_o <= 0;
-		  end
-		`OP_LDI_L:
-		  begin
-		     // $display ("EXECUTE OP_LDI_L: 0x%x", operand_i);
 		    reg0_result_o <= operand_i;
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
-		     $display ("0x%x: ldi.l", PC_i);
+		    $display ("0x%x: ldi.b", PC_i);
+		  end
+		`OP_LDI_L:
+		  begin
+		    reg0_result_o <= operand_i;
+		    register0_write_index_o <= register0_write_index_i;
+		    next_state <= STATE_READY;
+		    flush_o <= 0;
+		    $display ("0x%x: ldi.l", PC_i);
 		  end
 		`OP_LDI_S:
 		  begin
-		    $display ("Executing OP_LDI_S");
+		    reg0_result_o <= operand_i;
+		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: ldi.s", PC_i);
 		  end
 		`OP_LD_L:
 		  begin
-		    $display ("Executing OP_LD_L");
+		    memory_address_o <= regB_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: ld.l", PC_i);
 		  end
 		`OP_LDO_B:
 		  begin
-		    $display ("Executing OP_LDO_B");
+		    memory_address_o <= operand_i + regB_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: ldo.b", PC_i);
 		  end
 		`OP_LDO_L:
 		  begin
-		    $display ("Executing OP_LDO_L");
+		    memory_address_o <= operand_i + regB_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: ldo.l", PC_i);
 		  end
 		`OP_LDO_S:
 		  begin
-		    $display ("Executing OP_LDO_S");
+		    memory_address_o <= operand_i + regB_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: ldo.s", PC_i);
 		  end
 		`OP_LD_S:
 		  begin
-		    $display ("Executing OP_LD_S");
+		    memory_address_o <= regB_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: ld.s", PC_i);
 		  end
 		`OP_LSHR:
 		  begin
-		    $display ("Executing OP_LSHR");
+		    reg0_result_o <= regA_i >> regB_i;
+		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: lshr", PC_i);
 		  end
 		`OP_MOD_L:
 		  begin
-		    $display ("Executing OP_MOD_L");
+		    reg0_result_o <= regA_i % regB_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: mod", PC_i);
 		  end
 		`OP_MOV:
 		  begin
-		     // $display ("Executing OP_MOV");
 		    reg0_result_o <= regB_i;
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: mov", PC_i);
 		  end
 		`OP_MUL_L:
 		  begin
-		    $display ("Executing OP_MUL_L");
+		    reg0_result_o <= regA_i * regB_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: mul", PC_i);
 		  end
 		`OP_NEG:
 		  begin
-		    $display ("Executing OP_NEG");
+		    reg0_result_o <= -regB_i;
+		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: neg", PC_i);
 		  end
 		`OP_NOP:
 		  begin
@@ -453,9 +477,11 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_NOT:
 		  begin
-		    $display ("Executing OP_NOT");
+		    reg0_result_o <= !regB_i;
+		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: not", PC_i);
 		  end
 		`OP_OR:
 		  begin
@@ -463,6 +489,7 @@ module cpu_execute (/*AUTOARG*/
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: or", PC_i);
 		  end
 		`OP_POP:
 		  begin
@@ -473,6 +500,7 @@ module cpu_execute (/*AUTOARG*/
 		    register1_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+ 		    $display ("0x%x: pop", PC_i);
 		  end
 		`OP_PUSH:
 		  begin
@@ -483,6 +511,7 @@ module cpu_execute (/*AUTOARG*/
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+ 		    $display ("0x%x: push", PC_i);
 		  end
 		`OP_RET:
 		  begin
@@ -492,19 +521,20 @@ module cpu_execute (/*AUTOARG*/
 		    register0_write_index_o <= 1; // $sp
 		    next_state <= STATE_RET1;
 		    flush_o <= 0;
+		    $display ("0x%x: ret", PC_i);
 		  end
 		`OP_SSR:
 		  begin
-		    $display ("Executing OP_SSR");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: ssr", PC_i);
 		  end
 		`OP_STA_B:
 		  begin
-		    $display ("Executing OP_STA_B");
 		    mem_result_o <= regA_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: sta.b", PC_i);
 		  end
 		`OP_STA_L:
 		  begin
@@ -512,48 +542,49 @@ module cpu_execute (/*AUTOARG*/
 		    memory_address_o <= operand_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: sta.l", PC_i);
 		  end
 		`OP_STA_S:
 		  begin
-		    $display ("Executing OP_STA_S");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: sta.s", PC_i);
 		  end
 		`OP_ST_B:
 		  begin
-		    $display ("Executing OP_ST_B");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: st.b", PC_i);
 		  end
 		`OP_ST_L:
 		  begin
-		    $display ("Executing OP_ST_L");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: sto.l", PC_i);
 		  end
 		`OP_STO_B:
 		  begin
-		    $display ("Executing OP_STO_B");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: sto.b", PC_i);
 		  end
 		`OP_STO_L:
 		  begin
-		    $display ("Executing OP_STO_L");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: sto.l", PC_i);
 		  end
 		`OP_STO_S:
 		  begin
-		    $display ("Executing OP_STO_S");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: sto.s", PC_i);
 		  end
 		`OP_ST_S:
 		  begin
-		    $display ("Executing OP_ST_S");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: st.s", PC_i);
 		  end
 		`OP_SUB_L:
 		  begin
@@ -561,24 +592,25 @@ module cpu_execute (/*AUTOARG*/
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: sub", PC_i);
 		  end
 		`OP_SWI:
 		  begin
-		    $display ("Executing OP_SWI");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: swi", PC_i);
 		  end
 		`OP_UDIV_L:
 		  begin
-		    $display ("Executing OP_UDIV_L");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: udiv", PC_i);
 		  end
 		`OP_UMOD_L:
 		  begin
-		    $display ("Executing OP_UMOD_L");
 		    next_state <= STATE_READY;
 		    flush_o <= 0;
+		    $display ("0x%x: umod", PC_i);
 		  end
 		`OP_XOR:
 		  begin
