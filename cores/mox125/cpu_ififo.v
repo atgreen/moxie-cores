@@ -92,8 +92,8 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 
   always @(posedge clk_i)
     if (rst_i | newPC_p_i) begin
-      opcode_o <= 0;
-      operand_o <= 0;
+      opcode_o <= 16'b0;
+      operand_o <= 32'b0;
       read_ptr <= 0;
       write_ptr <= 0;
       ptr_gap = 0;
@@ -117,8 +117,8 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 	     buffer[(write_ptr+1)%4] <= data_i[15:0];
 	     write_ptr <= (write_ptr + 2) % 4;
 	     valid_o <= 0;
-	     ptr_gap = ptr_gap + 2;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     ptr_gap <= ptr_gap + 2;
+	     full_o <= ((ptr_gap == 1) || (ptr_gap == 2));
 	  end
 	  else if ((!write_en_i) && read_en_i && (can_read_16)) begin
 	     // $display ("Y");
@@ -126,28 +126,26 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 	     valid_o <= 1;
 	     next_PC <= PC + 2;
 	     read_ptr <= (read_ptr + 1) % 4;
-	     ptr_gap = ptr_gap - 1;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     ptr_gap <= ptr_gap - 1;
+	     full_o <= 1'b0;
 	  end
 	  else if (write_en_i && read_en_i && buffer_empty) begin
-	     //	   $display ("X");
 	     opcode_o <= data_i[31:16];
 	     buffer[0] <= data_i[15:0];
 	     write_ptr <= 1;
 	     read_ptr <= 0;
-	     ptr_gap = 1;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
-	     valid_o <= 1;
+	     ptr_gap <= 1;
+	     full_o <= 1'b0;
+	     valid_o <= 1'b1;
 	     next_PC <= PC + 2;
 	  end
 	  else if (write_en_i && read_en_i && buffer_full) begin
-	     //	   $display ("W- ERROR");
 	     opcode_o <= buffer[read_ptr];
 	     valid_o <= 1;
 	     next_PC <= PC + 2;
 	     read_ptr <= (read_ptr + 1) % 4;
-	     ptr_gap = ptr_gap - 1;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     ptr_gap <= ptr_gap - 1;
+	     full_o <= 0;
 	  end
 	  else if (write_en_i && read_en_i && (can_write_32) && (can_read_16)) begin
 	     buffer[write_ptr] <= data_i[31:16];

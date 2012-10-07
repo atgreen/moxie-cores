@@ -37,11 +37,9 @@ module bootrom (/*AUTOARG*/
   assign wb_ack_o = wb_stb_i & wb_cyc_i;
   assign wb_dat_o = {rom[index],rom[index+1],rom[index+2],rom[index+3]};
 
-  // sssynthesis translate_off 
   initial
     begin
       $readmemh("bootrom.vh", rom);
     end
-  // ssssynthesis translate_on
 
 endmodule

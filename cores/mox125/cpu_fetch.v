@@ -83,12 +83,10 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
   assign rden = !(stall_i | branch_flag_i);
 
   reg delay_write;
-   
+
   /* Only write if we the instruction FIFO isn't full or we aren't branching.  */
   assign wren = !(rst_i | full | branch_flag_i | delay_write);
 
-  
-   
   assign newPC_p = rst_i | (!stall_i & branch_flag_i);
 
   assign fetchPC = rst_i ? BOOT_ADDRESS :

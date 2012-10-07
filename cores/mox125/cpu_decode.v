@@ -372,12 +372,12 @@ module cpu_decode (/*AUTOARG*/
 	   8'b1000????:
 	     begin
 	       op_o <= `OP_INC;
-	       operand_o <= opcode_i[3:0];
+	       operand_o <= {24'b0,opcode_i[7:0]};
 	     end
 	   8'b1001????:
 	     begin
 	       op_o <= `OP_DEC;
-	       operand_o <= opcode_i[3:0];
+	       operand_o <= {24'b0,opcode_i[7:0]};
 	     end
 	   8'b1010????:
 	     begin
