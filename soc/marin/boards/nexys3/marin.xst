@@ -1,6 +1,6 @@
 run
 -ifn marin.prj
--top moxielite
+-top marin
 -ifmt MIXED
 -opt_mode Speed
 -opt_level 1

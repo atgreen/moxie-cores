@@ -75,7 +75,7 @@ module display (
 endmodule // display
 
 
-module hexdisplay (
+module nexys7seg (
 		   input wire clk,
 		   input wire [15:0] word,
 		   output wire [7:0] seg,

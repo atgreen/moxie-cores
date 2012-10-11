@@ -1,5 +1,7 @@
 SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
-	  $(wildcard ../../../../cores/nexys7seg/*.v)
+	  $(wildcard ../../../../cores/nexys7seg/*.v) \
+	  $(wildcard ../../rtl/*.v) \
+	  /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/iSE/unisim_comp.v
 
 PROJECT = marin
 
@@ -39,6 +41,4 @@ clean:
 	-rm -rf *.bld xlnx_auto_0_xdb *.mrp *.ngm *.ngc *.xml 
 	-rm -rf *.lst *.pcf *.bgn *.bit *.xwbt *.drc *.csv
 	-rm -rf *.txt *.ptwx *.unroutes *.xpi *.html *.pad
-
-
-
+	-rm -rf _impact.cmd

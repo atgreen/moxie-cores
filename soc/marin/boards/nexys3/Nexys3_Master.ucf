@@ -4,8 +4,8 @@
 ## - rename the used signals according to the project
 
 ##Clock signal
-Net "clk" LOC=V10 | IOSTANDARD=LVCMOS33;
-Net "clk" TNM_NET = sys_clk_pin;
+Net "clk_i" LOC=V10 | IOSTANDARD=LVCMOS33;
+Net "clk_i" TNM_NET = sys_clk_pin;
 #TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100000 kHz;
 
 ## 7 segment display
