@@ -2,7 +2,8 @@ SOURCES = $(wildcard ../../../../cores/mox125/*.v) \
 	  $(wildcard ../../../../cores/wishbone/*.v) \
 	  $(wildcard ../../../../cores/LVT-regs/*.v) \
 	  $(wildcard ../../../../cores/uart16550/rtl/verilog/*.v) \
-	  $(wildcard ../../rtl/*.v)
+	  $(wildcard ../../rtl/*.v) \
+	  /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/iSE/unisim_comp.v
 
 PROJECT = muskoka
 
