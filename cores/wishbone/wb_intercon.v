@@ -1,6 +1,6 @@
 // wb_intercon.v - Wishbone Shared Bus Interconnect 
 //
-// Copyright (c) 2010, 2011  Anthony Green.  All Rights Reserved.
+// Copyright (c) 2010, 2011, 2012  Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -139,8 +139,5 @@ module wb_intercon #(
   //                   | (slave_2_sel & wbs_2_dat_o)
   //                   | (slave_3_sel & wbs_3_dat_o);
 
-  initial
-    $display("wbm_adr_i = 0x%x", wbm_adr_i);
-  
 endmodule // wb_intercon
 
