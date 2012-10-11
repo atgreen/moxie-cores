@@ -1,5 +1,5 @@
 SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
-	  $(wildcard ../../rtl/*.vhd)
+	  $(wildcard ../../../../cores/nexys7seg/*.v)
 
 PROJECT = marin
 
@@ -8,7 +8,14 @@ all: $(PROJECT).bit
 $(PROJECT).prj: $(SOURCES)
 	rm -f $(PROJECT).prj
 	for i in `echo $^`; do \
+	  case $$i in \
+	    *.vhd) \
 		echo "vhdl work $$i" >> $@; \
+		;; \
+	    *.v) \
+		echo "verilog work $$i" >> $@; \
+		;; \
+	  esac; \
 	done;
 
 $(PROJECT).bit: $(PROJECT).ncd $(PROJECT).ut
