@@ -1,0 +1,15 @@
+moxie-elf tools build instructions 
+====================================
+
+This directory contains two scripts to download, build and install the
+moxie-elf GNU toolchain.  The toolchain is installed under a new
+directory hierarchy off of this directory called 'root'.
+
+Run 'download-tools-sources.sh' to download the latest development
+sources.
+
+Run 'build-elf-tools.sh' to build the full moxie-elf GNU toolchain.
+
+
+Anthony Green
+green@moxielogic.com
