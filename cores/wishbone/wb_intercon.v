@@ -132,7 +132,8 @@ module wb_intercon #(
   
   // Master bus data output comes from the selected slave.
   wire [data_width-1:0] i_dat_s;   // internal shared bus, slave data to master
-  assign i_dat_s = ({data_width{slave_0_sel}} & wbs_0_dat_o);
+   assign i_dat_s = wbs_0_dat_i;
+ //({data_width{slave_0_sel}} & wbs_0_dat_o);
   assign wbm_dat_o = i_dat_s;
   //
   //                   | (slave_1_sel & wbs_1_dat_o)

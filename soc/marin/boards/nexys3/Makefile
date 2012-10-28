@@ -3,6 +3,7 @@ SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
 	  $(wildcard ../../../../cores/nexys7seg/*.v) \
 	  $(wildcard ../../../../cores/wishbone/*.v) \
 	  $(wildcard ../../rtl/*.v) \
+	  clk_wiz_v3_6.v \
 	  /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/iSE/unisim_comp.v
 
 PROJECT = marin
@@ -32,10 +33,10 @@ $(PROJECT).ngc $(PROJECT).syr: $(PROJECT).prj $(PROJECT).xst
 	xst -ifn $(PROJECT).xst -ofn $(PROJECT).syr
 
 $(PROJECT)_map.ncd $(PROJECT).pcf: $(PROJECT).ngd
-	map -o $(PROJECT)_map.ncd $(PROJECT).ngd $(PROJECT).pcf
+	map -w -o $(PROJECT)_map.ncd $(PROJECT).ngd $(PROJECT).pcf
 
 $(PROJECT).ncd: $(PROJECT)_map.ncd $(PROJECT).pcf
-	par $(PROJECT)_map.ncd $(PROJECT).ncd $(PROJECT).pcf
+	par -w $(PROJECT)_map.ncd $(PROJECT).ncd $(PROJECT).pcf
 
 clean: 
 	-rm -rf *.prj *.ngd *.srp *~ *.lso *.xrpt xst _xmsgs
@@ -43,4 +44,4 @@ clean:
 	-rm -rf *.bld xlnx_auto_0_xdb *.mrp *.ngm *.ngc *.xml 
 	-rm -rf *.lst *.pcf *.bgn *.bit *.xwbt *.drc *.csv
 	-rm -rf *.txt *.ptwx *.unroutes *.xpi *.html *.pad
-	-rm -rf _impact.cmd *.ipf auto_project* *.xsl
+	-rm -rf _impact.cmd *.ipf auto_project* *.xsl *.svf

@@ -20,7 +20,7 @@
 
 module moxielite_wb(/*AUTOARG*/
    // Outputs
-   wb_dat_o, wb_adr_o, wb_sel_o, wb_we_o, wb_cyc_o, wb_stb_o,
+   wb_dat_o, wb_adr_o, wb_sel_o, wb_we_o, wb_cyc_o, wb_stb_o, debug_o,
    // Inputs
    rst_i, clk_i, wb_dat_i, wb_ack_i
    );
@@ -37,9 +37,9 @@ module moxielite_wb(/*AUTOARG*/
    output        wb_cyc_o;
    output        wb_stb_o;
    input         wb_ack_i;
-   
-   reg [0:0] 	 wb_stb_o;
 
+   output [7:0]  debug_o;
+   
    wire [31:1] 	 cpu_addr;
    wire [15:0] 	 cpu_din;
    wire [15:0] 	 cpu_dout;
@@ -57,17 +57,20 @@ module moxielite_wb(/*AUTOARG*/
      IDLE = 2'b00,
      STRB = 2'b01,
      WAIT = 2'b11;
-   
+
+  reg 		 cpu_block = 1'b0;
+
    moxielite core (.clock (clk_i),
 		   .reset_n (!rst_i),
-		   .wait_n (cs == IDLE),
+		   .wait_n (!cpu_block),
 		   .addr (cpu_addr),
 		   .din (cpu_din),
 		   .dout (cpu_dout),
 		   .rd_n (cpu_rd_n),
 		   .wr_n (cpu_wr_n),
 		   .wr_h_n (cpu_wr_h_n),
-		   .wr_l_n (cpu_wr_l_n));
+		   .wr_l_n (cpu_wr_l_n),
+		   .debug_o (debug_o));
    
    assign cpu_din = wb_dat_i;
    assign wb_dat_o = cpu_dout;
@@ -75,18 +78,43 @@ module moxielite_wb(/*AUTOARG*/
    assign wb_we_o = ! cpu_wr_n;
    assign wb_cyc_o = wb_stb_o;
    assign wb_sel_o = cpu_wr_n ? 2'b11 : {!cpu_wr_h_n, !cpu_wr_l_n};
-   
+
+   wire strobe = !(cpu_rd_n & cpu_wr_n);
+
+   assign wb_stb_o = (cs == STRB) ? strobe : 1'b0;
+/*   
    always @(posedge clk_i)
      cs <= rst_i ? IDLE : ns;
+*/
+   reg debug_ack = 1'b0;
+   reg [7:0] debug_data = 8'b0;
+   
+   always @(posedge clk_i) begin
+     debug_ack <= debug_ack | wb_ack_i;
+     debug_data <= debug_data | (wb_ack_i ? (wb_dat_i[15:8] | wb_dat_i[7:0]) : 16'b0);
+   end;
 
-   always @(*)
-     case (cs)
-       IDLE: ns <= !(cpu_rd_n & cpu_wr_n) ? WAIT : STRB;
-       STRB: ns <= wb_ack_i ? IDLE : WAIT;
-       WAIT: ns <= wb_ack_i ? IDLE : WAIT;
-     endcase
+//   assign debug_o = {cs, ns, cpu_rd_n, cpu_block, 2'b0};
+   
+   
+  // cpu_block
+  always @(*)
+    case (cs)
+      IDLE: cpu_block <= 1'b0;
+      STRB: cpu_block <= 1'b1;
+      WAIT: cpu_block <= !wb_ack_i;
+    endcase
 
-   always @(posedge clk_i)
-     wb_stb_o <= (ns == STRB);
+  // state machine
+  // cs - current state
+  always @(posedge clk_i)
+    cs <= rst_i ? IDLE : ns;
 
+  always @(*)
+    case (cs)
+      IDLE: ns <= wb_ack_i ? IDLE : (strobe ? STRB : IDLE);
+      STRB: ns <= wb_ack_i ? IDLE : WAIT;
+      WAIT: ns <= wb_ack_i ? IDLE : WAIT;
+    endcase
+  
 endmodule

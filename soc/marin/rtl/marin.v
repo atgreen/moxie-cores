@@ -20,19 +20,23 @@
 
 module marin (/*AUTOARG*/
    // Outputs
-   seg, an,
+   seg, an, leds_o,
    // Inputs
-   rst_i, clk_i
+   rst_i, clk_100mhz_i
    );
 
 
   // --- Clock and Reset ------------------------------------------
-  input  rst_i, clk_i;
+  input  rst_i, clk_100mhz_i;
   reg 	 rst;
 
+  // -- Seven Segment Display -------------------------------------
   output [7:0] seg;
   output [3:0] an;
 
+  // -- LEDs ------------------------------------------------------
+  output [7:0] leds_o;
+   
   // MoxieLite/Wishbone interface
   wire [15:0] wb2mx_dat;
   wire [15:0] mx2wb_dat;
@@ -53,6 +57,14 @@ module marin (/*AUTOARG*/
   wire        wb2br_stb;
   wire 	      br2wb_ack;
 
+  wire       clk_cpu;
+  wire      clk_100mhz;
+
+  clk_wiz_v3_6 clockgen (.CLK_IN1 (clk_100mhz_i),
+			 .RESET (rst_i),
+			 .CLK_OUT1 (clk_cpu),
+			 .CLK_OUT2 (clk_100mhz));
+    
   wb_intercon #(.data_width (16),
 		.slave_0_mask (32'b1111_1111_1111_1111_1111_0000_0000_0000),
 	        .slave_0_addr (32'b0000_0000_0000_0000_0001_0000_0000_0000),
@@ -84,7 +96,11 @@ module marin (/*AUTOARG*/
 		.wbs_2_ack_i (1'b0),
 		.wbs_3_ack_i (1'b0));
 
-  bootrom16 rom (.wb_dat_i (wb2br_dat),
+   wire       br_debug;
+   wire [7:0] ml_debug;
+   
+  bootrom16 rom (.clk_i (clk_cpu),
+		 .wb_dat_i (wb2br_dat),
 		 .wb_dat_o (br2wb_dat),
 		 .wb_adr_i (wb2br_adr),
 		 .wb_sel_i (wb2br_sel),
@@ -94,7 +110,7 @@ module marin (/*AUTOARG*/
 		 .wb_ack_o (br2wb_ack));
 
   moxielite_wb core (.rst_i (rst_i),
-		     .clk_i (clk_i),
+		     .clk_i (clk_cpu),
 		     .wb_dat_i (wb2mx_dat),
 		     .wb_dat_o (mx2wb_dat),
 		     .wb_adr_o (mx2wb_adr),
@@ -102,10 +118,22 @@ module marin (/*AUTOARG*/
 		     .wb_we_o (mx2wb_we),
 		     .wb_cyc_o (mx2wb_cyc),
 		     .wb_stb_o (mx2wb_stb),
-		     .wb_ack_i (wb2mx_ack));
+		     .wb_ack_i (wb2mx_ack),
+		     .debug_o (ml_debug));
+
+   reg 	      flag = 1'b0;
+   always @(posedge clk_cpu)
+     flag <= flag | (mx2wb_stb & mx2wb_cyc & (((mx2wb_adr & 32'b1111_1111_1111_1111_1111_0000_0000_0000)) == 32'b0000_0000_0000_0000_0001_0000_0000_0000));
    
-  nexys7seg disp (.clk (clk_i),
-		  .word (wb2br_adr[15:0]),
+//     flag <= flag | wb2br_sel;
+   
+   assign leds_o = ml_debug;
+
+  // Short the bottom bits of the memory read address on the 7 segment
+  // display.
+  nexys7seg disp (.clk (clk_100mhz),
+//		  .word (wb2br_adr[15:0]),
+		  .word (wb2mx_dat[15:0]),
 		  .seg (seg),
 		  .an (an));
    

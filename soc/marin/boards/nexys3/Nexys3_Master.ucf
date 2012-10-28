@@ -4,9 +4,19 @@
 ## - rename the used signals according to the project
 
 ##Clock signal
-Net "clk_i" LOC=V10 | IOSTANDARD=LVCMOS33;
-Net "clk_i" TNM_NET = sys_clk_pin;
+Net "clk_100mhz_i" LOC=V10 | IOSTANDARD=LVCMOS33;
+Net "clk_100mhz_i" TNM_NET = sys_clk_pin;
 #TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100000 kHz;
+
+# LED's (right to left)
+Net "leds_o<0>" LOC = U16 |IOSTANDARD = LVCMOS33; #Bank = 2, pin name = IO_L2P_CMPCLK, Sch name = LD0
+Net "leds_o<1>" LOC = V16 |IOSTANDARD = LVCMOS33; #Bank = 2, pin name = IO_L2N_CMPMOSI, Sch name = LD1
+Net "leds_o<2>" LOC = U15 |IOSTANDARD = LVCMOS33; #Bank = 2, pin name = IO_L5P, Sch name = LD2
+Net "leds_o<3>" LOC = V15 |IOSTANDARD = LVCMOS33; #Bank = 2, pin name = IO_L5N, Sch name = LD3
+Net "leds_o<4>" LOC = M11 |IOSTANDARD = LVCMOS33; #Bank = 2, pin name = IO_L15P, Sch name = LD4
+Net "leds_o<5>" LOC = N11 |IOSTANDARD = LVCMOS33; #Bank = 2, pin name = IO_L15N, Sch name = LD5
+Net "leds_o<6>" LOC = R11 |IOSTANDARD = LVCMOS33; #Bank = 2, pin name = IO_L16P, Sch name = LD6
+Net "leds_o<7>" LOC = T11 |IOSTANDARD = LVCMOS33; #Bank = 2, pin name = IO_L16N_VREF, Sch name = LD7
 
 ## 7 segment display
 Net "seg<0>" LOC = T17 | IOSTANDARD = LVCMOS33; #Bank = 1, pin name = IO_L51P_M1DQ12, Sch name = CA

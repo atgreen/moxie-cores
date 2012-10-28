@@ -1,6 +1,7 @@
-// bootrom16.v - Simple ROM module
+// sim.v - Top level SoC simulation module.
 //
-// Copyright (c) 2011, 2012  Anthony Green.  All Rights Reserved.
+// Copyright (c) 2009-2012 Anthony Green.  All Rights Reserved.
+//
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -17,36 +18,32 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 // 02110-1301, USA.
 
-module bootrom16 (
-		  input 	clk_i,
-		  input [15:0] 	wb_dat_i,
-		  output [15:0] wb_dat_o,
-		  input [31:0] 	wb_adr_i,
-		  input 	wb_we_i,
-		  input 	wb_tga_i,
-		  input 	wb_stb_i,
-		  input 	wb_cyc_i,
-		  input [ 1:0] 	wb_sel_i,
-		  output 	wb_ack_o
-		  );
+// `timescale 1us/1ns
 
-  reg  [7:0] rom[0:8191];
-  wire [10:0] index;
+module sim (/*AUTOARG*/
+	    );
 
-  assign index = wb_adr_i[10:0];
+  reg         clk;
+  reg         rst;
 
-  reg 	      wb_ack_o = 1'b0;
-  reg [15:0]  wb_dat_o;
-  
-  always @(posedge clk_i)
-    begin
-      wb_dat_o <= {rom[index], rom[index+1]};
-      wb_ack_o <= wb_stb_i & wb_cyc_i;
-    end
-  
+  // synthesis translate_off 
   initial
     begin
-      $readmemh("bootrom.vh", rom);
+      $dumpvars(1,soc);
     end
+  // synthesis translate_on 
 
-endmodule
+  marin soc (.clk_100mhz_i (clk),
+	     .rst_i (rst));
+
+  always #4 clk = ~clk;
+
+  initial
+    begin
+      clk <= 1'b1;
+      rst <= 1'b0;
+      #1000 rst <= 1'b1;
+      #1000 rst <= 1'b0;
+    end
+  
+endmodule // sim  

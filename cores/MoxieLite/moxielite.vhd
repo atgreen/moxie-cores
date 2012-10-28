@@ -10,7 +10,7 @@ ENTITY moxielite IS
 	generic
 	(
 		BOOT_ADDRESS : std_logic_vector(31 downto 0) := x"00001000";
-		BIG_ENDIAN : std_logic := '1'
+		BIG_ENDIAN : std_logic := '0'
 	);
 	port
 	(
@@ -23,7 +23,8 @@ ENTITY moxielite IS
 		rd_n : out std_logic;	
 		wr_n : out std_logic;
 		wr_h_n : out std_logic;							-- 0 = write upper byte
-		wr_l_n : out std_logic							-- 0 = write lower byte
+		wr_l_n : out std_logic;							-- 0 = write lower byte
+                debug_o : out std_logic_vector(7 downto 0)
 	);
 END moxielite;
  
@@ -597,16 +598,19 @@ BEGIN
 
  				when state_reset =>
  					state <= state_fetch_pre;
+                                        debug_o <= "00000000";
 
  				when state_fetch_pre =>
 
  					state <= state_fetch_memcycle;
+                                        debug_o <= "00000001";
 
  				when state_fetch_memcycle =>
 
  					state <= state_fetch_wait;
 					have_imm <= '0';
 					have_deref <= '0';
+                                        debug_o <= "00000010";
 
 				when state_fetch_wait =>
 
@@ -623,9 +627,11 @@ BEGIN
  						state <= state_decode;
 
  					end if;
+                                        debug_o <= "00000011";
 
  				when state_decode  =>
  					-- Pseudo state to resolve loading immediate operand + deref source pointer
+                                        debug_o <= "00000100";
  					null;
 					
 				when state_read_imm_setup =>
@@ -636,6 +642,7 @@ BEGIN
 					data_byte_count <= "100";
 					state_next <= state_latch_imm;
 					state <= state_load_memcycle;
+                                        debug_o <= "00000101";
 
  				when state_latch_imm =>
 
@@ -645,6 +652,7 @@ BEGIN
  					have_imm <= '1';
 					imm_reg <= data_bswap;
  					state <= state_decode;
+                                        debug_o <= "00000110";
 
 				when state_deref_ptr_setup =>
 
@@ -656,6 +664,7 @@ BEGIN
 					data_byte_count <= ptr_size;
 					state_next <= state_latch_deref;
 					state <= state_load_memcycle;
+                                        debug_o <= "00000111";
 
  				when state_latch_deref =>
 
@@ -663,14 +672,17 @@ BEGIN
  					-- Store it and continue
  					have_deref <= '1';
  					state <= state_decode;
+                                        debug_o <= "00001000";
 
  				when state_load_pre =>
 
  					state <= state_load_memcycle;
+                                        debug_o <= "00001001";
 
  				when state_load_memcycle =>
 
  					state <= state_load_wait;
+                                        debug_o <= "00001010";
 
  				when state_load_wait =>
 
@@ -740,14 +752,17 @@ BEGIN
 						end if;
 
 					end if;
+                                        debug_o <= "00001011";
 
 				when state_store_pre =>
 
 					state <= state_store_memcycle;
+                                        debug_o <= "00001100";
 
 				when state_store_memcycle =>
 
 					state <= state_store_wait;
+                                        debug_o <= "00001101";
 
 				when state_store_wait =>
 
@@ -763,10 +778,12 @@ BEGIN
 						end if;
 
 					end if;
+                                        debug_o <= "00001110";
 
 				when state_execute =>
 
 					-- pseudo state, never reached, resolves to one of the states below
+                                        debug_o <= "00001111";
 					Null;
 
 				when state_execute_cmp =>
@@ -777,6 +794,7 @@ BEGIN
 					SFlag <= alu_SFlag;
 					CFlag <= alu_CFlag;
 					state <= state_fetch_pre;
+                                        debug_o <= "00010000";
 
 				when state_execute_alu  =>
 
@@ -785,6 +803,7 @@ BEGIN
 
 					-- Continue with next instruction
 					state <= state_fetch_pre;
+                                        debug_o <= "00010001";
 
 				when state_execute_store =>
 
@@ -795,6 +814,7 @@ BEGIN
 					data_byte_count <= ptr_size;
 					state_next <= state_fetch_pre;
 					state <= state_store_memcycle;
+                                        debug_o <= "00010010";
 
 				when state_execute_push =>
 
@@ -806,6 +826,7 @@ BEGIN
 					state <= state_store_memcycle;
 
 					regfile(to_integer(unsigned(reg_A))) <= alu_result;
+                                        debug_o <= "00010011";
 
 				when state_execute_pop =>
 
@@ -817,16 +838,19 @@ BEGIN
 					state <= state_load_memcycle;
 
 					regfile(to_integer(unsigned(reg_A))) <= alu_result;
+                                        debug_o <= "00010100";
 
 				when state_execute_pop_2 =>
 
 					regfile(to_integer(unsigned(reg_B))) <= data_bswap;
 					state <= state_fetch_pre;
+                                        debug_o <= "00010101";
 
 				when state_execute_nop =>
 
 					-- Do nothing, this should be easy...
 					state <= state_fetch_pre;
+                                        debug_o <= "00010110";
 
 				when state_execute_bcc =>
 
@@ -836,12 +860,14 @@ BEGIN
 					end if;
 
 					state <= state_fetch_pre;
+                                        debug_o <= "00010111";
 
 				when state_execute_jmp =>
 
 					-- Branch unconditionally
 					PC <= operand_A(31 downto 1) & '0';
 					state <= state_fetch_pre; 
+                                        debug_o <= "00011000";
 
 				when state_execute_jsr =>
 
@@ -855,6 +881,7 @@ BEGIN
 					data_byte_count <= "100";
 					state_next <= state_execute_jsr_2;
 					state <= state_store_memcycle;
+                                        debug_o <= "00011001";
 
 				when state_execute_jsr_2 =>
 
@@ -872,6 +899,7 @@ BEGIN
 
 					-- Jump!
 					PC <= operand_A(31 downto 1) & '0';
+                                        debug_o <= "00011010";
 
 				when state_execute_ret =>
 
@@ -884,6 +912,7 @@ BEGIN
 					state <= state_load_memcycle;
 
 					regfile(1) <= regfile(0);		-- SP <= FP
+                                        debug_o <= "00011011";
 
 				when state_execute_ret_2 =>
 
@@ -900,16 +929,19 @@ BEGIN
 					state <= state_load_memcycle;
 
 					regfile(1) <= sp_plus_offset;		-- SP+=4
+                                        debug_o <= "00011100";
 
 				when state_execute_ret_3 =>
 
 					PC <= data_bswap;	
 					state <= state_fetch_pre;
 					regfile(1) <= sp_plus_offset;		-- SP+=8
+                                        debug_o <= "00011101";
 
 				when state_execute_alu2 =>
 
 					state <= state_execute_alu2_wait;
+                                        debug_o <= "00011110";
 
 				when state_execute_alu2_wait =>
 
@@ -922,9 +954,11 @@ BEGIN
 						state <= state_fetch_pre;
 
 					end if;
+                                        debug_o <= "00011111";
 
 				when state_execute_swi =>
 
+                                        debug_o <= "00100000";
 					null;
 
  				when state_error =>
@@ -932,17 +966,20 @@ BEGIN
 				     -- write (l, String'("BAD"));
 				     -- writeline (output, l);
  					-- stay in error state
+                                        debug_o <= "00100001";
  					Null;
 
  				when state_execute_brk =>
 				     -- write (l, String'("BRK"));
 				     -- writeline (output, l);
+                                        debug_o <= "00100010";
  					null;
 
  				when others =>
 
  					-- What the?
  					state <= state_error;
+                                        debug_o <= "00100011";
 
  			end case;
  		end if;
