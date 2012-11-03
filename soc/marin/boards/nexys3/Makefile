@@ -1,14 +1,19 @@
+COREGEN_SOURCES = clk_wiz_v3_6.v
+
 SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
 	  $(wildcard ../../../../cores/MoxieLite/*.v) \
 	  $(wildcard ../../../../cores/nexys7seg/*.v) \
 	  $(wildcard ../../../../cores/wishbone/*.v) \
 	  $(wildcard ../../rtl/*.v) \
-	  clk_wiz_v3_6.v \
+	  $(COREGEN_SOURCES) \
 	  /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/iSE/unisim_comp.v
 
 PROJECT = marin
 
 all: $(PROJECT).bit
+
+clk_wiz_v3_6.v: clk_wiz_v3_6.xco coregen.cgp
+	coregen -b clk_wiz_v3_6.xco -p coregen.cgp
 
 $(PROJECT).prj: $(SOURCES)
 	rm -f $(PROJECT).prj
@@ -45,3 +50,13 @@ clean:
 	-rm -rf *.lst *.pcf *.bgn *.bit *.xwbt *.drc *.csv
 	-rm -rf *.txt *.ptwx *.unroutes *.xpi *.html *.pad
 	-rm -rf _impact.cmd *.ipf auto_project* *.xsl *.svf
+	-rm -rf tmp coregen.cgc
+	-rm -rf $(COREGEN_SOURCES) $(COREGEN_SOURCES:.v=.ucf)
+	-rm -rf $(COREGEN_SOURCES:.v=.asy)
+	-rm -rf $(COREGEN_SOURCES:.v=.gise)
+	-rm -rf $(COREGEN_SOURCES:.v=.veo)
+	-rm -rf $(COREGEN_SOURCES:.v=.xdc)
+	-rm -rf $(COREGEN_SOURCES:.v=.xise)
+	-rm -rf $(COREGEN_SOURCES:.v=_xmdf.tcl)
+	-rm -rf $(COREGEN_SOURCES:.v=.cgc)
+	-rm -rf $(COREGEN_SOURCES:.v=)
