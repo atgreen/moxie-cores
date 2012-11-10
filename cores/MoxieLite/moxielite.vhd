@@ -10,7 +10,7 @@ ENTITY moxielite IS
 	generic
 	(
 		BOOT_ADDRESS : std_logic_vector(31 downto 0) := x"00001000";
-		BIG_ENDIAN : std_logic := '0'
+		BIG_ENDIAN : std_logic := '1'
 	);
 	port
 	(
@@ -548,10 +548,12 @@ BEGIN
 		 			data_bswap <= data_reg;
 
 		 		when "010" =>
-		 			data_bswap <= data_reg(23 downto 16) & data_reg(31 downto 24) & data_reg(7 downto 0) & data_reg(15 downto 8);
+-- AG FIX		 			data_bswap <= data_reg(23 downto 16) & data_reg(31 downto 24) & data_reg(7 downto 0) & data_reg(15 downto 8);
+                                        data_bswap <= data_reg;
 
 				when "100" =>
-		 			data_bswap <= data_reg(7 downto 0) & data_reg(15 downto 8) & data_reg(23 downto 16) & data_reg(31 downto 24);
+-- AG FIX	 			data_bswap <= data_reg(7 downto 0) & data_reg(15 downto 8) & data_reg(23 downto 16) & data_reg(31 downto 24);
+                                        data_bswap <= data_reg(15 downto 8) & data_reg(7 downto 0) & data_reg(31 downto 24)  & data_reg(23 downto 16);
 
 		 		when others =>
 		 			data_bswap <= x"00000000";
@@ -619,7 +621,8 @@ BEGIN
 						-- Update PC
 						PC <= PC_plus_2;
 
-						if BIG_ENDIAN='1' then
+                                              -- AG FIX
+						if BIG_ENDIAN='0' then
 							instruction <= din(7 downto 0) & din(15 downto 8);
 						else
 							instruction <= din;
@@ -703,8 +706,8 @@ BEGIN
 	
 								else
 	
-									-- Aligned first or only word
-									data_reg(15 downto 0) <= din;
+                                                                     -- Aligned first or only word
+                                                                    data_reg(15 downto 0) <= din;
 	
 								end if;
 							else
@@ -732,8 +735,8 @@ BEGIN
 
 						elsif data_byte_index(1 downto 0)="10" then
 
-							-- Second word of alighed dword read
-							data_reg(31 downto 16) <= din;
+                                        -- Second word of alighed dword read
+                                                                    data_reg(31 downto 16) <= din;
 
 						else
 

@@ -74,6 +74,36 @@ module display (
 
 endmodule // display
 
+module nexys7seg_wb (input rst_i,
+		     input 	  clk_i,
+		     input [15:0] wb_dat_i,
+		     input [1:0]  wb_sel_i,
+		     input 	  wb_we_i,
+		     input 	  wb_cyc_i,
+		     input 	  wb_stb_i,
+		     output 	  wb_ack_o,
+		     input clk_100mhz_i,
+		     output [7:0] seg,
+		     output [3:0] an);
+
+   reg [15:0] 			  value = 15'h00;
+
+   reg 				  ack = 1'b0;
+   assign wb_ack_o = ack;
+   
+   always @(posedge clk_i)
+     begin
+	value <= (wb_we_i & wb_stb_i & wb_cyc_i) ? wb_dat_i[15:0] : value;
+	ack <= wb_stb_i & wb_cyc_i;
+     end
+   
+   nexys7seg display (.clk (clk_100mhz_i),
+		      .word (value),
+		      .seg (seg),
+		      .an (an));
+
+endmodule // nexys7seg_wb
+
 
 module nexys7seg (
 		   input wire clk,

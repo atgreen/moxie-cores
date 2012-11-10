@@ -27,7 +27,7 @@ module bootrom16 (
 		  input 	wb_stb_i,
 		  input 	wb_cyc_i,
 		  input [ 1:0] 	wb_sel_i,
-		  output 	wb_ack_o
+		  output [0:0]	wb_ack_o
 		  );
 
   reg  [7:0] rom[0:8191];
@@ -35,13 +35,16 @@ module bootrom16 (
 
   assign index = wb_adr_i[10:0];
 
-  reg 	      wb_ack_o = 1'b0;
-  reg [15:0]  wb_dat_o;
-  
+  reg [0:0]  wb_ack_o_reg;
+  reg [15:0] wb_dat_o_reg;
+
+   assign wb_ack_o = wb_ack_o_reg;
+   assign wb_dat_o = wb_dat_o_reg;
+   
   always @(posedge clk_i)
     begin
-      wb_dat_o <= {rom[index], rom[index+1]};
-      wb_ack_o <= wb_stb_i & wb_cyc_i;
+      wb_dat_o_reg <= {rom[index], rom[index+1]};
+      wb_ack_o_reg <= wb_stb_i & wb_cyc_i;
     end
   
   initial

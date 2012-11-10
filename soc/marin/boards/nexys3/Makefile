@@ -15,7 +15,11 @@ all: $(PROJECT).bit
 clk_wiz_v3_6.v: clk_wiz_v3_6.xco coregen.cgp
 	coregen -b clk_wiz_v3_6.xco -p coregen.cgp
 
-$(PROJECT).prj: $(SOURCES)
+bootrom.vh: ../../../../firmware/marin.s
+	moxie-elf-as -EB -o bootrom.x $<
+	moxie-elf-objcopy -O verilog bootrom.x bootrom.vh
+
+$(PROJECT).prj: bootrom.vh $(SOURCES)
 	rm -f $(PROJECT).prj
 	for i in `echo $^`; do \
 	  case $$i in \
@@ -50,7 +54,7 @@ clean:
 	-rm -rf *.lst *.pcf *.bgn *.bit *.xwbt *.drc *.csv
 	-rm -rf *.txt *.ptwx *.unroutes *.xpi *.html *.pad
 	-rm -rf _impact.cmd *.ipf auto_project* *.xsl *.svf
-	-rm -rf tmp coregen.cgc
+	-rm -rf tmp coregen.cgc bootrom.vh bootrom.x
 	-rm -rf $(COREGEN_SOURCES) $(COREGEN_SOURCES:.v=.ucf)
 	-rm -rf $(COREGEN_SOURCES:.v=.asy)
 	-rm -rf $(COREGEN_SOURCES:.v=.gise)

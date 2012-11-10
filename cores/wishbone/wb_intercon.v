@@ -126,13 +126,13 @@ module wb_intercon #(
   assign {wbs_3_adr_o, wbs_3_dat_o, wbs_3_sel_o,
           wbs_3_we_o, wbs_3_cyc_o} = master_bus_i;
   assign wbs_3_stb_o = wbm_cyc_i & wbm_stb_i & slave_3_sel;
-  
+
   // Master bus acknowlegement.
   assign wbm_ack_o = wbs_0_ack_i | wbs_1_ack_i | wbs_2_ack_i | wbs_3_ack_i;
   
   // Master bus data output comes from the selected slave.
   wire [data_width-1:0] i_dat_s;   // internal shared bus, slave data to master
-   assign i_dat_s = wbs_0_dat_i;
+  assign i_dat_s = wbs_0_dat_i;
  //({data_width{slave_0_sel}} & wbs_0_dat_o);
   assign wbm_dat_o = i_dat_s;
   //
