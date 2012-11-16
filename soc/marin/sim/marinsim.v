@@ -64,6 +64,16 @@ module marinsim (/*AUTOARG*/);
   wire        wb2dp_stb;
   wire 	      dp2wb_ack;
 
+  // RAM/Wishbone interface
+  wire [15:0] wb2rm_dat;
+  wire [15:0] rm2wb_dat;
+  wire [31:0] wb2rm_adr;
+  wire [1:0]  wb2rm_sel;
+  wire 	      wb2rm_we;
+  wire 	      wb2rm_cyc;
+  wire        wb2rm_stb;
+  wire 	      rm2wb_ack;
+
   wb_intercon #(.data_width (16),
 		.slave_0_mask (32'b1111_1111_1111_1111_1111_0000_0000_0000),
 	        .slave_0_addr (32'b0000_0000_0000_0000_0001_0000_0000_0000),
@@ -71,8 +81,8 @@ module marinsim (/*AUTOARG*/);
 	        .slave_1_addr (32'b0000_0000_0001_0000_0000_0000_0000_0000),
 		.slave_2_mask (32'b0000_0000_0000_0000_0000_0000_0000_0000),
 	        .slave_2_addr (32'b1111_1111_1111_1111_1111_1111_1111_1111),
-		.slave_3_mask (32'b0000_0000_0000_0000_0000_0000_0000_0000),
-	        .slave_3_addr (32'b1111_1111_1111_1111_1111_1111_1111_1111))
+		.slave_3_mask (32'b1111_1111_1111_1111_1111_0000_0000_0000),
+	        .slave_3_addr (32'b0001_0000_0000_0000_0000_0000_0000_0000))
 
   bus_intercon (.wbm_dat_o (wb2mx_dat),
 		.wbm_dat_i (mx2wb_dat),
@@ -102,7 +112,15 @@ module marinsim (/*AUTOARG*/);
 		.wbs_1_ack_i (dp2wb_ack),
 
 		.wbs_2_ack_i (1'b0),
-		.wbs_3_ack_i (1'b0));
+
+		.wbs_3_dat_o (wb2rm_dat),
+		.wbs_3_dat_i (rm2wb_dat),
+		.wbs_3_adr_o (wb2rm_adr),
+		.wbs_3_sel_o (wb2rm_sel),
+		.wbs_3_we_o (wb2rm_we),
+		.wbs_3_cyc_o (wb2rm_cyc),
+		.wbs_3_stb_o (wb2rm_stb),
+		.wbs_3_ack_i (rm2wb_ack)); 
 
    wire [7:0] ml_debug;
    
@@ -115,6 +133,16 @@ module marinsim (/*AUTOARG*/);
 		 .wb_cyc_i (wb2br_cyc),
 		 .wb_stb_i (wb2br_stb),
 		 .wb_ack_o (br2wb_ack));
+
+  ram16bit_wb ram (.clk_i (clk_cpu),
+		   .wb_dat_i (wb2rm_dat),
+		   .wb_dat_o (rm2wb_dat),
+		   .wb_adr_i (wb2rm_adr),
+		   .wb_sel_i (wb2rm_sel),
+		   .wb_we_i (wb2rm_we),
+		   .wb_cyc_i (wb2rm_cyc),
+		   .wb_stb_i (wb2rm_stb),
+		   .wb_ack_o (rm2wb_ack));
 
   nexys7seg_wb disp (.rst_i (rst_i),
 		     .clk_i (clk_cpu),

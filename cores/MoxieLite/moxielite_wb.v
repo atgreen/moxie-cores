@@ -98,8 +98,8 @@ module moxielite_wb(/*AUTOARG*/
    reg [3:0] acksum = 4'b0;
    always @(posedge clk_i)
      acksum <= acksum + (wb_ack_i ? 4'b0001 : 4'b0000);
-   assign debug_o = {debug_ack, acksum[3:0], debugml[2:0]};
-   
+  assign debug_o = debugml;
+     
   // cpu_block
   always @(posedge clk_i)
     case (cs)

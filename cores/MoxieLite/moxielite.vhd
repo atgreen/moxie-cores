@@ -978,10 +978,23 @@ BEGIN
                                         debug_o <= "00100010";
  					null;
 
+                                when state_execute_bad =>
+                                  debug_o <= "00100100";
+                                  state <= state;
+                                        
+                                when state_execute_gsr =>
+                                  debug_o <= "00100101";
+                                  state <= state;
+                                        
+                                when state_execute_ssr =>
+                                  debug_o <= "00100110";
+                                  state <= state;
+                                        
  				when others =>
 
  					-- What the?
- 					state <= state_error;
+                                  -- state <= state_error;
+                                state <= state;
                                         debug_o <= "00100011";
 
  			end case;

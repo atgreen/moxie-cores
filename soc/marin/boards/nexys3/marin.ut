@@ -20,3 +20,4 @@
 -g sw_clk:Startupclk
 -g sw_gwe_cycle:5
 -g sw_gts_cycle:4
+-g INIT_9K:Yes

@@ -1,9 +1,11 @@
-COREGEN_SOURCES = clk_wiz_v3_6.v
+COREGEN_SOURCES = clk_wiz_v3_6.v fifo_generator_v9_2.v ram4k16bit.v 
 
 SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
 	  $(wildcard ../../../../cores/MoxieLite/*.v) \
 	  $(wildcard ../../../../cores/nexys7seg/*.v) \
 	  $(wildcard ../../../../cores/wishbone/*.v) \
+	  $(wildcard ../../../../cores/uart/*.v) \
+	  $(wildcard ../../../../cores/ram16bit/*.v) \
 	  $(wildcard ../../rtl/*.v) \
 	  $(COREGEN_SOURCES) \
 	  /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/iSE/unisim_comp.v
@@ -12,11 +14,26 @@ PROJECT = marin
 
 all: $(PROJECT).bit
 
+ram4k16bit.v: ram4k16bit.xco coregen.cgp
+	coregen -b ram4k16bit.xco -p coregen.cgp
+
 clk_wiz_v3_6.v: clk_wiz_v3_6.xco coregen.cgp
 	coregen -b clk_wiz_v3_6.xco -p coregen.cgp
 
-bootrom.vh: ../../../../firmware/marin.s
-	moxie-elf-as -EB -o bootrom.x $<
+fifo_generator_v9_2.v: fifo_generator_v9_2.xco coregen.cgp
+	coregen -b fifo_generator_v9_2.xco -p coregen.cgp
+
+# CFLAGS = -Os -ffunction-sections -mno-crt0
+CFLAGS = -Os  -mno-crt0
+
+#BOOTROM_SOURCES = ../../../../firmware/boot.c ../../../../firmware/init.S
+BOOTROM_SOURCES = ../../../../firmware/marin.S ../../../../firmware/mdata.c
+
+bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin.ld
+#	moxie-elf-gcc $(CFLAGS) -Wl,--gc-sections -T../../moxie-marin.ld -o bootrom.x $(BOOTROM_SOURCES)
+	moxie-elf-gcc $(CFLAGS) -c -o marin.o ../../../../firmware/marin.S
+	moxie-elf-gcc $(CFLAGS) -c -o mdata.o ../../../../firmware/mdata.c
+	moxie-elf-ld marin.o mdata.o -o bootrom.x -T../../moxie-marin.ld
 	moxie-elf-objcopy -O verilog bootrom.x bootrom.vh
 
 $(PROJECT).prj: bootrom.vh $(SOURCES)

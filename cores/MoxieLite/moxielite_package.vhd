@@ -66,29 +66,29 @@ type state_type is
 
 	-- Execute stage
 	state_execute,
-	state_execute_bad,
-	state_execute_mov,
+	state_execute_cmp,
 	state_execute_alu,				-- Primary ALU
-	state_execute_alu2,				-- Secondary ALU (mul/div/mod)
-	state_execute_alu2_wait,
 	state_execute_store,
 	state_execute_push,
 	state_execute_pop,
 	state_execute_pop_2,			-- two stages 
-	state_execute_cmp,
 	state_execute_nop,
+	state_execute_bcc,
+	state_execute_jmp,
 	state_execute_jsr,
 	state_execute_jsr_2,
 	state_execute_ret,
 	state_execute_ret_2,
 	state_execute_ret_3,
-	state_execute_jmp,
+	state_execute_alu2,				-- Secondary ALU (mul/div/mod)
+	state_execute_alu2_wait,
 	state_execute_swi,
 	state_execute_brk,
+
+	state_execute_bad,
+
 	state_execute_gsr,
 	state_execute_ssr,
-	state_execute_bcc,
-
 
 	-- Auxillary states
 	state_error
