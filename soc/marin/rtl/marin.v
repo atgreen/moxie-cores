@@ -170,7 +170,20 @@ module marin (/*AUTOARG*/
   
    wire       br_debug;
    wire [7:0] ml_debug;
-   
+
+  wire [31:0] watchdog_adr;
+  wire 	      watchdog_fault;
+
+  // Wishbone Bus Watchdog.
+  wb_watchdog watchdog (.clk_i (clk_cpu),
+			.rst_i (rst_i),
+			.wbm_adr_i (mx2wb_adr),
+			.wbm_stb_i (mx2wb_stb),
+			.wbm_ack_i (wb2mx_ack),
+			.adr_o (watchdog_adr),
+			.fault_o (watchdog_fault));
+
+  // Wishbone bus slaves.
   bootrom16 rom (.clk_i (clk_cpu),
 		 .wb_dat_i (),
 		 .wb_dat_o (br2wb_dat),
@@ -191,9 +204,12 @@ module marin (/*AUTOARG*/
 		   .wb_stb_i (wb2rm_stb),
 		   .wb_ack_o (rm2wb_ack));
 
+  wire [12:0]  gdbdebug;
+
   nexys7seg_wb disp (.rst_i (rst_i),
 		     .clk_i (clk_cpu),
 		     .wb_dat_i (wb2dp_dat),
+//		     .wb_dat_i ({gdbdebug[12:5], gdbdebug[12:5]}),
 		     .wb_sel_i (wb2dp_sel),
 		     .wb_we_i (wb2dp_we),
 		     .wb_cyc_i (wb2dp_cyc),
@@ -212,9 +228,11 @@ module marin (/*AUTOARG*/
 		.wb_cyc_i (wb2ua_cyc),
 		.wb_stb_i (wb2ua_stb),
 		.wb_ack_o (ua2wb_ack),
-		.rx_i (rx_i),
-		.tx_o (tx_o));
+		.rx_i (),
+		.tx_o ());
 
+  wire [1:0]	       gdb2mx;
+  
   moxielite_wb core (.rst_i (rst_i),
 		     .clk_i (clk_cpu),
 		     .wb_dat_i (wb2mx_dat),
@@ -225,8 +243,32 @@ module marin (/*AUTOARG*/
 		     .wb_cyc_o (mx2wb_cyc),
 		     .wb_stb_o (mx2wb_stb),
 		     .wb_ack_i (wb2mx_ack),
+		     .gdb_i (gdb2mx),
 		     .debug_o (ml_debug));
 
-  assign leds_o = ml_debug;
+  statled status_led (.clk (clk_cpu),
+		      .rst (rst_i),
+		      .status (CODE_SIX),
+		      .led (sled));
+
+  wire [13:0]  ddd;
+  
+  
+  gdbtarget gdb (.rst_i (rst_i),
+		 .clk_i (clk_cpu),
+		 .wb_dat_i (mx2wb_dat),
+		 .wb_dat_o (),
+		 .wb_adr_o (),
+		 .wb_sel_o (),
+		 .wb_we_o (),
+		 .wb_cyc_o (),
+		 .wb_stb_o (),
+		 .wb_ack_i (),
+		 .rx_i (rx_i),
+		 .tx_o (tx_o),
+		 .gdb_ctrl_o (gdb2mx),
+		 .debug_o (ddd));
+        
+  assign leds_o = ddd[8:1];
 
 endmodule

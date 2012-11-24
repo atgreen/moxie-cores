@@ -24,7 +24,8 @@ ENTITY moxielite IS
 		wr_n : out std_logic;
 		wr_h_n : out std_logic;							-- 0 = write upper byte
 		wr_l_n : out std_logic;							-- 0 = write lower byte
-                debug_o : out std_logic_vector(7 downto 0)
+                debug_o : out std_logic_vector(7 downto 0);
+                gdb_i : in std_logic_vector(1 downto 0)
 	);
 END moxielite;
  
@@ -36,6 +37,9 @@ ARCHITECTURE behavior OF moxielite IS
 	signal PC : std_logic_vector(31 downto 0) := BOOT_ADDRESS;
 	signal PC_plus_2 : std_logic_vector(31 downto 0);
 	signal PC_plus_operand_A : std_logic_vector(31 downto 0);
+
+       	-- Debug interface 
+        signal reg_dump_index : std_logic_vector(4 downto 0);
 
 	-- Load and Store related signals
 	signal addr_internal : std_logic_vector(31 downto 0);
@@ -138,6 +142,22 @@ BEGIN
  			when state_execute_brk =>
  				addr_internal <= PC;
 
+                        when state_debug_dump_reg_high =>
+
+                                dout <= regfile(to_integer(unsigned(reg_dump_index(3 downto 0))))(31 downto 16);
+
+                        when state_debug_dump_reg_low =>
+
+                               dout <= regfile(to_integer(unsigned(reg_dump_index(3 downto 0))))(15 downto 0);
+
+                         when state_debug_dump_PC_high =>
+
+                                        dout <= PC(31 downto 16);
+
+                        when state_debug_dump_PC_low =>
+
+                           dout <= PC(15 downto 0);
+                                          
  			when state_fetch_memcycle | state_fetch_wait =>
  				addr_internal <= PC;
  				rd_n <= '0';
@@ -603,10 +623,47 @@ BEGIN
                                         debug_o <= "00000000";
 
  				when state_fetch_pre =>
-
- 					state <= state_fetch_memcycle;
+                                  
+                                        if gdb_i(1)='0' then
+                                          state <= state_fetch_memcycle;
+                                        else
+                                          reg_dump_index <= "00000";
+                                          state <= state_debug;
+                                        end if;       
                                         debug_o <= "00000001";
 
+                                when state_debug =>
+
+                                        if gdb_i(1)='0' then
+                                          state <= state_fetch_memcycle;
+                                        else
+                                          if gdb_i(0)='1' then
+                                            if (reg_dump_index /= "10000") then
+                                              state <= state_debug_dump_reg_high;
+                                            else
+                                              state <= state_debug_dump_PC_high;
+                                            end if;
+                                          end if;
+                                        end if; 
+
+                                when state_debug_dump_reg_high =>
+
+                                        state <= state_debug_dump_reg_low;
+
+                                when state_debug_dump_reg_low =>
+
+                                        state <= state_debug;
+                                        reg_dump_index <= std_logic_vector(unsigned(reg_dump_index) + 1);
+
+                                when state_debug_dump_PC_high =>
+
+                                        state <= state_debug_dump_PC_low;
+
+                                when state_debug_dump_PC_low =>
+
+                                        state <= state_fetch_pre; -- to reset
+                                                                  -- the count.
+                                          
  				when state_fetch_memcycle =>
 
  					state <= state_fetch_wait;

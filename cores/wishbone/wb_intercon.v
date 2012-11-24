@@ -30,12 +30,12 @@ module wb_intercon #(
   parameter slave_3_addr = 20'h00000
   )(/*AUTOARG*/
   // Outputs
-  wbm_dat_o, wbm_ack_o, bus_error_o, wbs_0_dat_o, wbs_0_adr_o,
-  wbs_0_sel_o, wbs_0_we_o, wbs_0_cyc_o, wbs_0_stb_o, wbs_1_dat_o,
-  wbs_1_adr_o, wbs_1_sel_o, wbs_1_we_o, wbs_1_cyc_o, wbs_1_stb_o,
-  wbs_2_dat_o, wbs_2_adr_o, wbs_2_sel_o, wbs_2_we_o, wbs_2_cyc_o,
-  wbs_2_stb_o, wbs_3_dat_o, wbs_3_adr_o, wbs_3_sel_o, wbs_3_we_o,
-  wbs_3_cyc_o, wbs_3_stb_o,
+  wbm_dat_o, wbm_ack_o, wbs_0_dat_o, wbs_0_adr_o, wbs_0_sel_o,
+  wbs_0_we_o, wbs_0_cyc_o, wbs_0_stb_o, wbs_1_dat_o, wbs_1_adr_o,
+  wbs_1_sel_o, wbs_1_we_o, wbs_1_cyc_o, wbs_1_stb_o, wbs_2_dat_o,
+  wbs_2_adr_o, wbs_2_sel_o, wbs_2_we_o, wbs_2_cyc_o, wbs_2_stb_o,
+  wbs_3_dat_o, wbs_3_adr_o, wbs_3_sel_o, wbs_3_we_o, wbs_3_cyc_o,
+  wbs_3_stb_o,
   // Inputs
   wbm_dat_i, wbm_adr_i, wbm_sel_i, wbm_we_i, wbm_cyc_i, wbm_stb_i,
   wbs_0_dat_i, wbs_0_ack_i, wbs_1_dat_i, wbs_1_ack_i, wbs_2_dat_i,
@@ -52,9 +52,6 @@ module wb_intercon #(
   input         wbm_stb_i;
   output        wbm_ack_o;
 
-  // Bus Error
-  output        bus_error_o;
-  
   // Wishbone Slave 0 Interface
   input [data_width-1:0]  wbs_0_dat_i;
   output [data_width-1:0] wbs_0_dat_o;
@@ -105,11 +102,6 @@ module wb_intercon #(
   assign slave_1_sel = ((wbm_adr_i & slave_1_mask) == slave_1_addr);
   assign slave_2_sel = ((wbm_adr_i & slave_2_mask) == slave_2_addr);
   assign slave_3_sel = ((wbm_adr_i & slave_3_mask) == slave_3_addr);
-
-  // Raise a Bus Error if the bus master strobes and no slave is selected.
-  assign bus_error_o = (wbm_cyc_i & wbm_stb_i) & 
-		       !(slave_0_sel | slave_0_addr 
-			 | slave_0_addr | slave_0_sel);
 
   // An aggregation of all master bus input wires
   wire [32+data_width+2+1+1-1:0] master_bus_i;

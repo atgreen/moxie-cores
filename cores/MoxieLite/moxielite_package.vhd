@@ -90,6 +90,12 @@ type state_type is
 	state_execute_gsr,
 	state_execute_ssr,
 
+        state_debug,
+        state_debug_dump_reg_high,
+        state_debug_dump_reg_low,
+        state_debug_dump_PC_high,
+        state_debug_dump_PC_low,
+        
 	-- Auxillary states
 	state_error
 );

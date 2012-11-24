@@ -14,16 +14,19 @@
  * clearly indicated on the first page of each file where they apply.
  */
 
-/* GROUP(-lc -lgcc) */
 OUTPUT_FORMAT("elf32-bigmoxie", "elf32-bigmoxie",
               "elf32-littlemoxie")
 OUTPUT_ARCH(moxie)
 ENTRY(_start)
 
+GROUP(-lc -lgcc)
+
 MEMORY 
 {
-  ROM (rx)  : ORIGIN = 0x00001000, LENGTH = 8k 
-  RAM (rwx) : ORIGIN = 0x10000000, LENGTH = 2k 
+/*  ROM (rx)  : ORIGIN = 0x00001000, LENGTH = 16k 
+  RAM (rwx) : ORIGIN = 0x10000000, LENGTH = 8k  */
+  ROM (rx)  : ORIGIN = 0x00001000, LENGTH = 4k 
+  RAM (rwx) : ORIGIN = 0x10000000, LENGTH = 3k  
   PORTS (rw) : ORIGIN = 0xF0000000, LENGTH = 1k
 } 
 
@@ -31,6 +34,7 @@ SECTIONS
 {
   .text : AT (0x0)
   {
+    *(.text.boot)
     *(.text*)
     KEEP(*(.init))
     KEEP(*(.fini))

@@ -6,6 +6,8 @@ SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
 	  $(wildcard ../../../../cores/wishbone/*.v) \
 	  $(wildcard ../../../../cores/uart/*.v) \
 	  $(wildcard ../../../../cores/ram16bit/*.v) \
+	  $(wildcard ../../../../cores/gdbtarget/*.v) \
+	  $(wildcard ../../../../cores/statled/rtl/*.v) \
 	  $(wildcard ../../rtl/*.v) \
 	  $(COREGEN_SOURCES) \
 	  /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/iSE/unisim_comp.v
@@ -33,10 +35,11 @@ bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin.ld
 #	moxie-elf-gcc $(CFLAGS) -Wl,--gc-sections -T../../moxie-marin.ld -o bootrom.x $(BOOTROM_SOURCES)
 	moxie-elf-gcc $(CFLAGS) -c -o marin.o ../../../../firmware/marin.S
 	moxie-elf-gcc $(CFLAGS) -c -o mdata.o ../../../../firmware/mdata.c
-	moxie-elf-ld marin.o mdata.o -o bootrom.x -T../../moxie-marin.ld
+	moxie-elf-gcc $(CFLAGS) marin.o mdata.o -o bootrom.x -T../../moxie-marin.ld -lnosys
+#	moxie-elf-ld marin.o mdata.o -o bootrom.x -T../../moxie-marin.ld -Map=mapfile
 	moxie-elf-objcopy -O verilog bootrom.x bootrom.vh
 
-$(PROJECT).prj: bootrom.vh $(SOURCES)
+$(PROJECT).prj: bootrom.vh ../../../../cores/gdbtarget/msg.vh $(SOURCES)
 	rm -f $(PROJECT).prj
 	for i in `echo $^`; do \
 	  case $$i in \

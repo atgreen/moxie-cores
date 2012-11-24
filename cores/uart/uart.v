@@ -15,8 +15,9 @@ module uart(
 	output is_transmitting,
 	output recv_error
 );
- 
-parameter RX_CLOCK_DIVIDE = 2604; /* clock rate (50Mhz) / (BAUD_RATE * 2) */
+
+/* (/ 66667000 (* 9600 2)) */
+parameter RX_CLOCK_DIVIDE = 3472; /* clock rate (50Mhz) / (BAUD_RATE * 2) */
 reg [12:0] rx_clk_divider = RX_CLOCK_DIVIDE;
 
 parameter RX_IDLE          = 3'd0;
@@ -86,7 +87,8 @@ always @(posedge clk) begin
 	endcase
 end
 
-parameter TX_CLOCK_DIVIDE = 5208; /* clock rate (50Mhz) / (baud rate (9600) */
+// Clock rate divided by 9600 
+parameter TX_CLOCK_DIVIDE = 6944; /* (/ 66667000 9600) */
 reg [14:0] tx_clk_divider = TX_CLOCK_DIVIDE;
 
 parameter TX_IDLE          = 0;

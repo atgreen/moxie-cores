@@ -167,5 +167,21 @@ module marinsim (/*AUTOARG*/);
 		     .wb_stb_o (mx2wb_stb),
 		     .wb_ack_i (wb2mx_ack),
 		     .debug_o (ml_debug));
-   
+
+  wire 	      rx_i;
+  wire 	      tx_o;
+     
+  gdbtarget gdb (.rst_i (rst),
+		 .clk_i (clk_cpu),
+		 .wb_dat_i (),
+		 .wb_dat_o (),
+		 .wb_adr_o (),
+		 .wb_sel_o (),
+		 .wb_we_o (),
+		 .wb_cyc_o (),
+		 .wb_stb_o (),
+		 .wb_ack_i (),
+		 .rx_i (rx_i),
+		 .tx_o (tx_o));
+
 endmodule

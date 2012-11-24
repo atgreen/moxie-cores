@@ -1,4 +1,4 @@
-	.text
+	.section .text.boot
 	.p2align	1
 	.global	_start
 	.global _exit

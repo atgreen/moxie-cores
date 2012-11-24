@@ -19,11 +19,11 @@
 
 
 module moxielite_wb(/*AUTOARG*/
-   // Outputs
-   wb_dat_o, wb_adr_o, wb_sel_o, wb_we_o, wb_cyc_o, wb_stb_o, debug_o,
-   // Inputs
-   rst_i, clk_i, wb_dat_i, wb_ack_i
-   );
+  // Outputs
+  wb_dat_o, wb_adr_o, wb_sel_o, wb_we_o, wb_cyc_o, wb_stb_o, debug_o,
+  // Inputs
+  rst_i, clk_i, wb_dat_i, wb_ack_i, gdb_i
+  );
 
    // --- Clock and Reset ------------------------------------------
    input  rst_i, clk_i;
@@ -38,6 +38,9 @@ module moxielite_wb(/*AUTOARG*/
    output        wb_stb_o;
    input         wb_ack_i;
 
+   // --- Debug Interface ------------------------------------------
+   input [1:0] 	 gdb_i;
+  
    output [7:0]  debug_o;
    
    wire [31:1] 	 cpu_addr;
@@ -73,6 +76,7 @@ module moxielite_wb(/*AUTOARG*/
 		   .wr_n (cpu_wr_n),
 		   .wr_h_n (cpu_wr_h_n),
 		   .wr_l_n (cpu_wr_l_n),
+		   .gdb_i (gdb_i),
 		   .debug_o (debugml));
    
    assign cpu_din = wb_dat_i;
@@ -92,7 +96,7 @@ module moxielite_wb(/*AUTOARG*/
    always @(posedge clk_i) begin
      debug_ack <= debug_ack | (rst_i ? 1'b0 : wb_ack_i);
      debug_data <= debug_data | (wb_ack_i ? (wb_dat_i[15:8] | wb_dat_i[7:0]) : 8'b0);
-   end;
+   end
 
    // Debugging logic
    reg [3:0] acksum = 4'b0;
@@ -106,7 +110,7 @@ module moxielite_wb(/*AUTOARG*/
       IDLE: cpu_block <= 1'b0;
       STRB: cpu_block <= 1'b1;
       WAIT: cpu_block <= !wb_ack_i;
-    endcase
+  endcase
 
   // state machine
   // cs - current state
