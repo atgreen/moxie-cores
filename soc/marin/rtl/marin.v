@@ -254,21 +254,20 @@ module marin (/*AUTOARG*/
   wire [13:0]  ddd;
   
   
-  gdbtarget gdb (.rst_i (rst_i),
-		 .clk_i (clk_cpu),
-		 .wb_dat_i (mx2wb_dat),
-		 .wb_dat_o (),
-		 .wb_adr_o (),
-		 .wb_sel_o (),
-		 .wb_we_o (),
-		 .wb_cyc_o (),
-		 .wb_stb_o (),
-		 .wb_ack_i (),
-		 .rx_i (rx_i),
-		 .tx_o (tx_o),
-		 .gdb_ctrl_o (gdb2mx),
-		 .debug_o (ddd));
-        
-  assign leds_o = ddd[8:1];
+  gdbte_uart gdb (.rst_i (rst_i),
+		  .clk_i (clk_cpu),
+		  .wb_dat_i (mx2wb_dat),
+		  .wb_dat_o (),
+		  .wb_adr_o (),
+		  .wb_sel_o (),
+		  .wb_we_o (),
+		  .wb_cyc_o (),
+		  .wb_stb_o (),
+		  .wb_ack_i (),
+		  .rx_i (rx_i),
+		  .tx_o (tx_o),
+		  .gdb_ctrl_o (gdb2mx));
+          
+   assign leds_o = 8'b0;
 
 endmodule

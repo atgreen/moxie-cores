@@ -1,6 +1,7 @@
-// gdbtarget.v - Hardware Implementation of the GDB Remote Protocol
+// gdbte.v - GDB Target Engine
+//         - A Hardware Implementation of the GDB Remote Protocol
 //
-// Copyright (c) 2012  Anthony Green.
+// Copyright (c) 2012  Anthony Green
 // 
 // The above named program is free software; you can redistribute it
 // and/or modify it under the terms of the GNU General Public License
@@ -16,30 +17,29 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 // 02110-1301, USA.
 
-module gdbtarget (/*AUTOARG*/
+module gdb_target_engine (/*AUTOARG*/
   // Outputs
-  tx_o, debug_o, wb_dat_o, wb_adr_o, wb_we_o, wb_cyc_o, wb_stb_o,
-  gdb_ctrl_o,
+  tx_byte_o, tx_send_o, rx_read_o, gdb_ctrl_o, wb_dat_o, wb_adr_o,
+  wb_we_o, wb_cyc_o, wb_stb_o,
   // Inputs
-  rst_i, clk_i, rx_i, wb_dat_i, wb_sel_o, wb_ack_i
+  rst_i, clk_i, rx_byte_i, tx_ready_i, rx_available_i, wb_dat_i,
+  wb_sel_o, wb_ack_i
   );
    
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
 
-  // --- UART -----------------------------------------------------
-  output tx_o;
-  input rx_i;
-
-  wire [7:0] rx_uart_byte;
-  wire 	     rx_received;
-  wire 	     rx_fifo_empty;
-  wire       uart_is_transmitting;
-
-  output [13:0] debug_o;
-
-  assign debug_o = { packet_checksum, state[5:0], rx_fifo_empty };
+  // --- GDB Interface --------------------------------------------
+  output reg [7:0] tx_byte_o;
+  input [7:0] rx_byte_i;
+  input tx_ready_i;
+  output reg tx_send_o = 1'b0;
+  input  rx_available_i;
+  output reg rx_read_o = 1'b0;
   
+  // --- CPU Interface --------------------------------------------
+  output reg [1:0] gdb_ctrl_o = 2'b0;
+    
   // --- Wishbone Bus Interconnect ------------------------------------
   input [31:0]  wb_dat_i;
   output [31:0] wb_dat_o;
@@ -85,6 +85,7 @@ module gdbtarget (/*AUTOARG*/
   parameter GDB_SEND_HEXBYTE_WAIT_2 = 6'd30;
   parameter GDB_SEND_HEXBYTE_2 = 6'd31;
   parameter GDB_SEND_HEXBYTE_2_WAIT = 6'd32;
+  parameter GDB_COMMAND_question = 6'd33;
 
   parameter CHAR_hash = 8'd35;
   parameter CHAR_dollar = 8'd36;
@@ -97,50 +98,22 @@ module gdbtarget (/*AUTOARG*/
   reg [1:0] 	sptr = 0;
   reg [7:0] 	rbuf[0:63];
   reg [5:0] 	rptr;
-  reg 		rx_fifo_rd_en = 0;
   wire		received_hash;
   wire 		received_dollar;
   wire 		received_interrupt;
   reg [7:0] 	packet_checksum;
-  wire [7:0] 	rx_byte;
 
-  reg [7:0] 	msgbuf[0:14];
+  reg [7:0] 	msgbuf[0:128];
   reg [3:0] 	mptr;
 
-  reg [7:0] 	uart_tx_byte;
-  reg 		uart_transmit;
-
-  reg [1:0] 	gdb_ctrl_o = 2'b0;
-  output 	gdb_ctrl_o;
-    
   initial
     begin
       $readmemh("msg.vh", msgbuf);
     end
   
-  uart com (.clk (clk_i),
-	    .rst (rst_i),
-	    .rx (rx_i),
-	    .tx (tx_o),
-	    .transmit (uart_transmit),
-	    .tx_byte (uart_tx_byte),
-	    .received (rx_received),
-	    .rx_byte (rx_uart_byte),
-	    .is_receiving (),
-	    .is_transmitting (uart_is_transmitting));
-
-  fifo_generator_v9_2 rx_fifo(.clk (clk_i),
-			      .rst (rst_i),
-			      .din (rx_uart_byte),
-			      .wr_en (rx_received),
-			      .rd_en (rx_fifo_rd_en),
-			      .dout (rx_byte),
-			      .full (),
-			      .empty (rx_fifo_empty));
-
-  assign received_interrupt = (rx_byte == 8'd3);
-  assign received_hash = (rx_byte == CHAR_hash);
-  assign received_dollar = (rx_byte == CHAR_dollar);
+  assign received_interrupt = (rx_byte_i == 8'd3);
+  assign received_hash = (rx_byte_i == CHAR_hash);
+  assign received_dollar = (rx_byte_i == CHAR_dollar);
 
   function [3:0] hex2num;
     input [7:0] char;
@@ -194,17 +167,14 @@ module gdbtarget (/*AUTOARG*/
     endcase
   endfunction
 
-  /**
-   * Helper function to convert from nibble to ASCII representation
-   */
-  function [7:0] decode; //output is byte wide
+  function [7:0] byte2ascii; //output is byte wide
     input [3:0] d_i;     //input is nibble wide
     begin 
-      decode = { d_i > 4'h9 ? 4'h4 : 4'h3,
-                 d_i == 4'h9 ? 1'b1 : 1'b0,
-                 d_i[2:0] };
+      byte2ascii = { d_i > 4'h9 ? 4'h4 : 4'h3,
+                     d_i == 4'h9 ? 1'b1 : 1'b0,
+                     d_i[2:0] };
     end
-  endfunction // decode
+  endfunction
 
   reg 	       [24:0]		delay;
   reg [31:0] 			rval;
@@ -216,7 +186,7 @@ module gdbtarget (/*AUTOARG*/
     if (rst_i)
       begin
 	state <= GDB_START;
-	uart_transmit <= 0;
+	tx_send_o <= 0;
       end
     else
       begin
@@ -229,14 +199,14 @@ module gdbtarget (/*AUTOARG*/
 	      sptr <= 0;
 	    end
 	  GDB_IDLE:
-	    if (!rx_fifo_empty) begin
-  	      rx_fifo_rd_en <= 1;
+	    if (rx_available_i) begin
+  	      rx_read_o <= 1;
 	      delay_state <= GDB_READ_PACKET_START;
 	      state <= GDB_DELAY1;
 	    end
 	  GDB_READ_PACKET_START:
 	    begin
-              rx_fifo_rd_en <= 0;
+              rx_read_o <= 0;
 	      if (received_dollar)
 		begin
 		  rptr <= 0;
@@ -249,45 +219,45 @@ module gdbtarget (/*AUTOARG*/
 		state <= GDB_IDLE;
 	    end
 	  GDB_READ_PACKET_WAIT:
-	    if (!rx_fifo_empty) begin
-	      rx_fifo_rd_en <= 1;
+	    if (rx_available_i) begin
+	      rx_read_o <= 1;
 	      state <= GDB_DELAY1;
 	      delay_state <= GDB_READ_PACKET;
 	    end
 	  GDB_READ_PACKET:
 	    begin
-	      rx_fifo_rd_en <= 0;
+	      rx_read_o <= 0;
 	      if (received_hash) 
 		state <= GDB_READ_PACKET_CHECKSUM1_WAIT;
 	      else begin
-		rbuf[rptr] <= rx_byte;
+		rbuf[rptr] <= rx_byte_i;
 		rptr <= rptr+1;
-		packet_checksum <= packet_checksum + rx_byte;
+		packet_checksum <= packet_checksum + rx_byte_i;
 		state <= GDB_READ_PACKET_WAIT;
 	      end
 	    end
 	  GDB_READ_PACKET_CHECKSUM1_WAIT:
-	    if (!rx_fifo_empty) begin
-	      rx_fifo_rd_en <= 1;
+	    if (rx_available_i) begin
+	      rx_read_o <= 1;
 	      state <= GDB_DELAY1;
 	      delay_state <= GDB_READ_PACKET_CHECKSUM1;
 	    end
 	  GDB_READ_PACKET_CHECKSUM1:
 	    begin
-	      packet_checksum[7:4] <= packet_checksum[7:4] ^ hex2num(rx_byte);
-	      rx_fifo_rd_en <= 0;
+	      packet_checksum[7:4] <= packet_checksum[7:4] ^ hex2num(rx_byte_i);
+	      rx_read_o <= 0;
 	      state <= GDB_READ_PACKET_CHECKSUM2_WAIT;
 	    end
 	  GDB_READ_PACKET_CHECKSUM2_WAIT:
-	    if (!rx_fifo_empty) begin
-	      rx_fifo_rd_en <= 1;
+	    if (rx_available_i) begin
+	      rx_read_o <= 1;
 	      state <= GDB_DELAY1;
 	      delay_state <= GDB_READ_PACKET_CHECKSUM2;
 	    end
 	  GDB_READ_PACKET_CHECKSUM2:
 	    begin
-	      packet_checksum[3:0] <= packet_checksum[3:0] ^ hex2num(rx_byte);
-	      rx_fifo_rd_en <= 0;
+	      packet_checksum[3:0] <= packet_checksum[3:0] ^ hex2num(rx_byte_i);
+	      rx_read_o <= 0;
 	      state <= GDB_PACKET_CHECK;
 	    end
 	  GDB_PACKET_CHECK:
@@ -299,17 +269,17 @@ module gdbtarget (/*AUTOARG*/
 	    end
 	  GDB_PACKET_SEND_ACK:
 	    begin
-	      if (! uart_is_transmitting) 
+	      if (tx_ready_i) 
 		begin
-		  uart_tx_byte <= 8'h2B; // +
-		  uart_transmit <= 1;
+		  tx_byte_o <= 8'h2B; // +
+		  tx_send_o <= 1;
 		  state <= GDB_PACKET_SEND_ACK_WAIT;
 		end
 	    end
 	  GDB_PACKET_SEND_ACK_WAIT:
 	    begin
-	      uart_transmit <= 0;
-	      delay <= 25'd111111111111111111111;
+	      tx_send_o <= 0;
+	      delay <= 25'b111111111111111111111;
 	      state_stack[sptr] <= GDB_PACKET_PARSE;
 	      state <= GDB_DELAY;
 	    end
@@ -325,6 +295,8 @@ module gdbtarget (/*AUTOARG*/
 	  GDB_PACKET_PARSE_LEN1:
 	    begin
 	      case (rbuf[0])
+		63:  /* ? */
+		  state <= GDB_COMMAND_question;
 		103: /* g */
 		  state <= GDB_COMMAND_g;
 		default:
@@ -332,6 +304,12 @@ module gdbtarget (/*AUTOARG*/
 	      endcase
 	    end
 
+	  // The '?' command.
+	  GDB_COMMAND_question:
+	    begin
+	      packet_checksum <= 0;
+	      state <= GDB_COMMAND_g_SEND_REGISTERS;
+	    end
 	  // The 'g' command.  Send register dumps in hex format over the wire.
 	  GDB_COMMAND_g:
 	    begin
@@ -370,10 +348,10 @@ module gdbtarget (/*AUTOARG*/
 	    end	      
 
 	  GDB_PACKET_SEND_CHECKSUM1:
-	    if (! uart_is_transmitting)
+	    if (tx_ready_i)
 	      begin
-		uart_tx_byte <= decode (packet_checksum[7:4]);
-		uart_transmit <= 1;
+		tx_byte_o <= byte2ascii (packet_checksum[7:4]);
+		tx_send_o <= 1;
 		state <= GDB_COMMAND_g_SEND_HEXBYTE;
 	      end
 	    else
@@ -383,34 +361,34 @@ module gdbtarget (/*AUTOARG*/
 	  // Input: tbyte - byte to send
 	  // Save return state in stack_stack[sptr].
 	  GDB_SEND_HEXBYTE:
-	    if (! uart_is_transmitting)
+	    if (tx_ready_i)
 	      begin
-		uart_tx_byte <= decode (tbyte[7:4]);
-		packet_checksum <= packet_checksum + decode (tbyte[7:4]);
-		uart_transmit <= 1;
+		tx_byte_o <= byte2ascii (tbyte[7:4]);
+		packet_checksum <= packet_checksum + byte2ascii (tbyte[7:4]);
+		tx_send_o <= 1;
 		state <= GDB_SEND_HEXBYTE_WAIT;
 		waitflag <= 0;
 	      end
 	  GDB_SEND_HEXBYTE_WAIT:
 	    begin
 	      waitflag <= ~waitflag;
-	      uart_transmit <= 0;
+	      tx_send_o <= 0;
 	      if (waitflag)
 		state <= GDB_SEND_HEXBYTE_2;
 	    end
 	  GDB_SEND_HEXBYTE_2:
-	    if (! uart_is_transmitting)
+	    if (tx_ready_i)
 	      begin
-		uart_tx_byte <= decode (tbyte[3:0]);
-		packet_checksum <= packet_checksum + decode (tbyte[3:0]);
-		uart_transmit <= 1;
+		tx_byte_o <= byte2ascii (tbyte[3:0]);
+		packet_checksum <= packet_checksum + byte2ascii (tbyte[3:0]);
+		tx_send_o <= 1;
 		state <= GDB_SEND_HEXBYTE_WAIT_2;
 		waitflag <= 0;
 	      end
 	  GDB_SEND_HEXBYTE_2_WAIT:
 	    begin
 	      waitflag <= ~waitflag;
-	      uart_transmit <= 0;
+	      tx_send_o <= 0;
 	      if (waitflag)
 		state <= state_stack[sptr];
 	    end
@@ -444,16 +422,16 @@ module gdbtarget (/*AUTOARG*/
 	    if (msgbuf[mptr] == CHAR_semi) begin
 	      state <= state_stack[sptr-1];
 	      sptr <= sptr-1;
-	    end else if (! uart_is_transmitting) 
+	    end else if (tx_ready_i) 
 	      begin
-		uart_tx_byte <= msgbuf[mptr];
-		uart_transmit <= 1;
+		tx_byte_o <= msgbuf[mptr];
+		tx_send_o <= 1;
 		mptr <= mptr+1;
 		state <= GDB_SEND_MESSAGE_WAIT;
 	      end
 	  GDB_SEND_MESSAGE_WAIT:
 	    begin
-	      uart_transmit <= 0;
+	      tx_send_o <= 0;
 	      delay <= 25'd10;
 	      state_stack[sptr] <= GDB_SEND_MESSAGE;
 	      state <= GDB_DELAY;
@@ -474,4 +452,4 @@ module gdbtarget (/*AUTOARG*/
       end
   end // always @ (posedge clk_i)
 
-endmodule // gdbtarget
+endmodule // gdb_target_engine
