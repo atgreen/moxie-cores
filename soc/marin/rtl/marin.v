@@ -251,10 +251,10 @@ module marin (/*AUTOARG*/
 		      .status (CODE_SIX),
 		      .led (sled));
 
-  wire [13:0]  ddd;
-  
-  
-  gdbte_uart gdb (.rst_i (rst_i),
+  wire [7:0]  debug;
+
+  gdbte_uart gdb (.debug_o (debug),
+		  .rst_i (rst_i),
 		  .clk_i (clk_cpu),
 		  .wb_dat_i (mx2wb_dat),
 		  .wb_dat_o (),
@@ -268,6 +268,6 @@ module marin (/*AUTOARG*/
 		  .tx_o (tx_o),
 		  .gdb_ctrl_o (gdb2mx));
           
-   assign leds_o = 8'b0;
+  assign leds_o = debug;
 
 endmodule

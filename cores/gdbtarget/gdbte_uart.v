@@ -18,11 +18,15 @@
 
 module gdbte_uart (/*AUTOARG*/
   // Outputs
-  gdb_ctrl_o, wb_dat_o, wb_adr_o, wb_we_o, wb_cyc_o, wb_stb_o, tx_o,
+  debug_o, gdb_ctrl_o, wb_dat_o, wb_adr_o, wb_we_o, wb_cyc_o,
+  wb_stb_o, tx_o,
   // Inputs
   rst_i, clk_i, wb_dat_i, wb_sel_o, wb_ack_i, rx_i
   );
 
+  // --- DEBUG ----------------------------------------------------
+  output [7:0] debug_o;
+  
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
   
@@ -74,7 +78,8 @@ module gdbte_uart (/*AUTOARG*/
 
   // --- GDB Target Engine and connection -----------------------------
 
-  gdb_target_engine te (.clk_i (clk_i),
+  gdb_target_engine te (.debug_o (debug_o),
+			.clk_i (clk_i),
 			.rst_i (rst_i),
 			.tx_byte_o (te2ua_byte),
 			.rx_byte_i (ff2te_byte),

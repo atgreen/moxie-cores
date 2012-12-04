@@ -19,13 +19,18 @@
 
 module gdb_target_engine (/*AUTOARG*/
   // Outputs
-  tx_byte_o, tx_send_o, rx_read_o, gdb_ctrl_o, wb_dat_o, wb_adr_o,
-  wb_we_o, wb_cyc_o, wb_stb_o,
+  debug_o, tx_byte_o, tx_send_o, rx_read_o, gdb_ctrl_o, wb_dat_o,
+  wb_adr_o, wb_we_o, wb_cyc_o, wb_stb_o,
   // Inputs
   rst_i, clk_i, rx_byte_i, tx_ready_i, rx_available_i, wb_dat_i,
   wb_sel_o, wb_ack_i
   );
    
+  // --- DEBUG ----------------------------------------------------
+  output [7:0] debug_o;
+  reg 	       debug_checksum_error = 0;
+  reg 	       debug_ack = 0;
+
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
 
@@ -115,6 +120,8 @@ module gdb_target_engine (/*AUTOARG*/
   assign received_hash = (rx_byte_i == CHAR_hash);
   assign received_dollar = (rx_byte_i == CHAR_dollar);
 
+  assign debug_o[5:0] = {debug_checksum_error, debug_ack, state};
+  
   function [3:0] hex2num;
     input [7:0] char;
     case (char)
@@ -187,16 +194,18 @@ module gdb_target_engine (/*AUTOARG*/
       begin
 	state <= GDB_START;
 	tx_send_o <= 0;
+	gdb_ctrl_o <= 2'b0;
       end
     else
       begin
 	case (state)
 	  GDB_START:
-	    begin
-	      delay <= 25'd5000000;
-	      state <= GDB_DELAY;
-	      state_stack[0] <= GDB_IDLE;
-	      sptr <= 0;
+	    if (rx_available_i) begin
+	      // Put the target core in debug mode.
+	      gdb_ctrl_o <= 2'b10;
+  	      rx_read_o <= 1;
+	      delay_state <= GDB_READ_PACKET_START;
+	      state <= GDB_DELAY1;
 	    end
 	  GDB_IDLE:
 	    if (rx_available_i) begin
@@ -271,6 +280,7 @@ module gdb_target_engine (/*AUTOARG*/
 	    begin
 	      if (tx_ready_i) 
 		begin
+		  debug_ack <= 1;
 		  tx_byte_o <= 8'h2B; // +
 		  tx_send_o <= 1;
 		  state <= GDB_PACKET_SEND_ACK_WAIT;
@@ -279,7 +289,7 @@ module gdb_target_engine (/*AUTOARG*/
 	  GDB_PACKET_SEND_ACK_WAIT:
 	    begin
 	      tx_send_o <= 0;
-	      delay <= 25'b111111111111111111111;
+	      delay <= 25'b1111111111111111111111111;
 	      state_stack[sptr] <= GDB_PACKET_PARSE;
 	      state <= GDB_DELAY;
 	    end
@@ -406,6 +416,7 @@ module gdb_target_engine (/*AUTOARG*/
 	    end
 	  GDB_PACKET_CHECKSUM_ERROR:
 	    begin
+	      debug_checksum_error <= 1'b1;
 	      mptr <= 6;
 	      state <= GDB_SEND_MESSAGE;
 	      state_stack[0] <= GDB_IDLE;
