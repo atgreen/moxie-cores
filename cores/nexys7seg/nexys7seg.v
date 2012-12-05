@@ -45,12 +45,12 @@ module display (
 		);
 
 
-   reg [20:0] 			count = 0;
+   reg [15:0] 			count = 0;
 
    wire [1:0] 			n;
 
 
-   assign n = count[20:19];
+   assign n = count[15:14];
 
 
    always @(posedge clk) begin

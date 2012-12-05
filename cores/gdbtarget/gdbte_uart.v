@@ -34,8 +34,8 @@ module gdbte_uart (/*AUTOARG*/
   output [1:0] gdb_ctrl_o;
     
   // --- Wishbone Bus Interconnect ------------------------------------
-  input [31:0]  wb_dat_i;
-  output [31:0] wb_dat_o;
+  input [15:0]  wb_dat_i;
+  output [15:0] wb_dat_o;
   output [31:0] wb_adr_o;
   input [1:0]   wb_sel_o;
   output        wb_we_o;

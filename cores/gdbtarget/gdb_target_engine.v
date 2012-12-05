@@ -17,6 +17,8 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 // 02110-1301, USA.
 
+`include "messages.vh"
+
 module gdb_target_engine (/*AUTOARG*/
   // Outputs
   debug_o, tx_byte_o, tx_send_o, rx_read_o, gdb_ctrl_o, wb_dat_o,
@@ -46,8 +48,8 @@ module gdb_target_engine (/*AUTOARG*/
   output reg [1:0] gdb_ctrl_o = 2'b0;
     
   // --- Wishbone Bus Interconnect ------------------------------------
-  input [31:0]  wb_dat_i;
-  output [31:0] wb_dat_o;
+  input [15:0]  wb_dat_i;
+  output [15:0] wb_dat_o;
   output [31:0] wb_adr_o;
   input [1:0]   wb_sel_o;
   output        wb_we_o;
@@ -65,7 +67,7 @@ module gdb_target_engine (/*AUTOARG*/
   parameter GDB_READ_PACKET_CHECKSUM2_WAIT = 6'd6;
   parameter GDB_READ_PACKET_CHECKSUM2 = 6'd7;
   parameter GDB_PACKET_PARSE_LEN1 = 6'd8;
-  parameter GDB_PACKET_CHECKSUM_ERROR = 6'd9;
+  parameter GDB_PACKET_SEND_NAK = 6'd9;
   parameter GDB_PACKET_UNKNOWN_ERROR = 6'd10;
   parameter GDB_SEND_MESSAGE = 6'd11;
   parameter GDB_COMMAND_g = 6'd12;
@@ -83,18 +85,24 @@ module gdb_target_engine (/*AUTOARG*/
   parameter GDB_COMMAND_g_FETCH_LOW = 6'd24;
   parameter GDB_COMMAND_g_SEND_WORD = 6'd25;
   parameter GDB_SEND_HEXBYTE = 6'd26;
-  parameter GDB_PACKET_SEND_CHECKSUM1 = 6'd27;
+  parameter GDB_PACKET_SEND_NAK_WAIT = 6'd27;
   parameter GDB_COMMAND_g_SEND_HEXBYTE = 6'd28;
   parameter GDB_COMMAND_g_SEND_HEXBYTE2 = 6'd29;
   parameter GDB_SEND_HEXBYTE_WAIT = 6'd30;
-  parameter GDB_SEND_HEXBYTE_WAIT_2 = 6'd30;
-  parameter GDB_SEND_HEXBYTE_2 = 6'd31;
-  parameter GDB_SEND_HEXBYTE_2_WAIT = 6'd32;
-  parameter GDB_COMMAND_question = 6'd33;
+  parameter GDB_SEND_HEXBYTE_WAIT_2 = 6'd31;
+  parameter GDB_SEND_HEXBYTE_2 = 6'd32;
+  parameter GDB_SEND_HEXBYTE_2_WAIT = 6'd33;
+  parameter GDB_COMMAND_question = 6'd34;
+  parameter GDB_SEND_PACKET_PAYLOAD = 6'd35;
+  parameter GDB_SEND_PACKET_CHECKSUM = 6'd36;
+  parameter GDB_SEND_PACKET_PAYLOAD_WAIT = 6'd37;
+  parameter GDB_SEND_PACKET_CHECKSUM_WAIT = 6'd38;
+  parameter GDB_SEND_PACKET_CHECKSUM_VALUE = 6'd39;
+  parameter GDB_SEND_PACKET_VALUE = 6'd40;
 
   parameter CHAR_hash = 8'd35;
   parameter CHAR_dollar = 8'd36;
-  parameter CHAR_semi = 8'd59;
+  parameter CHAR_null = 8'd0;
   parameter CHAR_g = 8'd103;
   
   reg [5:0] 	state = GDB_START;
@@ -108,19 +116,19 @@ module gdb_target_engine (/*AUTOARG*/
   wire 		received_interrupt;
   reg [7:0] 	packet_checksum;
 
-  reg [7:0] 	msgbuf[0:128];
+  reg [7:0] 	msgbuf[0:15];
   reg [3:0] 	mptr;
 
   initial
     begin
-      $readmemh("msg.vh", msgbuf);
+      $readmemh("messages.bin", msgbuf);
     end
   
   assign received_interrupt = (rx_byte_i == 8'd3);
   assign received_hash = (rx_byte_i == CHAR_hash);
   assign received_dollar = (rx_byte_i == CHAR_dollar);
 
-  assign debug_o[5:0] = {debug_checksum_error, debug_ack, state};
+  assign debug_o[7:0] = {debug_checksum_error, debug_ack, state};
   
   function [3:0] hex2num;
     input [7:0] char;
@@ -240,7 +248,7 @@ module gdb_target_engine (/*AUTOARG*/
 		state <= GDB_READ_PACKET_CHECKSUM1_WAIT;
 	      else begin
 		rbuf[rptr] <= rx_byte_i;
-		rptr <= rptr+1;
+		rptr <= rptr+1'b1;
 		packet_checksum <= packet_checksum + rx_byte_i;
 		state <= GDB_READ_PACKET_WAIT;
 	      end
@@ -274,7 +282,7 @@ module gdb_target_engine (/*AUTOARG*/
 	      if (packet_checksum == 8'd0)
 		state <= GDB_PACKET_SEND_ACK;
 	      else
-		state <= GDB_PACKET_CHECKSUM_ERROR;
+		state <= GDB_PACKET_SEND_NAK;
 	    end
 	  GDB_PACKET_SEND_ACK:
 	    begin
@@ -317,8 +325,10 @@ module gdb_target_engine (/*AUTOARG*/
 	  // The '?' command.
 	  GDB_COMMAND_question:
 	    begin
-	      packet_checksum <= 0;
-	      state <= GDB_COMMAND_g_SEND_REGISTERS;
+	      mptr <= `MSG_OFFSET_STOPPED_TRAP;
+	      state <= GDB_SEND_MESSAGE;
+	      state_stack[0] <= GDB_IDLE;
+	      sptr <= 1;
 	    end
 	  // The 'g' command.  Send register dumps in hex format over the wire.
 	  GDB_COMMAND_g:
@@ -351,21 +361,11 @@ module gdb_target_engine (/*AUTOARG*/
 		  tbyte <= rval[31:24];
 		  rval[31:8] <= rval[23:0];
 		  state <= GDB_SEND_HEXBYTE;
-		  fcount <= fcount - 1;
+		  fcount <= fcount - 1'b1;
 		  state_stack[sptr] <= GDB_COMMAND_g_SEND_WORD;
 		end
 	      state <= GDB_COMMAND_g_SEND_REGISTERS;
 	    end	      
-
-	  GDB_PACKET_SEND_CHECKSUM1:
-	    if (tx_ready_i)
-	      begin
-		tx_byte_o <= byte2ascii (packet_checksum[7:4]);
-		tx_send_o <= 1;
-		state <= GDB_COMMAND_g_SEND_HEXBYTE;
-	      end
-	    else
-	      state <= GDB_COMMAND_g_SEND_HEXBYTE2;
 
 	  // Transmit a byte in two character ASCII hex format.
 	  // Input: tbyte - byte to send
@@ -373,7 +373,8 @@ module gdb_target_engine (/*AUTOARG*/
 	  GDB_SEND_HEXBYTE:
 	    if (tx_ready_i)
 	      begin
-		tx_byte_o <= byte2ascii (tbyte[7:4]);
+		tx_byte_o <= 8'h41;
+// byte2ascii (tbyte[7:4]);
 		packet_checksum <= packet_checksum + byte2ascii (tbyte[7:4]);
 		tx_send_o <= 1;
 		state <= GDB_SEND_HEXBYTE_WAIT;
@@ -389,7 +390,8 @@ module gdb_target_engine (/*AUTOARG*/
 	  GDB_SEND_HEXBYTE_2:
 	    if (tx_ready_i)
 	      begin
-		tx_byte_o <= byte2ascii (tbyte[3:0]);
+		tx_byte_o <= 8'h42;
+// byte2ascii (tbyte[3:0]);
 		packet_checksum <= packet_checksum + byte2ascii (tbyte[3:0]);
 		tx_send_o <= 1;
 		state <= GDB_SEND_HEXBYTE_WAIT_2;
@@ -403,57 +405,105 @@ module gdb_target_engine (/*AUTOARG*/
 		state <= state_stack[sptr];
 	    end
 	    
-
 	  GDB_COMMAND_interrupt:
 	    begin
 	      // Put the target core in debug mode.
 	      gdb_ctrl_o <= 2'b10;
 	      // Send a message.
-	      mptr <= 7;
+	      mptr <= `MSG_OFFSET_STOPPED_TRAP;
 	      state <= GDB_SEND_MESSAGE;
 	      state_stack[0] <= GDB_IDLE;
 	      sptr <= 1;
 	    end
-	  GDB_PACKET_CHECKSUM_ERROR:
+	  GDB_PACKET_SEND_NAK:
 	    begin
-	      debug_checksum_error <= 1'b1;
-	      mptr <= 6;
-	      state <= GDB_SEND_MESSAGE;
-	      state_stack[0] <= GDB_IDLE;
-	      sptr <= 1;
+	      if (tx_ready_i) 
+		begin
+		  debug_checksum_error <= 1;
+		  tx_byte_o <= 8'h2D; // -
+		  tx_send_o <= 1;
+		  state <= GDB_IDLE;
+		end
+	    end
+	  GDB_PACKET_SEND_NAK_WAIT:
+	    begin
+	      tx_send_o <= 0;
+	      delay <= 25'b1111111111111111111111111;
+	      state_stack[sptr] <= GDB_IDLE;
+	      state <= GDB_DELAY;
 	    end
 	  GDB_PACKET_UNKNOWN_ERROR:
 	    begin
-	      mptr <= 2;
+	      mptr <= `MSG_OFFSET_EMPTY;
 	      state <= GDB_SEND_MESSAGE;
 	      state_stack[0] <= GDB_IDLE;
 	      sptr <= 1;
 	    end
+
 	  GDB_SEND_MESSAGE:
-	    if (msgbuf[mptr] == CHAR_semi) begin
-	      state <= state_stack[sptr-1];
-	      sptr <= sptr-1;
-	    end else if (tx_ready_i) 
-	      begin
-		tx_byte_o <= msgbuf[mptr];
-		tx_send_o <= 1;
-		mptr <= mptr+1;
-		state <= GDB_SEND_MESSAGE_WAIT;
-	      end
+	    begin
+	      if (tx_ready_i) 
+		begin
+		  tx_byte_o <= CHAR_dollar;
+		  tx_send_o <= 1;
+		  tbyte <= 0;
+		  state <= GDB_SEND_MESSAGE_WAIT;
+		end
+	    end
 	  GDB_SEND_MESSAGE_WAIT:
 	    begin
 	      tx_send_o <= 0;
 	      delay <= 25'd10;
-	      state_stack[sptr] <= GDB_SEND_MESSAGE;
+	      state_stack[sptr] <= GDB_SEND_PACKET_PAYLOAD;
 	      state <= GDB_DELAY;
 	    end
+	  GDB_SEND_PACKET_PAYLOAD:
+	    if (msgbuf[mptr] == CHAR_null) begin
+	      state <= GDB_SEND_PACKET_CHECKSUM;
+	    end else if (tx_ready_i) 
+	      begin
+		tx_byte_o <= msgbuf[mptr];
+		tx_send_o <= 1;
+		mptr <= mptr + 1'b1;
+		tbyte <= tbyte + 1'b1;
+		state <= GDB_SEND_PACKET_PAYLOAD_WAIT;
+	      end
+	  GDB_SEND_PACKET_PAYLOAD_WAIT:
+	    begin
+	      tx_send_o <= 0;
+	      delay <= 25'd10;
+	      state_stack[sptr] <= GDB_SEND_PACKET_PAYLOAD;
+	      state <= GDB_DELAY;
+	    end
+	  GDB_SEND_PACKET_CHECKSUM:
+	    begin
+	      if (tx_ready_i) 
+		begin
+		  tx_byte_o <= CHAR_hash;
+		  tx_send_o <= 1;
+		  state <= GDB_SEND_PACKET_CHECKSUM_WAIT;
+		end
+	    end
+	  GDB_SEND_PACKET_CHECKSUM_WAIT:
+	    begin
+	      tx_send_o <= 0;
+	      delay <= 25'd10;
+	      state_stack[sptr] <= GDB_SEND_PACKET_CHECKSUM_VALUE;
+	      state <= GDB_DELAY;
+	    end
+	  GDB_SEND_PACKET_CHECKSUM_VALUE:
+	    begin
+	      state_stack[sptr] <= GDB_IDLE;
+	      state <= GDB_SEND_HEXBYTE;
+	    end	      
+
 	  GDB_DELAY1:
 	    begin
 	      state <= delay_state;
 	    end
 	  GDB_DELAY:
 	    begin
-	      delay <= delay - 1;
+	      delay <= delay - 1'b1;
 	      if (delay == 0)
 		state <= state_stack[sptr];
 	    end
