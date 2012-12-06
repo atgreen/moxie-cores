@@ -60,7 +60,7 @@
 		    (format vout "`define MSG_OFFSET_~A ~A~%" name index)
 		    (loop for char across msg do
 			  (incf index)
-			  (format bout "~X" (char-code char)))
+			  (format bout "~X " (char-code char)))
 		    (format bout "00")))))
       (format bout "~%")))
     (close in)))

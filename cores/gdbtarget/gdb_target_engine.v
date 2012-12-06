@@ -118,7 +118,9 @@ module gdb_target_engine (/*AUTOARG*/
 
   reg [7:0] 	msgbuf[0:15];
   reg [3:0] 	mptr;
-
+  wire [7:0] 	msgchar;
+  assign msgchar = msgbuf[mptr];
+  
   initial
     begin
       $readmemh("messages.bin", msgbuf);
@@ -288,7 +290,6 @@ module gdb_target_engine (/*AUTOARG*/
 	    begin
 	      if (tx_ready_i) 
 		begin
-		  debug_ack <= 1;
 		  tx_byte_o <= 8'h2B; // +
 		  tx_send_o <= 1;
 		  state <= GDB_PACKET_SEND_ACK_WAIT;
@@ -304,7 +305,7 @@ module gdb_target_engine (/*AUTOARG*/
 	  GDB_PACKET_PARSE:
 	    begin
 	      case (rptr)
-		2:
+		1:
 		  state <= GDB_PACKET_PARSE_LEN1;
 		default:
 		  state <= GDB_PACKET_UNKNOWN_ERROR;
@@ -325,6 +326,7 @@ module gdb_target_engine (/*AUTOARG*/
 	  // The '?' command.
 	  GDB_COMMAND_question:
 	    begin
+	      debug_ack <= 1;
 	      mptr <= `MSG_OFFSET_STOPPED_TRAP;
 	      state <= GDB_SEND_MESSAGE;
 	      state_stack[0] <= GDB_IDLE;
@@ -420,7 +422,7 @@ module gdb_target_engine (/*AUTOARG*/
 		  debug_checksum_error <= 1;
 		  tx_byte_o <= 8'h2D; // -
 		  tx_send_o <= 1;
-		  state <= GDB_IDLE;
+		  state <= GDB_PACKET_SEND_NAK_WAIT;
 		end
 	    end
 	  GDB_PACKET_SEND_NAK_WAIT:
@@ -456,14 +458,14 @@ module gdb_target_engine (/*AUTOARG*/
 	      state <= GDB_DELAY;
 	    end
 	  GDB_SEND_PACKET_PAYLOAD:
-	    if (msgbuf[mptr] == CHAR_null) begin
+	    if (msgchar == CHAR_null) begin
 	      state <= GDB_SEND_PACKET_CHECKSUM;
 	    end else if (tx_ready_i) 
 	      begin
-		tx_byte_o <= msgbuf[mptr];
+		tx_byte_o <= msgchar;
+		tbyte <= tbyte + msgchar;
 		tx_send_o <= 1;
 		mptr <= mptr + 1'b1;
-		tbyte <= tbyte + 1'b1;
 		state <= GDB_SEND_PACKET_PAYLOAD_WAIT;
 	      end
 	  GDB_SEND_PACKET_PAYLOAD_WAIT:
