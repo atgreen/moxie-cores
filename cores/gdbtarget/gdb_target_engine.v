@@ -89,7 +89,7 @@ module gdb_target_engine (/*AUTOARG*/
   parameter GDB_COMMAND_g_SEND_HEXBYTE = 6'd28;
   parameter GDB_COMMAND_g_SEND_HEXBYTE2 = 6'd29;
   parameter GDB_SEND_HEXBYTE_WAIT = 6'd30;
-  parameter GDB_SEND_HEXBYTE_WAIT_2 = 6'd31;
+  parameter DELETEME = 6'd31;
   parameter GDB_SEND_HEXBYTE_2 = 6'd32;
   parameter GDB_SEND_HEXBYTE_2_WAIT = 6'd33;
   parameter GDB_COMMAND_question = 6'd34;
@@ -373,8 +373,7 @@ module gdb_target_engine (/*AUTOARG*/
 	  GDB_SEND_HEXBYTE:
 	    if (tx_ready_i)
 	      begin
-		tx_byte_o <= 8'h41;
-// byte2ascii (tbyte[7:4]);
+		tx_byte_o <= byte2ascii (tbyte[7:4]);
 		packet_checksum <= packet_checksum + byte2ascii (tbyte[7:4]);
 		tx_send_o <= 1;
 		state <= GDB_SEND_HEXBYTE_WAIT;
@@ -390,11 +389,10 @@ module gdb_target_engine (/*AUTOARG*/
 	  GDB_SEND_HEXBYTE_2:
 	    if (tx_ready_i)
 	      begin
-		tx_byte_o <= 8'h42;
-// byte2ascii (tbyte[3:0]);
+		tx_byte_o <= byte2ascii (tbyte[3:0]);
 		packet_checksum <= packet_checksum + byte2ascii (tbyte[3:0]);
 		tx_send_o <= 1;
-		state <= GDB_SEND_HEXBYTE_WAIT_2;
+		state <= GDB_SEND_HEXBYTE_2_WAIT;
 		waitflag <= 0;
 	      end
 	  GDB_SEND_HEXBYTE_2_WAIT:
