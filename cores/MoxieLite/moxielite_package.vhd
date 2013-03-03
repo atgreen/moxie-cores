@@ -84,6 +84,7 @@ type state_type is
 	state_execute_alu2_wait,
 	state_execute_swi,
 	state_execute_brk,
+        state_execute_cas,
 
 	state_execute_bad,
 

@@ -1,0 +1,4 @@
+2013-02-12    <green@localhost.localdomain>
+
+	* moxielite_decode.vhd: Decode cas instruction.
+

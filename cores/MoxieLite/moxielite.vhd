@@ -56,6 +56,10 @@ ARCHITECTURE behavior OF moxielite IS
 	type regfile_type is array (0 to 15) of std_logic_vector(31 downto 0);
 	signal regfile : regfile_type;
 
+	-- The special register file
+	type sregfile_type is array (0 to 16) of std_logic_vector(31 downto 0);
+	signal sregfile : sregfile_type;
+
 	-- Stack calcs
 	signal sp_plus_offset : std_logic_vector(31 downto 0);
 	signal sp_offset : std_logic_vector(31 downto 0);
@@ -603,6 +607,7 @@ BEGIN
  			data_byte_index <= (others => '0');
  			data_byte_count <= (others => '0');
  			regfile <= (others => (others=>'0'));
+ 			sregfile <= (others => (others=>'0'));
  			instruction <= (others => '0');
  			have_imm <= '0';
  			have_deref <= '0';
@@ -1040,12 +1045,21 @@ BEGIN
                                   state <= state;
                                         
                                 when state_execute_gsr =>
+
+                                  regfile(to_integer(unsigned(reg_A))) <=
+                                    sregfile(to_integer(unsigned(operand_B)));
+
+				  -- Continue with next instruction
+				  state <= state_fetch_pre;
                                   debug_o <= "00100101";
-                                  state <= state;
                                         
                                 when state_execute_ssr =>
-                                  debug_o <= "00100110";
-                                  state <= state;
+
+                                  sregfile(to_integer(unsigned(operand_B))) <= reg_A_value;
+
+				  -- Continue with next instruction
+				  state <= state_fetch_pre;
+                                  debug_o <= "00010110";
                                         
  				when others =>
 
@@ -1062,5 +1076,3 @@ BEGIN
 
 
 END;
-
-
