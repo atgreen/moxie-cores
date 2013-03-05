@@ -60,10 +60,47 @@ int
 _read () { return 0; }
 #endif
 
+#define MOXIE_EX_DIV0 0 /* Divide by zero */
+#define MOXIE_EX_BAD  1 /* Illegal instruction */
+#define MOXIE_EX_IRQ  2 /* Interrupt request */
+#define MOXIE_EX_SWI  3 /* Software interrupt */
+
+/* Called from our asm code.  Must return the return address.  */
+void *__handle_exception (void *faddr, int exc, int code)
+{
+  switch (exc)
+    {
+    case MOXIE_EX_DIV0:
+      printf("0x%x: DIVIDE BY ZERO EXCEPTION\n", faddr);
+      /* faddr is the fault address, and div is 2-bytes long, so the
+	 return address is faddr+2.  */
+      return faddr + 2; 
+      break;
+    case MOXIE_EX_BAD:
+      printf("0x%x: ILLEGAL INSTRUCTION EXCEPTION\n", faddr);
+      return faddr + 2;
+      break;
+    case MOXIE_EX_IRQ:
+      printf("0x%x: INTERRUPT REQUEST %d\n", faddr, code);
+      break;
+    case MOXIE_EX_SWI:
+      printf("0x%x: SOFTWARE INTERRUPT REQUEST %d\n", faddr, code);
+      return faddr + 6;
+      break;
+    default:
+      printf("0x%x: UNKNOWN EXCEPTION 0x%x\n", faddr, exc);
+      break;
+    }
+}
+
+void __moxie_exception_handler();
+
 int main()
 {
   short i = 0;
-  //  puts ("Hello World!");
+  
+  asm("ssr %0, 1" : : "r" (__moxie_exception_handler));
+
   while (1)
     {
       port_7seg_display = i++;

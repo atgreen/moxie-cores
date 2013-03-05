@@ -30,7 +30,7 @@ fifo_generator_v9_2.v: fifo_generator_v9_2.xco coregen.cgp
 CFLAGS = -Os  -mno-crt0
 
 #BOOTROM_SOURCES = ../../../../firmware/boot.c ../../../../firmware/init.S
-BOOTROM_SOURCES = ../../../../firmware/marin.S ../../../../firmware/mdata.c
+BOOTROM_SOURCES = ../../../../firmware/marin.S ../../../../firmware/mdata.c ../../../../firmware/handler.S
 
 bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin.ld
 #	moxie-elf-gcc $(CFLAGS) -Wl,--gc-sections -T../../moxie-marin.ld -o bootrom.x $(BOOTROM_SOURCES)
