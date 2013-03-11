@@ -65,6 +65,8 @@ _read () { return 0; }
 #define MOXIE_EX_IRQ  2 /* Interrupt request */
 #define MOXIE_EX_SWI  3 /* Software interrupt */
 
+#define printf(...)
+
 /* Called from our asm code.  Must return the return address.  */
 void *__handle_exception (void *faddr, int exc, int code)
 {
@@ -99,7 +101,7 @@ int main()
 {
   short i = 0;
   
-  asm("ssr %0, 1" : : "r" (__moxie_exception_handler));
+  // asm("ssr %0, 1" : : "r" (__moxie_exception_handler));
 
   while (1)
     {
