@@ -60,8 +60,8 @@ NET "mem_oen" LOC = L18;
 NET "mem_wen" IOSTANDARD = LVCMOS33;
 NET "mem_wen" LOC = M16;
 #Bank = 1, pin name = IO_L43N_GCLK4_M1DQ5, Sch name = P30-ADV
-NET "mem_advn" IOSTANDARD = LVCMOS33;
-NET "mem_advn" LOC = H18;
+NET "mem_adv" IOSTANDARD = LVCMOS33;
+NET "mem_adv" LOC = H18;
 #Net "mem_wait" LOC = V4 | IOSTANDARD = LVCMOS33; #Bank = 2, pin name = IO_L63N, Sch name = P30-WAIT
 #Bank = 2, pin name = IO_L29P_GCLK3, Sch name = P30-CLK
 NET "mem_clk" IOSTANDARD = LVCMOS33;
@@ -72,12 +72,6 @@ NET "mem_cen" LOC = L15;
 #Bank = 1, pin name = IO_L47N_LDC_M1DQ1, Sch name = MT-CRE
 NET "mem_cre" IOSTANDARD = LVCMOS33;
 NET "mem_cre" LOC = M18;
-#Bank = 1, pin name = IO_L41P_GCLK9_IRDY1_M1RASN, Sch name = MT-UB
-NET "mem_ubn" IOSTANDARD = LVCMOS33;
-NET "mem_ubn" LOC = K15;
-#Bank = 1, pin name = IO_L41N_GCLK8_M1CASN, Sch name = MT-LB
-NET "mem_lbn" IOSTANDARD = LVCMOS33;
-NET "mem_lbn" LOC = K16;
 
 #Bank = 1, pin name = IO_L45N_A0_M1LDQSN, Sch name = P30-A0
 NET "mem_addr[0]" IOSTANDARD = LVCMOS33;

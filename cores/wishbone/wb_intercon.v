@@ -29,7 +29,9 @@ module wb_intercon #(
   parameter slave_3_mask = 20'h00000,
   parameter slave_3_addr = 20'h00000,
   parameter slave_4_mask = 20'h00000,
-  parameter slave_4_addr = 20'h00000
+  parameter slave_4_addr = 20'h00000,
+  parameter slave_5_mask = 20'h00000,
+  parameter slave_5_addr = 20'h00000
   )(/*AUTOARG*/
    // Outputs
    wbm_dat_o, wbm_ack_o, wbs_0_dat_o, wbs_0_adr_o, wbs_0_sel_o,
@@ -38,11 +40,13 @@ module wb_intercon #(
    wbs_2_adr_o, wbs_2_sel_o, wbs_2_we_o, wbs_2_cyc_o, wbs_2_stb_o,
    wbs_3_dat_o, wbs_3_adr_o, wbs_3_sel_o, wbs_3_we_o, wbs_3_cyc_o,
    wbs_3_stb_o, wbs_4_dat_o, wbs_4_adr_o, wbs_4_sel_o, wbs_4_we_o,
-   wbs_4_cyc_o, wbs_4_stb_o,
+   wbs_4_cyc_o, wbs_4_stb_o, wbs_5_dat_o, wbs_5_adr_o, wbs_5_sel_o,
+   wbs_5_we_o, wbs_5_cyc_o, wbs_5_stb_o,
    // Inputs
    wbm_dat_i, wbm_adr_i, wbm_sel_i, wbm_we_i, wbm_cyc_i, wbm_stb_i,
    wbs_0_dat_i, wbs_0_ack_i, wbs_1_dat_i, wbs_1_ack_i, wbs_2_dat_i,
-   wbs_2_ack_i, wbs_3_dat_i, wbs_3_ack_i, wbs_4_dat_i, wbs_4_ack_i
+   wbs_2_ack_i, wbs_3_dat_i, wbs_3_ack_i, wbs_4_dat_i, wbs_4_ack_i,
+   wbs_5_dat_i, wbs_5_ack_i
    );
 
   // Wishbone Master Interface
@@ -95,7 +99,7 @@ module wb_intercon #(
   output        wbs_3_stb_o;
   input         wbs_3_ack_i;
 
-  // Wishbone Slave 3 Interface
+  // Wishbone Slave 4 Interface
   input [data_width-1:0]  wbs_4_dat_i;
   output [data_width-1:0] wbs_4_dat_o;
   output [31:0] wbs_4_adr_o;
@@ -105,18 +109,30 @@ module wb_intercon #(
   output        wbs_4_stb_o;
   input         wbs_4_ack_i;
 
+  // Wishbone Slave 5 Interface
+  input [data_width-1:0]  wbs_5_dat_i;
+  output [data_width-1:0] wbs_5_dat_o;
+  output [31:0] wbs_5_adr_o;
+  output [1:0]  wbs_5_sel_o;
+  output        wbs_5_we_o;
+  output        wbs_5_cyc_o;
+  output        wbs_5_stb_o;
+  input         wbs_5_ack_i;
+
   // Slave select wires.
   wire 		slave_0_sel;
   wire 		slave_1_sel;
   wire 		slave_2_sel;
   wire 		slave_3_sel;
   wire 		slave_4_sel;
+  wire 		slave_5_sel;
 
   assign slave_0_sel = ((wbm_adr_i & slave_0_mask) == slave_0_addr);
   assign slave_1_sel = ((wbm_adr_i & slave_1_mask) == slave_1_addr);
   assign slave_2_sel = ((wbm_adr_i & slave_2_mask) == slave_2_addr);
   assign slave_3_sel = ((wbm_adr_i & slave_3_mask) == slave_3_addr);
   assign slave_4_sel = ((wbm_adr_i & slave_4_mask) == slave_4_addr);
+  assign slave_5_sel = ((wbm_adr_i & slave_5_mask) == slave_5_addr);
 
   // An aggregation of all master bus input wires
   wire [32+data_width+2+1+1-1:0] master_bus_i;
@@ -146,8 +162,12 @@ module wb_intercon #(
           wbs_4_we_o, wbs_4_cyc_o} = master_bus_i;
   assign wbs_4_stb_o = wbm_cyc_i & wbm_stb_i & slave_4_sel;
 
+  assign {wbs_5_adr_o, wbs_5_dat_o, wbs_5_sel_o,
+          wbs_5_we_o, wbs_5_cyc_o} = master_bus_i;
+  assign wbs_5_stb_o = wbm_cyc_i & wbm_stb_i & slave_5_sel;
+
   // Master bus acknowlegement.
-  assign wbm_ack_o = wbs_0_ack_i | wbs_1_ack_i | wbs_2_ack_i | wbs_3_ack_i | wbs_4_ack_i;
+  assign wbm_ack_o = wbs_0_ack_i | wbs_1_ack_i | wbs_2_ack_i | wbs_3_ack_i | wbs_4_ack_i | wbs_5_ack_i;
   
   // Master bus data output comes from the selected slave.
   wire [data_width-1:0] i_dat_s;   // internal shared bus, slave data to master
@@ -155,7 +175,8 @@ module wb_intercon #(
                     | ({data_width{slave_1_sel}} & wbs_1_dat_i)
                     | ({data_width{slave_2_sel}} & wbs_2_dat_i)
                     | ({data_width{slave_3_sel}} & wbs_3_dat_i)
-                    | ({data_width{slave_4_sel}} & wbs_4_dat_i));
+                    | ({data_width{slave_4_sel}} & wbs_4_dat_i)
+                    | ({data_width{slave_5_sel}} & wbs_5_dat_i));
   assign wbm_dat_o = i_dat_s;
 
 endmodule // wb_intercon

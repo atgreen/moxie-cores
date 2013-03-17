@@ -9,6 +9,7 @@ SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
 	  $(wildcard ../../../../cores/gdbtarget/*.v) \
 	  $(wildcard ../../../../cores/statled/rtl/*.v) \
 	  $(wildcard ../../../../cores/Nexys3_PSRAM/psram/*.v) \
+	  $(wildcard ../../../../cores/spicc/trunk/wb_picc.v) \
 	  $(wildcard ../../rtl/*.v) \
 	  $(COREGEN_SOURCES) 
 

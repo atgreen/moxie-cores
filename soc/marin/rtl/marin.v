@@ -1,6 +1,6 @@
 // marin.v - Top level Marin SoC module.
 //
-// Copyright (c) 2012  Anthony Green.  All Rights Reserved.
+// Copyright (c) 2012, 2013  Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -23,7 +23,7 @@ module marin (/*AUTOARG*/
    seg, an, tx_o, leds_o, mem_addr, mem_clk, mem_cen, mem_cre,
    mem_oen, mem_wen, mem_adv, mem_data_o,
    // Inouts
-   mem_data_t,
+   mem_data,
    // Inputs
    rst_i, clk_100mhz_i, rx_i, mem_data_i
    );
@@ -53,7 +53,7 @@ module marin (/*AUTOARG*/
   output        mem_adv;
   input [15:0]  mem_data_i;
   output [15:0]  mem_data_o;
-  inout [15:0]  mem_data_t;
+  inout [15:0]  mem_data;
 
   // MoxieLite/Wishbone interface
   wire [15:0] wb2mx_dat;
@@ -114,6 +114,16 @@ module marin (/*AUTOARG*/
   wire        wb2cr_stb;
   wire 	      cr2wb_ack;
 
+  // Programmable Interrupt Controller Wishbone interface
+  wire [15:0] wb2pi_dat;
+  wire [15:0] pi2wb_dat;
+  wire [31:0] wb2pi_adr;
+  wire [1:0]  wb2pi_sel;
+  wire 	      wb2pi_we;
+  wire 	      wb2pi_cyc;
+  wire        wb2pi_stb;
+  wire 	      pi2wb_ack;
+
   wire      clk_cpu;
   wire      clk_100mhz;
 
@@ -137,7 +147,10 @@ module marin (/*AUTOARG*/
 	        .slave_3_addr (32'b0001_0000_0000_0000_0000_0000_0000_0000),
 		/* Cellular RAM - 16MB @ 0x300000000 */
 		.slave_4_mask (32'b1111_1111_0000_0000_0000_0000_0000_0000),
-	        .slave_4_addr (32'b0011_0000_0000_0000_0000_0000_0000_0000))
+	        .slave_4_addr (32'b0011_0000_0000_0000_0000_0000_0000_0000),
+		/* PIC @ 0xF0000008 */
+		.slave_5_mask (32'b1111_1111_1111_1111_1111_1111_1111_1100),
+	        .slave_5_addr (32'b1111_0000_0000_0000_0000_0000_0000_1000))
 
   bus_intercon (.wbm_dat_o (wb2mx_dat),
 		.wbm_dat_i (mx2wb_dat),
@@ -191,7 +204,16 @@ module marin (/*AUTOARG*/
 		.wbs_4_we_o (wb2cr_we),
 		.wbs_4_cyc_o (wb2cr_cyc),
 		.wbs_4_stb_o (wb2cr_stb),
-		.wbs_4_ack_i (cr2wb_ack)); 
+		.wbs_4_ack_i (cr2wb_ack), 
+
+		.wbs_5_dat_o (wb2pi_dat),
+		.wbs_5_dat_i (pi2wb_dat),
+		.wbs_5_adr_o (wb2pi_adr),
+		.wbs_5_sel_o (wb2pi_sel),
+		.wbs_5_we_o (wb2pi_we),
+		.wbs_5_cyc_o (wb2pi_cyc),
+		.wbs_5_stb_o (wb2pi_stb),
+		.wbs_5_ack_i (pi2wb_ack)); 
   
    wire       br_debug;
    wire [7:0] ml_debug;
@@ -229,6 +251,17 @@ module marin (/*AUTOARG*/
 		   .wb_stb_i (wb2rm_stb),
 		   .wb_ack_o (rm2wb_ack));
 
+  wb_picc pic (.clk (clk_cpu),
+	       .rst (rst_i),
+	       .wb_cyc (wb2pi_cyc),
+	       .wb_sel (wb2pi_sel),
+	       .wb_std (wb2pi_stb),
+	       .wb_we (wb2pi_we),
+	       .wb_addr (wb2pi_adr[7:0]),
+	       .wb_din (wb2pi_dat[7:0]),
+	       .wb_ack (pi2wb_ack),
+	       .wb_dout (pi2wb_dat[7:0]));
+   
   psram_wb cellram (.clk_i (clk_cpu),
 		    // Wishbone Interface
 		    .wb_dat_i (wb2cr_dat),
@@ -250,7 +283,7 @@ module marin (/*AUTOARG*/
 		    .mem_wait (mem_wait),
 		    .mem_data_i (mem_data_i),
 		    .mem_data_o (mem_data_o),
-		    .mem_data_t (mem_data_t));
+		    .mem_data_t (mem_data));
 
   wire [12:0]  gdbdebug;
 
