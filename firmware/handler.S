@@ -1,30 +1,30 @@
-;; Copyright (c) 2013, Anthony Green
-;; All rights reserved.
+# Copyright (c) 2013, Anthony Green
+# All rights reserved.
 
-;; Redistribution and use in source and binary forms, with or without
-;; modification, are permitted provided that the following conditions are met:
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
 
-;;  	Redistributions of source code must retain the above copyright
-;; 	notice, this list of conditions and the following disclaimer.
+#  	Redistributions of source code must retain the above copyright
+# 	notice, this list of conditions and the following disclaimer.
 
-;;  	Redistributions in binary form must reproduce the above
-;; 	copyright notice, this list of conditions and the following
-;; 	disclaimer in the documentation and/or other materials
-;; 	provided with the distribution.
+#  	Redistributions in binary form must reproduce the above
+# 	copyright notice, this list of conditions and the following
+# 	disclaimer in the documentation and/or other materials
+# 	provided with the distribution.
 
-;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
-;; CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
-;; INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-;; MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-;; DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-;; CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-;; SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-;; NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES ;
-;; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-;; HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-;; OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-;; EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+# CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+# NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES ;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+# EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 	.text
 	.p2align 1
@@ -58,7 +58,6 @@ __moxie_exception_handler:
 	gsr   $r0, 5
 	gsr   $r1, 2
 	gsr   $r2, 3
-
 	/* ENABLE INTERRUPTS HERE.  */
 	
 	jsra __handle_exception
@@ -69,7 +68,7 @@ __moxie_exception_handler:
 	mov   $r0, $fp
 	dec   $r0, 14*4
 	mov   $sp, $r0
-	
+
 	/* Restore all general purpose registers.  */
 
 	pop   $sp, $r13
@@ -88,3 +87,4 @@ __moxie_exception_handler:
 	pop   $sp, $r0
 	
 	ret
+

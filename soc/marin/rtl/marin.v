@@ -19,11 +19,14 @@
 
 
 module marin (/*AUTOARG*/
-  // Outputs
-  seg, an, tx_o, leds_o,
-  // Inputs
-  rst_i, clk_100mhz_i, rx_i
-  );
+   // Outputs
+   seg, an, tx_o, leds_o, mem_addr, mem_clk, mem_cen, mem_cre,
+   mem_oen, mem_wen, mem_adv, mem_data_o,
+   // Inouts
+   mem_data_t,
+   // Inputs
+   rst_i, clk_100mhz_i, rx_i, mem_data_i
+   );
  
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_100mhz_i;
@@ -41,16 +44,16 @@ module marin (/*AUTOARG*/
   output [7:0] leds_o;
 
   // -- psram -----------------------------------------------------
-  // output [22:0] mem_addr;
-  // output        mem_clk;
-  // output        mem_ce_n;
-  // output        mem_cre;
-  // output        mem_oe_n;
-  // output        mem_we_n;
-  // output        mem_adv_n;
-  // output        mem_ub_n;
-  // output        mem_lb_n;
-  // inout [15:0]  mem_data;
+  output [22:0] mem_addr;
+  output        mem_clk;
+  output        mem_cen;
+  output        mem_cre;
+  output        mem_oen;
+  output        mem_wen;
+  output        mem_adv;
+  input [15:0]  mem_data_i;
+  output [15:0]  mem_data_o;
+  inout [15:0]  mem_data_t;
 
   // MoxieLite/Wishbone interface
   wire [15:0] wb2mx_dat;
@@ -101,6 +104,16 @@ module marin (/*AUTOARG*/
   wire        wb2rm_stb;
   wire 	      rm2wb_ack;
 
+  // Cellular RAM Wishbone interface
+  wire [15:0] wb2cr_dat;
+  wire [15:0] cr2wb_dat;
+  wire [31:0] wb2cr_adr;
+  wire [1:0]  wb2cr_sel;
+  wire 	      wb2cr_we;
+  wire 	      wb2cr_cyc;
+  wire        wb2cr_stb;
+  wire 	      cr2wb_ack;
+
   wire      clk_cpu;
   wire      clk_100mhz;
 
@@ -119,9 +132,12 @@ module marin (/*AUTOARG*/
 		/* UART */
 		.slave_2_mask (32'b1111_1111_1111_1111_1111_1111_1111_1100),
 	        .slave_2_addr (32'b1111_0000_0000_0000_0000_0000_0000_0100),
-		/* RAM */
+		/* Boot ROM  - 1k @ 0x100000000 */
 		.slave_3_mask (32'b1111_1111_1111_1111_1111_0000_0000_0000),
-	        .slave_3_addr (32'b0001_0000_0000_0000_0000_0000_0000_0000))
+	        .slave_3_addr (32'b0001_0000_0000_0000_0000_0000_0000_0000),
+		/* Cellular RAM - 16MB @ 0x300000000 */
+		.slave_4_mask (32'b1111_1111_0000_0000_0000_0000_0000_0000),
+	        .slave_4_addr (32'b0011_0000_0000_0000_0000_0000_0000_0000))
 
   bus_intercon (.wbm_dat_o (wb2mx_dat),
 		.wbm_dat_i (mx2wb_dat),
@@ -166,7 +182,16 @@ module marin (/*AUTOARG*/
 		.wbs_3_we_o (wb2rm_we),
 		.wbs_3_cyc_o (wb2rm_cyc),
 		.wbs_3_stb_o (wb2rm_stb),
-		.wbs_3_ack_i (rm2wb_ack)); 
+		.wbs_3_ack_i (rm2wb_ack), 
+
+		.wbs_4_dat_o (wb2cr_dat),
+		.wbs_4_dat_i (cr2wb_dat),
+		.wbs_4_adr_o (wb2cr_adr),
+		.wbs_4_sel_o (wb2cr_sel),
+		.wbs_4_we_o (wb2cr_we),
+		.wbs_4_cyc_o (wb2cr_cyc),
+		.wbs_4_stb_o (wb2cr_stb),
+		.wbs_4_ack_i (cr2wb_ack)); 
   
    wire       br_debug;
    wire [7:0] ml_debug;
@@ -203,6 +228,29 @@ module marin (/*AUTOARG*/
 		   .wb_cyc_i (wb2rm_cyc),
 		   .wb_stb_i (wb2rm_stb),
 		   .wb_ack_o (rm2wb_ack));
+
+  psram_wb cellram (.clk_i (clk_cpu),
+		    // Wishbone Interface
+		    .wb_dat_i (wb2cr_dat),
+		    .wb_dat_o (cr2wb_dat),
+		    .wb_adr_i (wb2cr_adr),
+		    .wb_sel_i (wb2cr_sel),
+		    .wb_we_i (wb2cr_we),
+		    .wb_cyc_i (wb2cr_cyc),
+		    .wb_stb_i (wb2cr_stb),
+		    .wb_ack_o (cr2wb_ack),
+		    // External Interface
+		    .mem_addr (mem_addr),
+		    .mem_clk (mem_clk),
+		    .mem_cen (mem_cen),
+		    .mem_cre (mem_cre),
+		    .mem_oen (mem_oen),
+		    .mem_wen (mem_wen),
+		    .mem_adv (mem_adv),
+		    .mem_wait (mem_wait),
+		    .mem_data_i (mem_data_i),
+		    .mem_data_o (mem_data_o),
+		    .mem_data_t (mem_data_t));
 
   wire [12:0]  gdbdebug;
 
@@ -268,6 +316,6 @@ module marin (/*AUTOARG*/
 		  .tx_o (tx_o),
 		  .gdb_ctrl_o (gdb2mx));
           
-  assign leds_o = debug;
+   assign leds_o = ml_debug;
 
 endmodule

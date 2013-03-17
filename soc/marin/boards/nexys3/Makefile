@@ -8,6 +8,7 @@ SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
 	  $(wildcard ../../../../cores/ram16bit/*.v) \
 	  $(wildcard ../../../../cores/gdbtarget/*.v) \
 	  $(wildcard ../../../../cores/statled/rtl/*.v) \
+	  $(wildcard ../../../../cores/Nexys3_PSRAM/psram/*.v) \
 	  $(wildcard ../../rtl/*.v) \
 	  $(COREGEN_SOURCES) 
 
@@ -29,16 +30,16 @@ fifo_generator_v9_2.v: fifo_generator_v9_2.xco coregen.cgp
 # CFLAGS = -Os -ffunction-sections -mno-crt0
 CFLAGS = -Os  -mno-crt0
 
-#BOOTROM_SOURCES = ../../../../firmware/boot.c ../../../../firmware/init.S
 BOOTROM_SOURCES = ../../../../firmware/marin.S ../../../../firmware/mdata.c ../../../../firmware/handler.S
 
 bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin.ld
-#	moxie-elf-gcc $(CFLAGS) -Wl,--gc-sections -T../../moxie-marin.ld -o bootrom.x $(BOOTROM_SOURCES)
 	moxie-elf-gcc $(CFLAGS) -c -o marin.o ../../../../firmware/marin.S
 	moxie-elf-gcc $(CFLAGS) -c -o mdata.o ../../../../firmware/mdata.c
-	moxie-elf-gcc $(CFLAGS) marin.o mdata.o -o bootrom.x -T../../moxie-marin.ld -lnosys
-#	moxie-elf-ld marin.o mdata.o -o bootrom.x -T../../moxie-marin.ld -Map=mapfile
-	moxie-elf-objcopy -O verilog bootrom.x bootrom.vh
+	moxie-elf-gcc $(CFLAGS) -c -o handler.o ../../../../firmware/handler.S
+	moxie-elf-gcc $(CFLAGS) marin.o mdata.o handler.o -o bootrom.elf -T../../moxie-marin.ld -lnosys
+#	moxie-elf-objcopy -O verilog bootrom.elf bootrom.vh
+	data2mem -bd bootrom.elf -d -o m bootrom.mem
+	mv bootrom.mem bootrom.vh
 
 $(PROJECT).prj: bootrom.vh ../../../../cores/gdbtarget/messages.vh $(SOURCES)
 	rm -f $(PROJECT).prj
