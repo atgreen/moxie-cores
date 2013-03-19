@@ -9,7 +9,8 @@ SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
 	  $(wildcard ../../../../cores/gdbtarget/*.v) \
 	  $(wildcard ../../../../cores/statled/rtl/*.v) \
 	  $(wildcard ../../../../cores/Nexys3_PSRAM/psram/*.v) \
-	  $(wildcard ../../../../cores/spicc/trunk/wb_picc.v) \
+	  $(wildcard ../../../../cores/simple_pic/trunk/rtl/simple_pic.v) \
+	  $(wildcard ../../../../cores/pit/trunk/rtl/verilog/pit_*.v) \
 	  $(wildcard ../../rtl/*.v) \
 	  $(COREGEN_SOURCES) 
 

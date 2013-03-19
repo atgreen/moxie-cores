@@ -52,9 +52,13 @@ module marin (/*AUTOARG*/
   output        mem_wen;
   output        mem_adv;
   input [15:0]  mem_data_i;
-  output [15:0]  mem_data_o;
+  output [15:0] mem_data_o;
   inout [15:0]  mem_data;
 
+  // MoxieLite IRQ Line
+  wire [7:0] 	pi2mx_irq;
+   
+   
   // MoxieLite/Wishbone interface
   wire [15:0] wb2mx_dat;
   wire [15:0] mx2wb_dat;
@@ -114,7 +118,7 @@ module marin (/*AUTOARG*/
   wire        wb2cr_stb;
   wire 	      cr2wb_ack;
 
-  // Programmable Interrupt Controller Wishbone interface
+  // Programmable interrupt controller
   wire [15:0] wb2pi_dat;
   wire [15:0] pi2wb_dat;
   wire [31:0] wb2pi_adr;
@@ -123,6 +127,16 @@ module marin (/*AUTOARG*/
   wire 	      wb2pi_cyc;
   wire        wb2pi_stb;
   wire 	      pi2wb_ack;
+
+  // Programmable timer
+  wire [15:0] wb2ti_dat;
+  wire [15:0] ti2wb_dat;
+  wire [31:0] wb2ti_adr;
+  wire [1:0]  wb2ti_sel;
+  wire 	      wb2ti_we;
+  wire 	      wb2ti_cyc;
+  wire        wb2ti_stb;
+  wire 	      ti2wb_ack;
 
   wire      clk_cpu;
   wire      clk_100mhz;
@@ -150,7 +164,10 @@ module marin (/*AUTOARG*/
 	        .slave_4_addr (32'b0011_0000_0000_0000_0000_0000_0000_0000),
 		/* PIC @ 0xF0000008 */
 		.slave_5_mask (32'b1111_1111_1111_1111_1111_1111_1111_1100),
-	        .slave_5_addr (32'b1111_0000_0000_0000_0000_0000_0000_1000))
+	        .slave_5_addr (32'b1111_0000_0000_0000_0000_0000_0000_1000),
+		/* PIT @ 0xF000000F */
+		.slave_6_mask (32'b1111_1111_1111_1111_1111_1111_1111_1100),
+	        .slave_6_addr (32'b1111_0000_0000_0000_0000_0000_0001_0000))
 
   bus_intercon (.wbm_dat_o (wb2mx_dat),
 		.wbm_dat_i (mx2wb_dat),
@@ -213,7 +230,16 @@ module marin (/*AUTOARG*/
 		.wbs_5_we_o (wb2pi_we),
 		.wbs_5_cyc_o (wb2pi_cyc),
 		.wbs_5_stb_o (wb2pi_stb),
-		.wbs_5_ack_i (pi2wb_ack)); 
+		.wbs_5_ack_i (pi2wb_ack),
+  
+		.wbs_6_dat_o (wb2ti_dat),
+		.wbs_6_dat_i (ti2wb_dat),
+		.wbs_6_adr_o (wb2ti_adr),
+		.wbs_6_sel_o (wb2ti_sel),
+		.wbs_6_we_o (wb2ti_we),
+		.wbs_6_cyc_o (wb2ti_cyc),
+		.wbs_6_stb_o (wb2ti_stb),
+		.wbs_6_ack_i (ti2wb_ack)); 
   
    wire       br_debug;
    wire [7:0] ml_debug;
@@ -251,16 +277,16 @@ module marin (/*AUTOARG*/
 		   .wb_stb_i (wb2rm_stb),
 		   .wb_ack_o (rm2wb_ack));
 
-  wb_picc pic (.clk (clk_cpu),
-	       .rst (rst_i),
-	       .wb_cyc (wb2pi_cyc),
-	       .wb_sel (wb2pi_sel),
-	       .wb_std (wb2pi_stb),
-	       .wb_we (wb2pi_we),
-	       .wb_addr (wb2pi_adr[7:0]),
-	       .wb_din (wb2pi_dat[7:0]),
-	       .wb_ack (pi2wb_ack),
-	       .wb_dout (pi2wb_dat[7:0]));
+  simple_pic pic (.clk_i (clk_cpu),
+		  .rst_i (rst_i),
+		  .cyc_i (wb2pi_cyc),
+		  .stb_i (wb2pi_stb),
+		  .we_i (wb2pi_we),
+		  .adr_i (wb2pi_adr[7:0]),
+		  .dat_i (wb2pi_dat[7:0]),
+		  .ack_o (pi2wb_ack),
+		  .dat_o (pi2wb_dat[7:0]),
+		  .irq (pi2mx_irq));
    
   psram_wb cellram (.clk_i (clk_cpu),
 		    // Wishbone Interface
@@ -284,6 +310,24 @@ module marin (/*AUTOARG*/
 		    .mem_data_i (mem_data_i),
 		    .mem_data_o (mem_data_o),
 		    .mem_data_t (mem_data));
+
+   wire       ti_pit;
+   wire       ti_pit_irq;
+   
+  pit_top #(.DWIDTH (16)) pit
+              (.wb_dat_o (ti2wb_dat),
+	       .wb_ack_o (ti2wb_ack),
+	       .wb_clk_i (clk_cpu),
+	       .wb_rst_i (rst_i),
+	       .arst_i (1'b0),
+	       .wb_adr_i (wb2ti_adr[2:0]),
+	       .wb_dat_i (wb2ti_dat),
+	       .wb_we_i (wb2ti_we),
+	       .wb_stb_i (wb2ti_stb),
+	       .wb_cyc_i (wb2ti_cyc),
+	       .wb_sel_i (wb2ti_sel),
+	       .pit_o (ti_pit),
+	       .pit_irq_o (ti_pit_irq));
 
   wire [12:0]  gdbdebug;
 
@@ -325,7 +369,8 @@ module marin (/*AUTOARG*/
 		     .wb_stb_o (mx2wb_stb),
 		     .wb_ack_i (wb2mx_ack),
 		     .gdb_i (gdb2mx),
-		     .debug_o (ml_debug));
+		     .debug_o (ml_debug),
+		     .irq_i (pi2mx_irq));
 
   statled status_led (.clk (clk_cpu),
 		      .rst (rst_i),

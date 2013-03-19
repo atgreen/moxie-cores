@@ -25,7 +25,8 @@ ENTITY moxielite IS
 		wr_h_n : out std_logic;							-- 0 = write upper byte
 		wr_l_n : out std_logic;							-- 0 = write lower byte
                 debug_o : out std_logic_vector(7 downto 0);
-                gdb_i : in std_logic_vector(1 downto 0)
+                gdb_i : in std_logic_vector(1 downto 0);
+                irq_i : in std_logic_vector(7 downto 0)
 	);
 END moxielite;
  
