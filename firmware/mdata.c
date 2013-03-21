@@ -84,6 +84,8 @@ void *__handle_exception (void *faddr, int exc, int code)
       break;
     case MOXIE_EX_IRQ:
       printf("0x%x: INTERRUPT REQUEST %d\n", faddr, code);
+      port_7seg_display = 0x3333;
+      while (1);
       break;
     case MOXIE_EX_SWI:
       printf("0x%x: SOFTWARE INTERRUPT REQUEST %d\n", faddr, code);
@@ -101,7 +103,7 @@ int main()
 {
   short i = 0;
   
-  // asm("ssr %0, 1" : : "r" (__moxie_exception_handler));
+  asm("ssr %0, 1" : : "r" (__moxie_exception_handler));
 
   while (1)
     {

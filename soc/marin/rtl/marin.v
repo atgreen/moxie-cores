@@ -20,18 +20,18 @@
 
 module marin (/*AUTOARG*/
    // Outputs
-   seg, an, tx_o, leds_o, mem_addr, mem_clk, mem_cen, mem_cre,
-   mem_oen, mem_wen, mem_adv, mem_data_o,
-   // Inouts
-   mem_data,
+   seg, an, tx_o, leds_o,
    // Inputs
-   rst_i, clk_100mhz_i, rx_i, mem_data_i
+   rst_i, clk_100mhz_i, btnl, rx_i
    );
  
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_100mhz_i;
   reg 	 rst;
 
+   input btnl;
+   
+   
   // -- Seven Segment Display -------------------------------------
   output [7:0] seg;
   output [3:0] an;
@@ -44,16 +44,16 @@ module marin (/*AUTOARG*/
   output [7:0] leds_o;
 
   // -- psram -----------------------------------------------------
-  output [22:0] mem_addr;
-  output        mem_clk;
-  output        mem_cen;
-  output        mem_cre;
-  output        mem_oen;
-  output        mem_wen;
-  output        mem_adv;
-  input [15:0]  mem_data_i;
-  output [15:0] mem_data_o;
-  inout [15:0]  mem_data;
+  // output [22:0] mem_addr;
+  // output        mem_clk;
+  // output        mem_cen;
+  // output        mem_cre;
+  // output        mem_oen;
+  // output        mem_wen;
+  // output        mem_adv;
+  // input [15:0]  mem_data_i;
+  // output [15:0] mem_data_o;
+  // inout [15:0]  mem_data;
 
   // MoxieLite IRQ Line
   wire [7:0] 	pi2mx_irq;
@@ -282,52 +282,52 @@ module marin (/*AUTOARG*/
 		  .cyc_i (wb2pi_cyc),
 		  .stb_i (wb2pi_stb),
 		  .we_i (wb2pi_we),
-		  .adr_i (wb2pi_adr[7:0]),
+		  .adr_i (wb2pi_adr[1:0]),
 		  .dat_i (wb2pi_dat[7:0]),
 		  .ack_o (pi2wb_ack),
 		  .dat_o (pi2wb_dat[7:0]),
 		  .irq (pi2mx_irq));
    
-  psram_wb cellram (.clk_i (clk_cpu),
-		    // Wishbone Interface
-		    .wb_dat_i (wb2cr_dat),
-		    .wb_dat_o (cr2wb_dat),
-		    .wb_adr_i (wb2cr_adr),
-		    .wb_sel_i (wb2cr_sel),
-		    .wb_we_i (wb2cr_we),
-		    .wb_cyc_i (wb2cr_cyc),
-		    .wb_stb_i (wb2cr_stb),
-		    .wb_ack_o (cr2wb_ack),
-		    // External Interface
-		    .mem_addr (mem_addr),
-		    .mem_clk (mem_clk),
-		    .mem_cen (mem_cen),
-		    .mem_cre (mem_cre),
-		    .mem_oen (mem_oen),
-		    .mem_wen (mem_wen),
-		    .mem_adv (mem_adv),
-		    .mem_wait (mem_wait),
-		    .mem_data_i (mem_data_i),
-		    .mem_data_o (mem_data_o),
-		    .mem_data_t (mem_data));
+  // psram_wb cellram (.clk_i (clk_cpu),
+  // 		    // Wishbone Interface
+  // 		    .wb_dat_i (wb2cr_dat),
+  // 		    .wb_dat_o (cr2wb_dat),
+  // 		    .wb_adr_i (wb2cr_adr),
+  // 		    .wb_sel_i (wb2cr_sel),
+  // 		    .wb_we_i (wb2cr_we),
+  // 		    .wb_cyc_i (wb2cr_cyc),
+  // 		    .wb_stb_i (wb2cr_stb),
+  // 		    .wb_ack_o (cr2wb_ack),
+  // 		    // External Interface
+  // 		    .mem_addr (mem_addr),
+  // 		    .mem_clk (mem_clk),
+  // 		    .mem_cen (mem_cen),
+  // 		    .mem_cre (mem_cre),
+  // 		    .mem_oen (mem_oen),
+  // 		    .mem_wen (mem_wen),
+  // 		    .mem_adv (mem_adv),
+  // 		    .mem_wait (mem_wait),
+  // 		    .mem_data_i (mem_data_i),
+  // 		    .mem_data_o (mem_data_o),
+  // 		    .mem_data_t (mem_data));
 
    wire       ti_pit;
    wire       ti_pit_irq;
    
   pit_top #(.DWIDTH (16)) pit
               (.wb_dat_o (ti2wb_dat),
-	       .wb_ack_o (ti2wb_ack),
-	       .wb_clk_i (clk_cpu),
-	       .wb_rst_i (rst_i),
-	       .arst_i (1'b0),
-	       .wb_adr_i (wb2ti_adr[2:0]),
-	       .wb_dat_i (wb2ti_dat),
-	       .wb_we_i (wb2ti_we),
-	       .wb_stb_i (wb2ti_stb),
-	       .wb_cyc_i (wb2ti_cyc),
-	       .wb_sel_i (wb2ti_sel),
-	       .pit_o (ti_pit),
-	       .pit_irq_o (ti_pit_irq));
+  	       .wb_ack_o (ti2wb_ack),
+  	       .wb_clk_i (clk_cpu),
+  	       .wb_rst_i (rst_i),
+  	       .arst_i (1'b0),
+  	       .wb_adr_i (wb2ti_adr[2:0]),
+  	       .wb_dat_i (wb2ti_dat),
+  	       .wb_we_i (wb2ti_we),
+  	       .wb_stb_i (wb2ti_stb),
+  	       .wb_cyc_i (wb2ti_cyc),
+  	       .wb_sel_i (wb2ti_sel),
+  	       .pit_o (ti_pit),
+  	       .pit_irq_o (ti_pit_irq));
 
   wire [12:0]  gdbdebug;
 
@@ -370,7 +370,8 @@ module marin (/*AUTOARG*/
 		     .wb_ack_i (wb2mx_ack),
 		     .gdb_i (gdb2mx),
 		     .debug_o (ml_debug),
-		     .irq_i (pi2mx_irq));
+		     .irq_i (btnl));
+//		     .irq_i (pi2mx_irq));
 
   statled status_led (.clk (clk_cpu),
 		      .rst (rst_i),

@@ -39,7 +39,7 @@ module moxielite_wb(/*AUTOARG*/
    input         wb_ack_i;
 
    // --- IRQ Interface --------------------------------------------
-   input [7:0] 	 irq_i;
+   input  	 irq_i;
 
    // --- Debug Interface ------------------------------------------
    input [1:0] 	 gdb_i;
