@@ -56,7 +56,7 @@ module marin (/*AUTOARG*/
   // inout [15:0]  mem_data;
 
   // MoxieLite IRQ Line
-  wire [7:0] 	pi2mx_irq;
+  wire  	pi2mx_irq;
    
    
   // MoxieLite/Wishbone interface
@@ -277,16 +277,16 @@ module marin (/*AUTOARG*/
 		   .wb_stb_i (wb2rm_stb),
 		   .wb_ack_o (rm2wb_ack));
 
-  simple_pic pic (.clk_i (clk_cpu),
-		  .rst_i (rst_i),
-		  .cyc_i (wb2pi_cyc),
-		  .stb_i (wb2pi_stb),
-		  .we_i (wb2pi_we),
-		  .adr_i (wb2pi_adr[1:0]),
-		  .dat_i (wb2pi_dat[7:0]),
-		  .ack_o (pi2wb_ack),
-		  .dat_o (pi2wb_dat[7:0]),
-		  .irq (pi2mx_irq));
+  mpic_wb pic (.clk_i (clk_cpu),
+	       .rst_i (rst_i),
+	       .wb_cyc_i (wb2pi_cyc),
+	       .wb_stb_i (wb2pi_stb),
+	       .wb_we_i (wb2pi_we),
+	       .wb_dat_i (wb2pi_dat),
+	       .wb_ack_o (pi2wb_ack),
+	       .wb_dat_o (pi2wb_dat),
+	       .irq_o (pi2mx_irq),
+	       .irq_i ({4'b0, btnl}));
    
   // psram_wb cellram (.clk_i (clk_cpu),
   // 		    // Wishbone Interface
@@ -370,8 +370,7 @@ module marin (/*AUTOARG*/
 		     .wb_ack_i (wb2mx_ack),
 		     .gdb_i (gdb2mx),
 		     .debug_o (ml_debug),
-		     .irq_i (btnl));
-//		     .irq_i (pi2mx_irq));
+		     .irq_i (pi2mx_irq));
 
   statled status_led (.clk (clk_cpu),
 		      .rst (rst_i),
