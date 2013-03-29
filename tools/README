@@ -1,14 +1,21 @@
-moxie-elf tools build instructions 
-====================================
+Build Instructions 
+===================
 
-This directory contains two scripts to download, build and install the
-moxie-elf GNU toolchain.  The toolchain is installed under a new
-directory hierarchy off of this directory called 'root'.
+This directory contains four scripts to download, build and install
+the moxie-elf and moxie-rtems GNU toolchains.  The toolchains are
+installed under a new directory hierarchy off of this directory called
+'root'.
 
 Run 'download-tools-sources.sh' to download the latest development
 sources.
 
+Run 'update-tools-sources.sh' if you've already downloaded the sources
+and just want to pull down updates.
+
 Run 'build-elf-tools.sh' to build the full moxie-elf GNU toolchain.
+
+Run 'build-rtems-tools.sh' to build the full moxie-rtems GNU toolchain
+as well as the RTEMS operating system as well.
 
 
 Anthony Green

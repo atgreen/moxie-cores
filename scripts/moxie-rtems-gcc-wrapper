@@ -1,0 +1,3 @@
+#!/bin/sh
+
+moxie-elf-gcc "$@" -D__rtems__ -D_rtems_ -Tsim.ld

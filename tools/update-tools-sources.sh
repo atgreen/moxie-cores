@@ -1,8 +1,8 @@
 #!/bin/sh
 
-# download-tools-sources.sh
+# update-tools-sources.sh
 #
-# Copyright (c) 2012  Anthony Green
+# Copyright (c) 2013  Anthony Green
 # 
 # The above named program is free software; you can redistribute it
 # and/or modify it under the terms of the GNU General Public License
@@ -20,9 +20,9 @@
 
 # A basic script to download the upstream GNU toolchain sources.
 
-git clone git://git.qemu.org/qemu.git
+(cd qemu; git pull)
 
-svn checkout svn://gcc.gnu.org/svn/gcc/trunk gcc
+(cd gcc; ./contrib/gcc_update)
 
 cvs -z3 -d:pserver:anoncvs@sourceware.org:/cvs/src co \
     binutils \
@@ -31,6 +31,6 @@ cvs -z3 -d:pserver:anoncvs@sourceware.org:/cvs/src co \
     newlib \
     libgloss
 
-git clone git://git.rtems.org/rtems.git
-(cd rtems; ./bootstrap)
+(cd rtems; git pull; ./bootstrap)
+
 
