@@ -10,7 +10,7 @@ SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
 	  $(wildcard ../../../../cores/statled/rtl/*.v) \
 	  $(wildcard ../../../../cores/Nexys3_PSRAM/psram/*.v) \
 	  $(wildcard ../../../../cores/mpic/mpic.v) \
-	  $(wildcard ../../../../cores/pit/trunk/rtl/verilog/pit_*.v) \
+	  $(wildcard ../../../../cores/mtimer/mtimer.v) \
 	  $(wildcard ../../rtl/*.v) \
 	  $(COREGEN_SOURCES) 
 
@@ -41,7 +41,7 @@ bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin.ld
 	moxie-elf-gcc $(CFLAGS) marin.o mdata.o handler.o -o bootrom.elf -T../../moxie-marin.ld -lnosys
 #	moxie-elf-objcopy -O verilog bootrom.elf bootrom.vh
 	data2mem -bd bootrom.elf -d -o m bootrom.mem
-	mv bootrom.mem bootrom.vh
+	grep -v @ bootrom.mem > bootrom.vh
 
 $(PROJECT).prj: bootrom.vh ../../../../cores/gdbtarget/messages.vh $(SOURCES)
 	rm -f $(PROJECT).prj

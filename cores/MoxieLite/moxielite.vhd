@@ -636,9 +636,9 @@ BEGIN
 
                                         if gdb_i(1)='0' then
                                           if irq_i='1' then
-                                            if sregfile(0)(1 downto 0)="00" then
+                                            if sregfile(0)(1 downto 0)="01" then
                                               -- Disable interrupts
-                                              sregfile(0)(0) <= '1';
+                                              sregfile(0)(0) <= '0';
                                               -- Save the "fault address" in sr5.
                                               sregfile(5) <= PC;
                                               -- Jump to the handler in sr1.

@@ -7,10 +7,6 @@
 
 	.equ BIG_ENDIAN,1
 
-	.equ DISPLAY_ADDR,0x00100000
-	.equ UART_ADDR,   0x01000000
-
-
 _start:	
 	# Set the top of stack and clear the frame pointer.
 	ldi.l	$sp, _stack
@@ -63,7 +59,6 @@ _exit:	jmpa _exit
 	.global port_7seg_display
 	.global port_uart
 	.global port_pic
-	.global port_pit
 
 port_7seg_display:
 	.word	0 	# 0x00
@@ -72,9 +67,5 @@ port_uart:
 	.word	0 	# 0x04
 	.word	0 	# 0x06
 port_pic:
-	.word   0	# 0x08 EnableEdge, Polarity
-	.word   0 	# 0x0a Mask, Pending
-port_pit:
-	.word	0	# 0x0c CNTRL
-	.word  	0	# 0x0e MOD
-	.word	0	# 0x10 CNT
+	.word   0	# 0x08 pending IRQs
+	.word   0 	# 0x0a **UNUSED**

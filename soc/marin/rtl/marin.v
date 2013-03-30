@@ -22,17 +22,16 @@ module marin (/*AUTOARG*/
    // Outputs
    seg, an, tx_o, leds_o,
    // Inputs
-   rst_i, clk_100mhz_i, btnl, rx_i
+   rst_i, clk_100mhz_i, btnl, btnr, btnu, btnd, btns, rx_i
    );
  
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_100mhz_i;
   reg 	 rst;
 
-   input btnl;
+  input btnl, btnr, btnu, btnd, btns;
    
-   
-  // -- Seven Segment Display -------------------------------------
+   // -- Seven Segment Display -------------------------------------
   output [7:0] seg;
   output [3:0] an;
 
@@ -128,15 +127,7 @@ module marin (/*AUTOARG*/
   wire        wb2pi_stb;
   wire 	      pi2wb_ack;
 
-  // Programmable timer
-  wire [15:0] wb2ti_dat;
-  wire [15:0] ti2wb_dat;
-  wire [31:0] wb2ti_adr;
-  wire [1:0]  wb2ti_sel;
-  wire 	      wb2ti_we;
-  wire 	      wb2ti_cyc;
-  wire        wb2ti_stb;
-  wire 	      ti2wb_ack;
+   wire ti2pi_irq;
 
   wire      clk_cpu;
   wire      clk_100mhz;
@@ -230,16 +221,7 @@ module marin (/*AUTOARG*/
 		.wbs_5_we_o (wb2pi_we),
 		.wbs_5_cyc_o (wb2pi_cyc),
 		.wbs_5_stb_o (wb2pi_stb),
-		.wbs_5_ack_i (pi2wb_ack),
-  
-		.wbs_6_dat_o (wb2ti_dat),
-		.wbs_6_dat_i (ti2wb_dat),
-		.wbs_6_adr_o (wb2ti_adr),
-		.wbs_6_sel_o (wb2ti_sel),
-		.wbs_6_we_o (wb2ti_we),
-		.wbs_6_cyc_o (wb2ti_cyc),
-		.wbs_6_stb_o (wb2ti_stb),
-		.wbs_6_ack_i (ti2wb_ack)); 
+		.wbs_5_ack_i (pi2wb_ack));
   
    wire       br_debug;
    wire [7:0] ml_debug;
@@ -286,7 +268,7 @@ module marin (/*AUTOARG*/
 	       .wb_ack_o (pi2wb_ack),
 	       .wb_dat_o (pi2wb_dat),
 	       .irq_o (pi2mx_irq),
-	       .irq_i ({4'b0, btnl}));
+	       .irq_i ({btnl, btnr, btnu, btnd, ti2pi_irq}));
    
   // psram_wb cellram (.clk_i (clk_cpu),
   // 		    // Wishbone Interface
@@ -311,24 +293,10 @@ module marin (/*AUTOARG*/
   // 		    .mem_data_o (mem_data_o),
   // 		    .mem_data_t (mem_data));
 
-   wire       ti_pit;
-   wire       ti_pit_irq;
+  mtimer tick_generator (.clk_i (clk_cpu),
+			 .rst_i (rst_i),
+			 .tick_o (ti2pi_irq));
    
-  pit_top #(.DWIDTH (16)) pit
-              (.wb_dat_o (ti2wb_dat),
-  	       .wb_ack_o (ti2wb_ack),
-  	       .wb_clk_i (clk_cpu),
-  	       .wb_rst_i (rst_i),
-  	       .arst_i (1'b0),
-  	       .wb_adr_i (wb2ti_adr[2:0]),
-  	       .wb_dat_i (wb2ti_dat),
-  	       .wb_we_i (wb2ti_we),
-  	       .wb_stb_i (wb2ti_stb),
-  	       .wb_cyc_i (wb2ti_cyc),
-  	       .wb_sel_i (wb2ti_sel),
-  	       .pit_o (ti_pit),
-  	       .pit_irq_o (ti_pit_irq));
-
   wire [12:0]  gdbdebug;
 
   nexys7seg_wb disp (.rst_i (rst_i),
@@ -394,6 +362,8 @@ module marin (/*AUTOARG*/
 		  .tx_o (tx_o),
 		  .gdb_ctrl_o (gdb2mx));
           
-   assign leds_o = ml_debug;
+   assign leds_o = {watchdog_adr[7:0]};
+
+// ml_debug[6:0]};
 
 endmodule
