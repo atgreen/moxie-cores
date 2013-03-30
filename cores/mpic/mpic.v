@@ -29,19 +29,20 @@ module mpic_wb (/*AUTOARG*/
      irq_o <= irq[0] | irq[1] | irq[2] | irq[3] | irq[4];
 
    always @(posedge clk_i)
-     irq[0] <= (rst_i | (we & wb_dat_i[0])) ? 1'b0 : irq[0] | irq_i[0];
+     irq[0] <= (rst_i | (we & ~wb_dat_i[0])) ? 1'b0 : irq_i[0] | irq[0];
    always @(posedge clk_i)
-     irq[1] <= (rst_i | (we & wb_dat_i[1])) ? 1'b0 : irq[1] | irq_i[1];
+     irq[1] <= (rst_i | (we & ~wb_dat_i[1])) ? 1'b0 : irq_i[1] | irq[1];
    always @(posedge clk_i)
-     irq[2] <= (rst_i | (we & wb_dat_i[2])) ? 1'b0 : irq[2] | irq_i[2];
+     irq[2] <= (rst_i | (we & ~wb_dat_i[2])) ? 1'b0 : irq_i[2] | irq[2];
    always @(posedge clk_i)
-     irq[3] <= (rst_i | (we & wb_dat_i[3])) ? 1'b0 : irq[3] | irq_i[3];
+     irq[3] <= (rst_i | (we & ~wb_dat_i[3])) ? 1'b0 : irq_i[3] | irq[3];
    always @(posedge clk_i)
-     irq[4] <= (rst_i | (we & wb_dat_i[4])) ? 1'b0 : irq[4] | irq_i[4];
-   
+     irq[4] <= (rst_i | (we & ~wb_dat_i[4])) ? 1'b0 : irq_i[4] | irq[4];
+
+
   always @(posedge clk_i)
     begin
-      wb_ack_o <= wb_stb_i & wb_cyc_i;
+       wb_ack_o  <= rst_i ? 1'b0 : wb_stb_i & wb_cyc_i;
     end
 
 endmodule // mpic_wb

@@ -3,6 +3,7 @@ int bssvalue;
 
 extern volatile short port_7seg_display;
 extern volatile short port_uart;
+extern volatile short port_pic;
 
 void delay ()
 {
@@ -70,6 +71,9 @@ _read () { return 0; }
 /* Called from our asm code.  Must return the return address.  */
 void *__handle_exception (void *faddr, int exc, int code)
 {
+  static int c = 0x0;
+  static int q = 0;
+
   switch (exc)
     {
     case MOXIE_EX_DIV0:
@@ -77,20 +81,24 @@ void *__handle_exception (void *faddr, int exc, int code)
       /* faddr is the fault address, and div is 2-bytes long, so the
 	 return address is faddr+2.  */
       return faddr + 2; 
-      break;
     case MOXIE_EX_BAD:
       printf("0x%x: ILLEGAL INSTRUCTION EXCEPTION\n", faddr);
       return faddr + 2;
-      break;
     case MOXIE_EX_IRQ:
       printf("0x%x: INTERRUPT REQUEST %d\n", faddr, code);
-      port_7seg_display = 0x3333;
-      while (1);
-      break;
+      port_7seg_display = c;
+      q++;
+      if (q == 4) 
+	{
+	  q = 0;
+	  c++;
+	}
+      // Clear the timer interrupt.
+      port_pic = 0;
+      return faddr;
     case MOXIE_EX_SWI:
       printf("0x%x: SOFTWARE INTERRUPT REQUEST %d\n", faddr, code);
       return faddr + 6;
-      break;
     default:
       printf("0x%x: UNKNOWN EXCEPTION 0x%x\n", faddr, exc);
       break;
@@ -101,13 +109,17 @@ void __moxie_exception_handler();
 
 int main()
 {
-  short i = 0;
-  
+  short i = 1;
+
+  /* Set the exception handler.  */
   asm("ssr %0, 1" : : "r" (__moxie_exception_handler));
+
+  /* Enable interrupts.  */
+  asm("ssr %0, 0" : : "r" (i));
 
   while (1)
     {
-      port_7seg_display = i++;
+      // port_7seg_display = i++;
       delay ();
     }
   return 0;

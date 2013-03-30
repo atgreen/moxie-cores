@@ -53,7 +53,8 @@ module wb_watchdog #(
   always @(posedge clk_i) begin
     counter <= wbm_stb_i ? 0 : counter + 1;
     address <= wbm_stb_i ? wbm_adr_i : address;
-    active <= (rst_i | fault_o) ? 1'b0 : wbm_stb_i ? 1'b1 : wbm_ack_i ? 1'b0 : active;
+//    active <= (rst_i | fault_o) ? 1'b0 : wbm_stb_i ? 1'b1 : wbm_ack_i ? 1'b0 : active;
+    active <= (rst_i) ? 1'b0 : wbm_stb_i ? 1'b1 : wbm_ack_i ? 1'b0 : active;
   end
     
 endmodule // wb_watchdog

@@ -26,6 +26,8 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+.global delay
+	
 	.text
 	.p2align 1
 	.global __moxie_exception_handler
@@ -58,13 +60,18 @@ __moxie_exception_handler:
 	gsr   $r0, 5
 	gsr   $r1, 2
 	gsr   $r2, 3
-	/* ENABLE INTERRUPTS HERE.  */
 	
 	jsra __handle_exception
 
 	/* Insert the return address in our call frame.  */
 	sto.l 4($fp), $r0
-	
+
+	/* Re-enable exceptions */
+	ldi.l $r4, 0x1
+	gsr   $r3, 0
+	or    $r3, $r4
+	ssr   $r3, 0
+
 	mov   $r0, $fp
 	dec   $r0, 14*4
 	mov   $sp, $r0
