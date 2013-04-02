@@ -40,8 +40,8 @@ for dir in buildrtems/gcc buildrtems/src buildrtems/gdb buildrtems/rtems root/us
 done;
 
 # Put our tools on the PATH
-PATH=$PREFIX/bin:$PATH
 PREFIX=`(cd root/usr; pwd)`
+PATH=$PREFIX/bin:$PATH
 WRAPPER=`(cd ../scripts/; pwd)`/moxie-rtems-gcc-wrapper
 
 (cd buildrtems/src;
