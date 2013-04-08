@@ -8,7 +8,7 @@ SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
 	  $(wildcard ../../../../cores/ram16bit/*.v) \
 	  $(wildcard ../../../../cores/gdbtarget/*.v) \
 	  $(wildcard ../../../../cores/statled/rtl/*.v) \
-	  $(wildcard ../../../../cores/Nexys3_PSRAM/psram/*.v) \
+	  $(wildcard ../../../../cores/psram/psram_wb.v) \
 	  $(wildcard ../../../../cores/mpic/mpic.v) \
 	  $(wildcard ../../../../cores/mtimer/mtimer.v) \
 	  $(wildcard ../../rtl/*.v) \

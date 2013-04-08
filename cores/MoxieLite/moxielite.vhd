@@ -1086,7 +1086,8 @@ BEGIN
 
                                 when state_execute_ssr =>
 
-                                  sregfile(to_integer(unsigned(operand_B))) <= reg_A_value;
+                                  sregfile(to_integer(unsigned(operand_B))) <=
+                                    reg_A_value;
 
 				  -- Continue with next instruction
 				  state <= state_fetch_pre;
