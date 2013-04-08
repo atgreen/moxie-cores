@@ -33,35 +33,34 @@ module psram_wb (/*AUTOARG*/
 
    input [31:0]  wb_adr_i;
    output reg [15:0] wb_dat_o;
-   input [15:0]  wb_dat_i;
-   input [1:0] 	 wb_sel_i;
-   input 	 wb_we_i;
-   input 	 wb_cyc_i;
-   input 	 wb_stb_i;
-   output reg       wb_ack_o;
+   input [15:0]      wb_dat_i;
+   input [1:0] 	     wb_sel_i;
+   input 	     wb_we_i;
+   input 	     wb_cyc_i;
+   input 	     wb_stb_i;
+   output reg 	     wb_ack_o;
 
    // Memory interface
    output reg [22:0] mem_adr_o;   //Memory address
-   output        mem_clk_o;    //Memory clock
-   output reg    mem_cen_o;    //Memory chip enable
-   output        mem_cre_o;    //Memory control register enable
-   output reg    mem_oen_o;    //Memory output enable
-   output reg    mem_wen_o;    //Memory write enable
-   output        mem_adv_o;    //Memory address valid
-   input         mem_wait_i;   //Memory wait
+   output 	     mem_clk_o;    //Memory clock
+   output reg 	     mem_cen_o;    //Memory chip enable
+   output 	     mem_cre_o;    //Memory control register enable
+   output reg 	     mem_oen_o;    //Memory output enable
+   output reg 	     mem_wen_o;    //Memory write enable
+   output 	     mem_adv_o;    //Memory address valid
+   input 	     mem_wait_i;   //Memory wait
    output reg [ 1:0] mem_ben_o;     //Memory byte enable
 
-   inout [15:0] mem_data_t;  //Memory data tri-state
+   inout [15:0]      mem_data_t;  //Memory data tri-state
 
    assign mem_adv_o = 1'b0;   // Tie this low for async access.
    assign mem_clk_o = 1'b0;   // Ditto.
    assign mem_cre_o = 1'b0;   // Hold this low.
 
-   reg [15:0] 	a = 0;
-   reg [15:0] 	b = 0;
-   reg [2:0] 	waitcount = 0;
-   reg 		current_cmd;
-
+   reg [15:0] 	     a = 0;
+   reg [15:0] 	     b = 0;
+   reg [2:0] 	     wait_count = 0;
+   reg 		     writing_now;
 
    // mem_data is tri-state when mem_oen is low.
    assign mem_data_t = mem_oen_o ? a : 16'bz;
@@ -72,9 +71,12 @@ module psram_wb (/*AUTOARG*/
 	a <= wb_dat_i;
      end
 
-  // --- State machine states -----------------------------------------
-  parameter PSRAM_IDLE = 2'b00;
-  parameter PSRAM_WAIT  = 2'b10;
+   wire finished_write = writing_now && (wait_count == 3);
+   wire finished_read  = ~writing_now && (wait_count == 4);
+   
+   // --- State machine states -----------------------------------------
+   parameter PSRAM_IDLE = 2'b00;
+   parameter PSRAM_WAIT  = 2'b10;
 
    (* FSM_ENCODING="ONE-HOT", SAFE_IMPLEMENTATION="NO" *) reg [1:0] state = 0;
 
@@ -82,7 +84,7 @@ module psram_wb (/*AUTOARG*/
       if (rst_i) begin
 	 state <= PSRAM_IDLE;
 	 wb_dat_o <= 0;
-	 current_cmd <= 1;
+	 writing_now <= 0;
 	 mem_cen_o <= 1'b1;
 	 mem_oen_o <= 1'b1;
 	 mem_wen_o <= 1'b1;
@@ -91,59 +93,60 @@ module psram_wb (/*AUTOARG*/
       end
       else
 	case (state)
+	  PSRAM_IDLE: 
+	    begin
+	       if (wb_stb_i & wb_cyc_i)
+		 state <= PSRAM_WAIT;
+	       else
+		 state <= PSRAM_IDLE;
 
-	  PSRAM_IDLE: begin						// Wait for incoming command.
-	     if (wb_stb_i & wb_cyc_i)
-	       state <= PSRAM_WAIT;
-	     else
-	       state <= PSRAM_IDLE;
-
-	     if (wb_stb_i & wb_cyc_i)
-	       begin
-		  mem_adr_o <= wb_adr_i;
-		  current_cmd <= wb_we_i;
-		  mem_oen_o <= wb_we_i;
-		  mem_wen_o <= ~wb_we_i;
-		  mem_cen_o <= 1'b0;
-		  mem_ben_o <= wb_sel_i;
-	       end
-	     else
-	       begin
-		  mem_adr_o <= 26'hXXXXXXX;
-		  current_cmd <= 1'b1;
-		  mem_oen_o <= 1'b1;
-		  mem_wen_o <= 1'b1;
-		  mem_cen_o <= 1'b1;
-		  mem_ben_o <= 2'b11;
-	       end
-	  end
+	       if (wb_stb_i & wb_cyc_i)
+		 begin
+		    mem_adr_o <= wb_adr_i;
+		    writing_now <= wb_we_i;
+		    mem_oen_o <= wb_we_i;
+		    mem_wen_o <= ~wb_we_i;
+		    mem_cen_o <= 1'b0;
+		    mem_ben_o <= wb_sel_i;
+		 end
+	       else
+		 begin
+		    mem_adr_o <= 26'hXXXXXXX;
+		    writing_now <= 1'b0;
+		    mem_oen_o <= 1'b1;
+		    mem_wen_o <= 1'b1;
+		    mem_cen_o <= 1'b1;
+		    mem_ben_o <= 2'b11;
+		 end
+	    end
 
 	  PSRAM_WAIT:
 	    begin
-	       if (((waitcount == 3) && (current_cmd == 0)) || (waitcount == 4))
+	       // We need to wait 70ns for a write, and 70ns + 1 latch cycle for a read.
+	       if (finished_read | finished_write)
 		 state <= PSRAM_IDLE;
 	       else
 		 state <= PSRAM_WAIT;
 
-	       if ((waitcount == 6) && (current_cmd == 0))
+	       if (finished_write)
 		 begin
 		    mem_oen_o <= 1'b1;
 		    mem_wen_o <= 1'b1;
 		    mem_cen_o <= 1'b1;
-		    waitcount <= 0;
+		    wait_count <= 0;
 		    wb_ack_o <= 1'b1;
 		 end
-	       else if (waitcount == 7)
+	       else if (finished_read)
 		 begin
 		    mem_oen_o <= 1'b1;
 		    mem_wen_o <= 1'b1;
 		    mem_cen_o <= 1'b1;
-		    waitcount <= 0;
+		    wait_count <= 0;
 		    wb_ack_o <= 1'b1;
 		    wb_dat_o <= b;
 		 end
 	       else
-		 waitcount <= waitcount + 1;
+		 wait_count <= wait_count + 1;
 	    end
 	endcase
    end
