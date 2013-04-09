@@ -62,7 +62,6 @@ module moxielite_wb(/*AUTOARG*/
      WAIT = 2'b11;
 
    reg [1:0] 	 cs = IDLE; // current state
-   reg [1:0] 	 ns = IDLE; // next state
 
   reg 		 cpu_block = 1'b0;
 
@@ -71,7 +70,7 @@ module moxielite_wb(/*AUTOARG*/
    
    moxielite core (.clock (clk_i),
 		   .reset_n (!rst_i),
-		   .wait_n (!cpu_block),
+		   .wait_n (~cpu_block),
 		   .addr (cpu_addr),
 		   .din (cpu_din),
 		   .dout (cpu_dout),
@@ -111,24 +110,19 @@ module moxielite_wb(/*AUTOARG*/
   // cpu_block
   always @(posedge clk_i)
     case (cs)
-      IDLE: cpu_block <= 1'b0;
-      STRB: cpu_block <= 1'b1;
-      WAIT: cpu_block <= !wb_ack_i;
+      IDLE: cpu_block <= (strobe ? 1'b1 : 1'b0);
+      STRB: cpu_block <= ~wb_ack_i; // 1'b1;
+      WAIT: cpu_block <= ~wb_ack_i;
   endcase
-
-  // state machine
-  // cs - current state
-  always @(posedge clk_i)
-    cs <= rst_i ? IDLE : ns;
 
   always @(posedge clk_i)
     if (rst_i)
-      ns <= IDLE;
+      cs <= IDLE;
     else
       case (cs)
-        IDLE: ns <= wb_ack_i ? IDLE : (strobe ? STRB : IDLE);
-        STRB: ns <= wb_ack_i ? IDLE : WAIT;
-        WAIT: ns <= wb_ack_i ? IDLE : WAIT;
+        IDLE: cs <= wb_ack_i ? IDLE : (strobe ? STRB : IDLE);
+        STRB: cs <= wb_ack_i ? IDLE : WAIT;
+        WAIT: cs <= wb_ack_i ? IDLE : WAIT;
       endcase
   
 endmodule
