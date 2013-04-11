@@ -32,13 +32,13 @@ fifo_generator_v9_2.v: fifo_generator_v9_2.xco coregen.cgp
 # CFLAGS = -Os -ffunction-sections -mno-crt0
 CFLAGS = -Os  -mno-crt0
 
-BOOTROM_SOURCES = ../../../../firmware/marin.S ../../../../firmware/mdata.c ../../../../firmware/handler.S
+BOOTROM_SOURCES = ../../../../firmware/marin.S ../../../../firmware/bootload.c ../../../../firmware/handler.S
 
 bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin.ld
 	moxie-elf-gcc $(CFLAGS) -c -o marin.o ../../../../firmware/marin.S
-	moxie-elf-gcc $(CFLAGS) -c -o mdata.o ../../../../firmware/mdata.c
+	moxie-elf-gcc $(CFLAGS) -c -o bootload.o ../../../../firmware/bootload.c
 	moxie-elf-gcc $(CFLAGS) -c -o handler.o ../../../../firmware/handler.S
-	moxie-elf-gcc $(CFLAGS) marin.o mdata.o handler.o -o bootrom.elf -T../../moxie-marin.ld -lnosys
+	moxie-elf-gcc $(CFLAGS) marin.o bootload.o handler.o -o bootrom.elf -Wl,--gc-sections -T../../moxie-marin.ld -lnosys
 #	moxie-elf-objcopy -O verilog bootrom.elf bootrom.vh
 	data2mem -bd bootrom.elf -d -o m bootrom.mem
 	grep -v @ bootrom.mem > bootrom.vh
