@@ -21,7 +21,7 @@
 module marin (/*AUTOARG*/
    // Outputs
    seg, an, tx_o, leds_o, mem_addr, mem_clk, mem_cen, mem_cre,
-   mem_oen, mem_wen, mem_adv,
+   mem_oen, mem_wen, mem_adv, mem_ben,
    // Inouts
    mem_data_t,
    // Inputs
@@ -46,7 +46,7 @@ module marin (/*AUTOARG*/
   output [7:0] leds_o;
 
   // -- psram -----------------------------------------------------
-  output [22:0] mem_addr;
+  output [25:0] mem_addr;
   output        mem_clk;
   output        mem_cen;
   output        mem_cre;
@@ -54,6 +54,7 @@ module marin (/*AUTOARG*/
   output        mem_wen;
   output        mem_adv;
   inout [15:0]  mem_data_t;
+  output [1:0]  mem_ben;
 
   // MoxieLite IRQ Line
   wire  	pi2mx_irq;
@@ -286,7 +287,8 @@ module marin (/*AUTOARG*/
   		    .mem_wen_o (mem_wen),
   		    .mem_adv_o (mem_adv),
   		    .mem_wait_i (mem_wait),
-  		    .mem_data_t (mem_data_t));
+  		    .mem_data_t (mem_data_t),
+		    .mem_ben_o (mem_ben));
 
   mtimer tick_generator (.clk_i (clk_cpu),
 			 .rst_i (rst_i),
@@ -316,8 +318,8 @@ module marin (/*AUTOARG*/
 		.wb_cyc_i (wb2ua_cyc),
 		.wb_stb_i (wb2ua_stb),
 		.wb_ack_o (ua2wb_ack),
-		.rx_i (),
-		.tx_o ());
+		.rx_i (rx_i),
+		.tx_o (tx_o));
 
   wire [1:0]	       gdb2mx;
   
@@ -353,8 +355,8 @@ module marin (/*AUTOARG*/
 		  .wb_cyc_o (),
 		  .wb_stb_o (),
 		  .wb_ack_i (),
-		  .rx_i (rx_i),
-		  .tx_o (tx_o),
+		  .rx_i (),
+		  .tx_o (),
 		  .gdb_ctrl_o (gdb2mx));
           
    assign leds_o = ml_debug;
