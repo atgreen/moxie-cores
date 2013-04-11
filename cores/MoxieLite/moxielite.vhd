@@ -784,8 +784,10 @@ BEGIN
 
 								if data_byte_count="001" then
 
-									-- Aligned only byte
-									data_reg(7 downto 0) <= din(7 downto 0);
+									-- Aligned only
+                                                                        -- byte
+                                                                        -- BIG ENDIAN
+									data_reg(7 downto 0) <= din(15 downto 8);
 
 								else
 
@@ -796,7 +798,9 @@ BEGIN
 							else
 
 								-- Unaligned first or only byte
-								data_reg(7 downto 0) <= din(15 downto 8);
+--	AG FIX							data_reg(7 downto 0) <= din(15 downto 8);
+                                                          -- BIG ENDIAN ONLY
+                                                          data_reg(7 downto 0) <= din(7 downto 0);
 
 							end if;
 
