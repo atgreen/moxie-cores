@@ -56,17 +56,10 @@ module moxielite_wb(/*AUTOARG*/
    wire 	 cpu_wr_h;
    wire 	 cpu_wr_l;
 
-   localparam [1:0]
-     IDLE = 2'b00,
-     STRB = 2'b01,
-     WAIT = 2'b11;
-
-   reg [1:0] 	 cs = IDLE; // current state
-
-  reg 		 cpu_block = 1'b0;
+   wire strobe = !(cpu_rd_n & cpu_wr_n);
+   wire cpu_block = strobe & ~wb_ack_i;
 
    wire [7:0] 	 debugml;
-   
    
    moxielite core (.clock (clk_i),
 		   .reset_n (!rst_i),
@@ -89,40 +82,8 @@ module moxielite_wb(/*AUTOARG*/
    assign wb_cyc_o = wb_stb_o;
    assign wb_sel_o = cpu_wr_n ? 2'b11 : {!cpu_wr_h_n, !cpu_wr_l_n};
 
-   wire strobe = !(cpu_rd_n & cpu_wr_n);
-
    assign wb_stb_o = strobe;
-
-   reg debug_ack = 1'b0;
-   reg [7:0] debug_data = 8'b0;
    
-   always @(posedge clk_i) begin
-     debug_ack <= debug_ack | (rst_i ? 1'b0 : wb_ack_i);
-     debug_data <= debug_data | (wb_ack_i ? (wb_dat_i[15:8] | wb_dat_i[7:0]) : 8'b0);
-   end
+   assign debug_o = debugml;
 
-   // Debugging logic
-   reg [3:0] acksum = 4'b0;
-   always @(posedge clk_i)
-     acksum <= acksum + (wb_ack_i ? 4'b0001 : 4'b0000);
-  assign debug_o = debugml;
-     
-  // cpu_block
-  always @(posedge clk_i)
-    case (cs)
-      IDLE: cpu_block <= (strobe ? 1'b1 : 1'b0);
-      STRB: cpu_block <= ~wb_ack_i; // 1'b1;
-      WAIT: cpu_block <= ~wb_ack_i;
-  endcase
-
-  always @(posedge clk_i)
-    if (rst_i)
-      cs <= IDLE;
-    else
-      case (cs)
-        IDLE: cs <= wb_ack_i ? IDLE : (strobe ? STRB : IDLE);
-        STRB: cs <= wb_ack_i ? IDLE : WAIT;
-        WAIT: cs <= wb_ack_i ? IDLE : WAIT;
-      endcase
-  
 endmodule

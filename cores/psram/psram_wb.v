@@ -31,7 +31,7 @@ module psram_wb (/*AUTOARG*/
 
    input         rst_i,     clk_i;
 
-   input [31:0]  wb_adr_i;
+   input [31:0]      wb_adr_i;
    output reg [15:0] wb_dat_o;
    input [15:0]      wb_dat_i;
    input [1:0] 	     wb_sel_i;
@@ -41,7 +41,7 @@ module psram_wb (/*AUTOARG*/
    output reg 	     wb_ack_o;
 
    // Memory interface
-   output reg [22:0] mem_adr_o;   //Memory address
+   output reg [25:0] mem_adr_o;   //Memory address
    output 	     mem_clk_o;    //Memory clock
    output reg 	     mem_cen_o;    //Memory chip enable
    output 	     mem_cre_o;    //Memory control register enable
@@ -71,14 +71,12 @@ module psram_wb (/*AUTOARG*/
 	a <= wb_dat_i;
      end
 
-   wire finished_write = writing_now && (wait_count == 3);
-   wire finished_read  = ~writing_now && (wait_count == 4);
-   
    // --- State machine states -----------------------------------------
-   parameter PSRAM_IDLE = 2'b00;
-   parameter PSRAM_WAIT  = 2'b10;
+   parameter PSRAM_IDLE = 3'b000;
+   parameter PSRAM_WAIT = 3'b010;
+   parameter PSRAM_ACK  = 3'b100;
 
-   (* FSM_ENCODING="ONE-HOT", SAFE_IMPLEMENTATION="NO" *) reg [1:0] state = 0;
+   (* FSM_ENCODING="ONE-HOT", SAFE_IMPLEMENTATION="NO" *) reg [2:0] state = 0;
 
    always @(posedge clk_i) begin
       if (rst_i) begin
@@ -90,29 +88,27 @@ module psram_wb (/*AUTOARG*/
 	 mem_wen_o <= 1'b1;
 	 mem_adr_o <= 0;
 	 mem_ben_o <= 2'b11;
+	 wb_ack_o <= 1'b0;
       end
       else
 	case (state)
 	  PSRAM_IDLE: 
 	    begin
-	       if (wb_stb_i & wb_cyc_i)
-		 state <= PSRAM_WAIT;
-	       else
-		 state <= PSRAM_IDLE;
-
+	       wb_ack_o <= 1'b0;
+	       wait_count <= 0;
 	       if (wb_stb_i & wb_cyc_i)
 		 begin
-		    mem_adr_o <= wb_adr_i;
+		    state <= PSRAM_WAIT;
 		    writing_now <= wb_we_i;
+		    mem_adr_o <= wb_adr_i[25:0];
 		    mem_oen_o <= wb_we_i;
 		    mem_wen_o <= ~wb_we_i;
 		    mem_cen_o <= 1'b0;
-		    mem_ben_o <= wb_sel_i;
+		    mem_ben_o <= ~wb_sel_i;
 		 end
 	       else
 		 begin
-		    mem_adr_o <= 26'hXXXXXXX;
-		    writing_now <= 1'b0;
+		    mem_adr_o <= 26'bXXXXXXXXXXXXXXXXXXXXXXXXXX;
 		    mem_oen_o <= 1'b1;
 		    mem_wen_o <= 1'b1;
 		    mem_cen_o <= 1'b1;
@@ -122,33 +118,33 @@ module psram_wb (/*AUTOARG*/
 
 	  PSRAM_WAIT:
 	    begin
-	       // We need to wait 70ns for a write, and 70ns + 1 latch cycle for a read.
-	       if (finished_read | finished_write)
-		 state <= PSRAM_IDLE;
-	       else
-		 state <= PSRAM_WAIT;
-
-	       if (finished_write)
+	       if (writing_now && (wait_count == 4))
 		 begin
+		    state <= PSRAM_ACK;
 		    mem_oen_o <= 1'b1;
 		    mem_wen_o <= 1'b1;
 		    mem_cen_o <= 1'b1;
-		    wait_count <= 0;
 		    wb_ack_o <= 1'b1;
 		 end
-	       else if (finished_read)
+	       else if (wait_count == 5)
 		 begin
+		    state <= PSRAM_ACK;
 		    mem_oen_o <= 1'b1;
 		    mem_wen_o <= 1'b1;
 		    mem_cen_o <= 1'b1;
-		    wait_count <= 0;
 		    wb_ack_o <= 1'b1;
 		    wb_dat_o <= b;
 		 end
-	       else
+	       else 
 		 wait_count <= wait_count + 1;
+	    end // case: PSRAM_WAIT
+
+	  PSRAM_ACK:
+	    begin
+	       state <= (wb_stb_i & wb_cyc_i) ? PSRAM_ACK : PSRAM_IDLE;
 	    end
-	endcase
+		 
+	endcase // case (state)
    end
 
 endmodule

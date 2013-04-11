@@ -23,10 +23,8 @@ GROUP(-lc -lgcc)
 
 MEMORY 
 {
-/*  ROM (rx)  : ORIGIN = 0x00001000, LENGTH = 16k 
-  RAM (rwx) : ORIGIN = 0x10000000, LENGTH = 8k  */
-  ROM (rx)  : ORIGIN = 0x00001000, LENGTH = 4k 
-  RAM (rwx) : ORIGIN = 0x10000000, LENGTH = 3k  
+  ROM (rx)  : ORIGIN = 0x00001000, LENGTH = 8k 
+  RAM (rwx) : ORIGIN = 0x10000000, LENGTH = 4k  
   PORTS (rw) : ORIGIN = 0xF0000000, LENGTH = 1k
 } 
 
