@@ -1,5 +1,5 @@
 /*
- * The Marin SoC Linker Script for running is Cellular RAM
+ * The Marin SoC Linker Script for On-Chip Boot Loader
  *
  * Copyright (C) 2012 Anthony Green
  *
@@ -23,7 +23,8 @@ GROUP(-lc -lgcc)
 
 MEMORY 
 {
-  RAM (rwx) : ORIGIN = 0x30000000, LENGTH = 16M  
+  ROM (rx)  : ORIGIN = 0x00001000, LENGTH = 8k 
+  RAM (rwx) : ORIGIN = 0x10000000, LENGTH = 4k  
   PORTS (rw) : ORIGIN = 0xF0000000, LENGTH = 1k
 } 
 
@@ -36,7 +37,7 @@ SECTIONS
     KEEP(*(.init))
     KEEP(*(.fini))
     . = ALIGN(0x4); 
-  } > RAM
+  } > ROM
 
   _etext = .;
   PROVIDE (etext = .);
@@ -50,7 +51,7 @@ SECTIONS
     *(.jcr)
     *(.tm_clone_table)
     . = ALIGN(0x4); 
-  } > RAM
+  } > ROM 
 
   .ramtop : 
   {
