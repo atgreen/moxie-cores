@@ -168,7 +168,7 @@ static int record_type_address_length (int record_type)
 }
 
 #ifdef __MOXIE__
-#define STORE(T,A,V) *(T*)A = V
+#define STORE(T,A,V) *(T*)(A+0x30000000) = V
 #else
 #define STORE(T,A,V)
 #endif
@@ -270,10 +270,10 @@ int main()
 
   port_7seg_display = 0xf00d;
 
-  mx_puts ("Jumping to code at 0x3000000.\n\r");
+  mx_puts ("Jumping to code at 0x30000000.\n\r");
 #ifdef __MOXIE__
   /* Jump to our new program in RAM.  Never return.  */
-  asm ("jmpa 0x3000000");
+  asm ("jmpa 0x30000000");
 #endif
 
   return 0;
