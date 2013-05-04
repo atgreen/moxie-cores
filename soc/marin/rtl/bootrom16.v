@@ -32,9 +32,9 @@ module bootrom16 (
 
   // 16k boot ROM
   reg  [7:0] rom[0:16383];
-  wire [10:0] index;
+  wire [11:0] index;
 
-  assign index = wb_adr_i[13:0];
+  assign index = wb_adr_i[11:0];
 
   reg [0:0]  wb_ack_o_reg;
   reg [15:0] wb_dat_o_reg;

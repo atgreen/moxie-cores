@@ -1,31 +1,60 @@
+#ifndef __MOXIE__
+#include <stdio.h>
+#include <stdlib.h>
+#define wait_for_uart_char getchar
+volatile short port_7seg_display;
+volatile short port_uart[4];
+volatile short port_pic;
+#else
+char wait_for_uart_char();
 extern volatile short port_7seg_display;
-extern volatile short port_uart;
+extern volatile short port_uart[4];
 extern volatile short port_pic;
+#endif
+
+#define FATALCODE(code) ((code << 8)+row)
 
 static void mx_puts (const char *str)
 {
+#ifdef __MOXIE__
   while (*str)
     {
-      port_uart = (short)*str;
+#if 1
+      /* Wait for UART to be ready to transmit.  */
+      while (port_uart[1] != 1)
+	{
+	  asm ("" : : : "memory");
+	}
+      port_uart[3] = *str;
       str++;
+#else
+      port_uart[3] = *str;
+      {
+	unsigned long c = 500000;
+	while (c != 0)
+	  {
+	    asm ("nop");
+	    c--;
+	  }
+      }
+#endif
     }
+#else
+  printf ("%s", str);
+#endif
 }
 
-static char wait_for_uart_char()
+static void fatal_error (short code, const char *msg) // __attribute__((noreturn))
 {
-  short c;
-  do
-    {
-      c = port_uart;
-    } while (c > 0xff);
-  return (char) c;
-}
-
-static void fatal_error (const char *msg) // __attribute__((noreturn))
-{
+  port_7seg_display = code;
   mx_puts ("ERROR: ");
   mx_puts (msg);
+  mx_puts ("\n\r");
+#ifndef __MOXIE__
+  exit (1);
+#else
   while (1);
+#endif
 }
 
 #define MOXIE_EX_DIV0 0 /* Divide by zero */
@@ -42,23 +71,23 @@ void *__handle_exception (void *faddr, int exc, int code)
   switch (exc)
     {
     case MOXIE_EX_DIV0:
-      fatal_error ("DIVIDE BY ZERO EXCEPTION");
+      fatal_error (0, "DIVIDE BY ZERO EXCEPTION");
     case MOXIE_EX_BAD:
-      fatal_error ("ILLEGAL INSTRUCTION EXCEPTION");
+      fatal_error (0, "ILLEGAL INSTRUCTION EXCEPTION");
     case MOXIE_EX_IRQ:
       q++;
       if (q == 4) 
 	{
 	  q = 0;
-	  port_7seg_display = c++;
+	  /*	  port_7seg_display = c++; */
 	}
       // Clear the timer interrupt.
       port_pic = 0;
       return faddr;
     case MOXIE_EX_SWI:
-      fatal_error ("SOFTWARE INTERRUPT REQUEST");
+      fatal_error (0, "SOFTWARE INTERRUPT REQUEST");
     default:
-      fatal_error ("UNKNOWN EXCEPTION");
+      fatal_error (0, "UNKNOWN EXCEPTION");
     }
   return 0;
 }
@@ -97,7 +126,7 @@ static int hex2int (char c)
     case 'f':
       return c - 'a' + 10;
     default:
-      fatal_error ("Illegal S-Record row length value");
+      fatal_error (0, "Illegal S-Record row length value");
     }
 }
 
@@ -118,42 +147,50 @@ static int record_type_address_length (int record_type)
   switch (record_type)
     {
     case '0':
-      return 4;
+      return 2;
     case '1':
-      return 4;
+      return 2;
     case '2':
-      return 6;
+      return 3;
     case '3':
-      return 8;
+      return 4;
     case '5':
-      return 4;
+      return 2;
     case '7':
-      return 8;
-    case '8':
-      return 6;
-    case '9':
       return 4;
+    case '8':
+      return 3;
+    case '9':
+      return 2;
     default:
-      fatal_error ("Illegal S-Record record type");
+      fatal_error (record_type, "AAA Illegal S-Record record type");
     }
 }
 
+#ifdef __MOXIE__
+#define STORE(T,A,V) *(T*)A = V
+#else
+#define STORE(T,A,V)
+#endif
+
 int main()
 {
-  int i = 0;
-  char buf[256];
+  int i = 0, done = 0;
+  short row = 1;
   short c, record_type, length;
   char *address;
-  
+
+#ifdef __MOXIE__  
   /* Set the exception handler.  */
   asm("ssr %0, 1" : : "r" (__moxie_exception_handler));
 
   /* Enable interrupts.  */
   asm("ssr %0, 0" : : "r" (i));
+#endif
 
   /* Print out welcome message.  */
   mx_puts ("MOXIE On-Chip Bootloader v1.0\n\r");
-  mx_puts ("  Copyright (c) 2013 Anthony Green <green@moxielogic.com>\n\r");
+  mx_puts ("Copyright (c) 2013 Anthony Green <green@moxielogic.com>\n\r");
   mx_puts ("\n\r");
   mx_puts ("Waiting for S-Record Download...\n\r");
 
@@ -162,55 +199,82 @@ int main()
       /* Get the start of the s-record.  */
       do {
 	c = wait_for_uart_char();
+	port_7seg_display = 0xff00 + c;
       } while (c != 'S');
 
       /* Get the record type.  */
       record_type = wait_for_uart_char();
-      if (record_type < '0' || record_type > '9')
-	fatal_error ("Illegal S-Record record type");
+      if ((record_type < '0') | (record_type > '9'))
+	fatal_error (FATALCODE(record_type), "BBB Illegal S-Record record type");
 
-      /* Get the record length.  */
-      length = read_hex_value(2) * 2;
+      /* Get the record length in 2-char bytes.  */
+      length = read_hex_value(2);
 
-      if (record_type == '3')
+      port_7seg_display = (length << 8) + row;
+
+      switch (record_type)
 	{
-	  /* Get the record address.  */
-	  address = (char *) read_hex_value (record_type_address_length (record_type));
-	  length -= record_type_address_length (record_type);
+	case '0':
+	  while (length--)
+	    wait_for_uart_char ();
+	  break;
+	case '3':
+	  {
+	    // port_7seg_display = (3<<8) + row;
+	    /* Get the record address.  */
+	    address = (char *) read_hex_value (record_type_address_length (record_type) * 2);
+	    length -= record_type_address_length (record_type);
 
-	  while (length < 5)
-	    {
-	      int value = read_hex_value (8);
-	      *(int *)address = value;
-	      address += 4;
-	      length -= 4;
-	    }
+	    while (length < 5)
+	      {
+		int value = read_hex_value (8);
+		STORE(int,address,value);
+		address += 4;
+		length -= 4;
+	      }
 
-	  if (length < 3)
-	    {
-	      short value = read_hex_value (2);
-	      *(short *)address = value;
-	      address += 2;
-	      length -= 2;
-	    }
+	    if (length < 3)
+	      {
+		short value = read_hex_value (4);
+		STORE(short,address,value);
+		address += 2;
+		length -= 2;
+	      }
 
-	  if (length < 2)
-	    {
-	      char value = read_hex_value (1);
-	      *(char *)address = value;
-	      address += 1;
-	      length -= 1;
-	    }
+	    if (length < 2)
+	      {
+		char value = read_hex_value (2);
+		STORE(char,address,value);
+		address += 1;
+		length -= 1;
+	      }
 
-	  /* Skip checksum for now */
-	  read_hex_value (2);
+	    /* Skip checksum for now */
+	    read_hex_value (2);
+	  }
+	  break;
+	case '7':
+	  // port_7seg_display = 7 + row;
+	  done = 1;
+	  break;
+	case '9':
+	  // port_7seg_display = 9 + row;
+	  done = 1;
+	  break;
+	default:
+	  fatal_error (FATALCODE(record_type), "Unhandled S-Record record type");
+	  break;
 	}
-      else if (record_type == '9')
-	done = true;
+      row++;
     }
 
+  port_7seg_display = 0xf00d;
+
+  mx_puts ("Jumping to code at 0x3000000.\n\r");
+#ifdef __MOXIE__
   /* Jump to our new program in RAM.  Never return.  */
   asm ("jmpa 0x3000000");
+#endif
 
   return 0;
 }

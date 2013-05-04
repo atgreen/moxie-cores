@@ -1,16 +1,17 @@
-COREGEN_SOURCES = clk_wiz_v3_6.v fifo_generator_v9_2.v ram4k16bit.v 
+COREGEN_SOURCES = clk_wiz_v3_6.v fifo_generator_v9_3.v ram4k16bit.v 
 
 SOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
 	  $(wildcard ../../../../cores/MoxieLite/*.v) \
 	  $(wildcard ../../../../cores/nexys7seg/*.v) \
 	  $(wildcard ../../../../cores/wishbone/*.v) \
-	  $(wildcard ../../../../cores/uart/*.v) \
+	  ../../../../cores/uart3/uart.v \
+	  ../../../../cores/uart3/uart_wb.v \
 	  $(wildcard ../../../../cores/ram16bit/*.v) \
 	  $(wildcard ../../../../cores/gdbtarget/*.v) \
 	  $(wildcard ../../../../cores/statled/rtl/*.v) \
 	  $(wildcard ../../../../cores/psram/psram_wb.v) \
-	  $(wildcard ../../../../cores/mpic/mpic.v) \
-	  $(wildcard ../../../../cores/mtimer/mtimer.v) \
+	  ../../../../cores/mpic/mpic.v \
+	  ../../../../cores/mtimer/mtimer.v \
 	  $(wildcard ../../rtl/*.v) \
 	  $(COREGEN_SOURCES) 
 
@@ -26,19 +27,19 @@ ram4k16bit.v: ram4k16bit.xco coregen.cgp
 clk_wiz_v3_6.v: clk_wiz_v3_6.xco coregen.cgp
 	coregen -b clk_wiz_v3_6.xco -p coregen.cgp
 
-fifo_generator_v9_2.v: fifo_generator_v9_2.xco coregen.cgp
-	coregen -b fifo_generator_v9_2.xco -p coregen.cgp
+fifo_generator_v9_3.v: fifo_generator_v9_3.xco coregen.cgp
+	coregen -b fifo_generator_v9_3.xco -p coregen.cgp
 
 # CFLAGS = -Os -ffunction-sections -mno-crt0
 CFLAGS = -Os  -mno-crt0
 
 BOOTROM_SOURCES = ../../../../firmware/marin.S ../../../../firmware/bootload.c ../../../../firmware/handler.S
 
-bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin.ld
+bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin-onchip.ld
 	moxie-elf-gcc $(CFLAGS) -c -o marin.o ../../../../firmware/marin.S
 	moxie-elf-gcc $(CFLAGS) -c -o bootload.o ../../../../firmware/bootload.c
 	moxie-elf-gcc $(CFLAGS) -c -o handler.o ../../../../firmware/handler.S
-	moxie-elf-gcc $(CFLAGS) marin.o bootload.o handler.o -o bootrom.elf -Wl,--gc-sections -T../../moxie-marin.ld -lnosys
+	moxie-elf-gcc $(CFLAGS) marin.o bootload.o handler.o -o bootrom.elf -Wl,--gc-sections -T../../moxie-marin-onchip.ld -lnosys
 #	moxie-elf-objcopy -O verilog bootrom.elf bootrom.vh
 	data2mem -bd bootrom.elf -d -o m bootrom.mem
 	grep -v @ bootrom.mem > bootrom.vh

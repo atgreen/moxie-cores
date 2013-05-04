@@ -15,7 +15,7 @@ module ram16bit_wb (input         rst_i,
    
   always @(posedge clk_i)
     begin
-      ack <= wb_stb_i & wb_cyc_i;
+       ack <= wb_stb_i & wb_cyc_i;
     end
 
   ram4k16bit ram(.clka (clk_i),

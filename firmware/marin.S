@@ -2,7 +2,7 @@
 	.p2align	1
 	.global	_start
 	.global _exit
-
+	.global msg
 	.global bssvalue
 
 	.equ BIG_ENDIAN,1
@@ -52,6 +52,17 @@ _start:
 
 _exit:	jmpa _exit
 
+	.global wait_for_uart_char
+wait_for_uart_char:
+	ldi.l   $r1, 0x1
+.L5:	lda.s   $r0, port_uart
+	cmp 	$r0, $r1
+	bne     .L5
+	lda.s   $r0, port_uart+4
+	ret
+	
+msg:   .string "moxie"	
+
 	# This section defines the memory mapped I/O "ports"
 	# starting at 0xF0000000.
 	.section .ports
@@ -63,9 +74,13 @@ _exit:	jmpa _exit
 port_7seg_display:
 	.word	0 	# 0x00
 	.word   0       # 0x02
+	.word   0       # 0x04 ** UNUSED **
+	.word   0       # 0x06 ** UNUSED **
 port_uart:
-	.word	0 	# 0x04
-	.word	0 	# 0x06
+	.word	0 	# 0x08 byte available
+	.word	0 	# 0x0A ready to send
+	.word	0 	# 0x0C rx byte (read only)
+	.word	0 	# 0x0E tx byte (write only)
 port_pic:
-	.word   0	# 0x08 pending IRQs
-	.word   0 	# 0x0a **UNUSED**
+	.word   0	# 0x10 pending IRQs
+	.word   0 	# 0x12 **UNUSED**

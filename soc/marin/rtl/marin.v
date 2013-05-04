@@ -139,24 +139,24 @@ module marin (/*AUTOARG*/
 			 .CLK_OUT2 (clk_100mhz));
     
   wb_intercon #(.data_width (16),
-		/* ROM */
+		/* ROM @ 0xF00001000 */
 		.slave_0_mask (32'b1111_1111_1111_1111_1111_0000_0000_0000),
 	        .slave_0_addr (32'b0000_0000_0000_0000_0001_0000_0000_0000),
-		/* 7-Segment Display */
+		/* 7-Segment Display @ 0xF0000000 */
 		.slave_1_mask (32'b1111_1111_1111_1111_1111_1111_1111_1100),
 	        .slave_1_addr (32'b1111_0000_0000_0000_0000_0000_0000_0000),
-		/* UART */
-		.slave_2_mask (32'b1111_1111_1111_1111_1111_1111_1111_1100),
-	        .slave_2_addr (32'b1111_0000_0000_0000_0000_0000_0000_0100),
+		/* UART @ 0xF00000008 */
+		.slave_2_mask (32'b1111_1111_1111_1111_1111_1111_1111_1000),
+	        .slave_2_addr (32'b1111_0000_0000_0000_0000_0000_0000_1000),
 		/* Boot ROM  - 1k @ 0x10000000 */
 		.slave_3_mask (32'b1111_1111_1111_1111_1111_0000_0000_0000),
 	        .slave_3_addr (32'b0001_0000_0000_0000_0000_0000_0000_0000),
 		/* Cellular RAM - 16MB @ 0x30000000 */
 		.slave_4_mask (32'b1111_1111_0000_0000_0000_0000_0000_0000),
 	        .slave_4_addr (32'b0011_0000_0000_0000_0000_0000_0000_0000),
-		/* PIC @ 0xF0000008 */
+		/* PIC @ 0xF0000010 */
 		.slave_5_mask (32'b1111_1111_1111_1111_1111_1111_1111_1100),
-	        .slave_5_addr (32'b1111_0000_0000_0000_0000_0000_0000_1000))
+	        .slave_5_addr (32'b1111_0000_0000_0000_0000_0000_0001_0000))
 
   bus_intercon (.wbm_dat_o (wb2mx_dat),
 		.wbm_dat_i (mx2wb_dat),
@@ -311,6 +311,7 @@ module marin (/*AUTOARG*/
 
   uart_wb uart (.rst_i (rst_i),
 		.clk_i (clk_cpu),
+		.wb_adr_i (wb2ua_adr),
 		.wb_dat_i (wb2ua_dat),
 		.wb_dat_o (ua2wb_dat),
 		.wb_sel_i (wb2ua_sel),
@@ -320,7 +321,7 @@ module marin (/*AUTOARG*/
 		.wb_ack_o (ua2wb_ack),
 		.rx_i (rx_i),
 		.tx_o (tx_o));
-
+   
   wire [1:0]	       gdb2mx;
   
   moxielite_wb core (.rst_i (rst_i),
@@ -333,7 +334,7 @@ module marin (/*AUTOARG*/
 		     .wb_cyc_o (mx2wb_cyc),
 		     .wb_stb_o (mx2wb_stb),
 		     .wb_ack_i (wb2mx_ack),
-		     .gdb_i (gdb2mx),
+		     .gdb_i (2'b0), /* (gdb2mx), */
 		     .debug_o (ml_debug),
 		     .irq_i (pi2mx_irq));
 
@@ -343,7 +344,7 @@ module marin (/*AUTOARG*/
 		      .led (sled));
 
   wire [7:0]  debug;
-
+/*
   gdbte_uart gdb (.debug_o (debug),
 		  .rst_i (rst_i),
 		  .clk_i (clk_cpu),
@@ -358,7 +359,7 @@ module marin (/*AUTOARG*/
 		  .rx_i (),
 		  .tx_o (),
 		  .gdb_ctrl_o (gdb2mx));
-          
+  */        
    assign leds_o = ml_debug;
 
 endmodule
