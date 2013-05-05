@@ -136,7 +136,7 @@ static int read_hex_value (int length)
 
   while (length--)
     {
-      n = (n << 8) + hex2int(wait_for_uart_char());
+      n = (n << 4) + hex2int(wait_for_uart_char());
     }
 
   return n;
@@ -163,12 +163,12 @@ static int record_type_address_length (int record_type)
     case '9':
       return 2;
     default:
-      fatal_error (record_type, "AAA Illegal S-Record record type");
+      fatal_error (record_type, "Illegal S-Record record type");
     }
 }
 
 #ifdef __MOXIE__
-#define STORE(T,A,V) *(T*)(A+0x30000000) = V
+#define STORE(T,A,V) *(T*)(A) = V
 #else
 #define STORE(T,A,V)
 #endif
@@ -199,51 +199,53 @@ int main()
       /* Get the start of the s-record.  */
       do {
 	c = wait_for_uart_char();
-	port_7seg_display = 0xff00 + c;
       } while (c != 'S');
 
       /* Get the record type.  */
       record_type = wait_for_uart_char();
       if ((record_type < '0') | (record_type > '9'))
-	fatal_error (FATALCODE(record_type), "BBB Illegal S-Record record type");
+	fatal_error (FATALCODE(record_type), "Illegal S-Record record type");
 
       /* Get the record length in 2-char bytes.  */
       length = read_hex_value(2);
 
-      port_7seg_display = (length << 8) + row;
+      port_7seg_display = (row << 8) + length;
 
       switch (record_type)
 	{
 	case '0':
+	  length = length*2;
 	  while (length--)
 	    wait_for_uart_char ();
 	  break;
 	case '3':
 	  {
-	    // port_7seg_display = (3<<8) + row;
 	    /* Get the record address.  */
-	    address = (char *) read_hex_value (record_type_address_length (record_type) * 2);
-	    length -= record_type_address_length (record_type);
+	    address = (char *) read_hex_value (8);
+	    length -= 8;
 
-	    while (length < 5)
+	    while (length > 5)
 	      {
 		int value = read_hex_value (8);
+		// port_7seg_display = ((int)address) >> 16;
 		STORE(int,address,value);
 		address += 4;
 		length -= 4;
 	      }
 
-	    if (length < 3)
+	    while (length > 3)
 	      {
 		short value = read_hex_value (4);
+		// port_7seg_display = ((int)address) >> 16;
 		STORE(short,address,value);
 		address += 2;
 		length -= 2;
 	      }
 
-	    if (length < 2)
+	    while (length > 2)
 	      {
 		char value = read_hex_value (2);
+		// port_7seg_display = ((int)address) >> 16;
 		STORE(char,address,value);
 		address += 1;
 		length -= 1;
@@ -254,11 +256,9 @@ int main()
 	  }
 	  break;
 	case '7':
-	  // port_7seg_display = 7 + row;
 	  done = 1;
 	  break;
 	case '9':
-	  // port_7seg_display = 9 + row;
 	  done = 1;
 	  break;
 	default:
@@ -271,6 +271,7 @@ int main()
   port_7seg_display = 0xf00d;
 
   mx_puts ("Jumping to code at 0x30000000.\n\r");
+
 #ifdef __MOXIE__
   /* Jump to our new program in RAM.  Never return.  */
   asm ("jmpa 0x30000000");
