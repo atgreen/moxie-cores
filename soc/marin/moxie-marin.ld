@@ -29,7 +29,7 @@ MEMORY
 
 SECTIONS
 {
-  .text : AT (0x0)
+  .text : 
   {
     *(.text.boot)
     *(.text*)
@@ -41,7 +41,7 @@ SECTIONS
   _etext = .;
   PROVIDE (etext = .);
 
-  .rodata : AT (SIZEOF(.text))
+  .rodata :
   { 
     *(.rodata*) 
     *(.ctors) 
@@ -52,15 +52,8 @@ SECTIONS
     . = ALIGN(0x4); 
   } > RAM
 
-  .ramtop : 
-  {
-    __ram_top = . + LENGTH(RAM);
-    _stack = __ram_top;
-  } > RAM
-
-  .romdata : AT (SIZEOF(.text)+SIZEOF(.rodata)) 
+  .data :
   { 
-    __data_load__ = LOADADDR (.romdata) + 0x1000; 
     __data_start__ = .; 
     *(.data .data.* .gnu.linkonce.d.*) 
     . = ALIGN (4); 
@@ -74,6 +67,12 @@ SECTIONS
     *(COMMON)
     . = ALIGN (4); 
     __bss_end__ = .; 
+  } > RAM
+
+  .ramtop : 
+  {
+    __ram_top = 0x1000000 - 0x8000;
+    _stack = __ram_top;
   } > RAM
 
   .ports : 

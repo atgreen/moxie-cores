@@ -14,6 +14,8 @@ extern volatile short port_pic;
 
 #define FATALCODE(code) ((code << 8)+row)
 
+int csum = 0;
+
 static void mx_puts (const char *str)
 {
 #ifdef __MOXIE__
@@ -136,7 +138,9 @@ static int read_hex_value (int length)
 
   while (length--)
     {
-      n = (n << 4) + hex2int(wait_for_uart_char());
+      int v = hex2int(wait_for_uart_char());
+      csum += v;
+      n = (n << 4) + v;
     }
 
   return n;
@@ -173,6 +177,25 @@ static int record_type_address_length (int record_type)
 #define STORE(T,A,V)
 #endif
 
+char nibble2hex(int nibble)
+{
+  if (nibble < 10)
+    return '0' + nibble;
+  else
+    return 'A' + nibble - 10;
+}
+
+char *byte2hex(int byte)
+{
+  static char buf[8];
+  buf[0] = '[';
+  buf[1] = nibble2hex(byte >> 4);
+  buf[2] = nibble2hex(byte & 0xF);
+  buf[3] = ']';
+  buf[4] = 0;
+  return buf;
+}
+
 int main()
 {
   int i = 0, done = 0;
@@ -196,6 +219,8 @@ int main()
 
   while (! done)
     {
+      int csum = 0;
+
       /* Get the start of the s-record.  */
       do {
 	c = wait_for_uart_char();
@@ -203,13 +228,14 @@ int main()
 
       /* Get the record type.  */
       record_type = wait_for_uart_char();
+
       if ((record_type < '0') | (record_type > '9'))
 	fatal_error (FATALCODE(record_type), "Illegal S-Record record type");
 
       /* Get the record length in 2-char bytes.  */
       length = read_hex_value(2);
 
-      port_7seg_display = (row << 8) + length;
+      port_7seg_display = row;
 
       switch (record_type)
 	{
@@ -222,9 +248,9 @@ int main()
 	  {
 	    /* Get the record address.  */
 	    address = (char *) read_hex_value (8);
-	    length -= 8;
+	    length -= 4;
 
-	    while (length > 5)
+	    while (length > 4)
 	      {
 		int value = read_hex_value (8);
 		// port_7seg_display = ((int)address) >> 16;
@@ -233,7 +259,7 @@ int main()
 		length -= 4;
 	      }
 
-	    while (length > 3)
+	    while (length > 2)
 	      {
 		short value = read_hex_value (4);
 		// port_7seg_display = ((int)address) >> 16;
@@ -242,7 +268,7 @@ int main()
 		length -= 2;
 	      }
 
-	    while (length > 2)
+	    while (length > 1)
 	      {
 		char value = read_hex_value (2);
 		// port_7seg_display = ((int)address) >> 16;

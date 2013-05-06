@@ -8,35 +8,35 @@
 	.equ BIG_ENDIAN,1
 
 _start:	
+	lda.s	$r0, .here
+	sta.s	port_7seg_display, $r0
+
 	# Set the top of stack and clear the frame pointer.
 	ldi.l	$sp, _stack
-	xor	$fp, $fp
+	ldi.l	$r0, 0xEEEE
+	lda.s	$r0, .here
+.here:	xor	$fp, $fp
 
-	# Copy data section from ROM to RAM
-	ldi.l	$r0, __data_start__
-	ldi.l	$r1, __data_load__
-	ldi.l	$r2, __data_end__
-	sub.l	$r2, $r0
-	xor	$r3, $r3
-.L0:
-	cmp	$r2, $r3
-	beq	.L1
-	ldo.l	$r4, 0($r1)
-	sto.l	0($r0), $r4
-	inc	$r0, 4
-	inc	$r1, 4
-	dec	$r2, 1
-	jmpa	.L0
+	ldi.l	$r0, 0xBBBB
+	sta.s	port_7seg_display, $r0
 
 .L1:
 	# Clear out BSS
 	ldi.l	$r0, __bss_start__
 	ldi.l	$r1, __bss_end__
 	xor	$r2, $r2
+
+	ldi.l	$r3, 0xCCCC
+	sta.s	port_7seg_display, $r3
+	
 .L3:
 	cmp	$r0, $r1
 	beq	.L4
 	sto.l	0($r0), $r2
+
+	ldi.l	$r3, 0xDDDD
+	sta.s	port_7seg_display, $r0
+
 	inc	$r0, 4
 	jmpa	.L3
 
@@ -50,18 +50,6 @@ _start:
 	xor	$r2, $r2
 	jsra	main
 
-_exit:	jmpa _exit
-
-	.global wait_for_uart_char
-wait_for_uart_char:
-	ldi.l   $r1, 0x1
-.L5:	lda.s   $r0, port_uart
-	cmp 	$r0, $r1
-	bne     .L5
-	lda.s   $r0, port_uart+4
-#	sta.s	port_uart+6, $r0
-	ret
-	
 msg:   .string "moxie"	
 
 	# This section defines the memory mapped I/O "ports"
