@@ -14,5 +14,9 @@ System-on-Chips
 * muskoka - a mox125-based SoC for the Cyclone II based Altera DE2 eval board.
 
 
+See the HACKING file for notes on how to build, use and contribute to
+moxie-cores.
+
+
 Anthony Green
 green@moxielogic.com

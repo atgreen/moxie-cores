@@ -1,0 +1,20 @@
+Hacking on moxie-cores
+========================
+
+SBCL and QuickLisp
+--------------------
+
+The build procedure for some cores use scripts written in Common Lisp
+along with libraries from the QuickLisp distriution.  
+
+After installing sbcl, run the following commands:
+
+$ curl -O http://beta.quicklisp.org/quicklisp.lisp
+$ sbcl --load quicklisp.lisp
+
+Then, at the sbcl prompt, "(quicklisp-quickstart:install)", and
+"(ql:add-to-init-file)".
+
+This should be all that is required to prepare your quicklisp
+environment.
+
