@@ -18,10 +18,18 @@ module ram16bit_wb (input         rst_i,
        ack <= wb_stb_i & wb_cyc_i;
     end
 
+`ifdef XILINX
   ram4k16bit ram(.clka (clk_i),
 		 .wea ({wb_stb_i & wb_cyc_i & wb_we_i, wb_stb_i & wb_cyc_i & wb_we_i}),
 		 .addra (wb_adr_i[12:1]),
 		 .dina (wb_dat_i),
 		 .douta (wb_dat_o));
+`else
+  ram4k16bit ram(.clock (clk_i),
+		 .wren ({wb_stb_i & wb_cyc_i & wb_we_i, wb_stb_i & wb_cyc_i & wb_we_i}),
+		 .address (wb_adr_i[12:1]),
+		 .data (wb_dat_i),
+		 .q (wb_dat_o));
+`endif
 
 endmodule // ram16bit_wb

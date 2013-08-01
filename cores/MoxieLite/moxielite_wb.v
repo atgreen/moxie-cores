@@ -22,7 +22,7 @@ module moxielite_wb(/*AUTOARG*/
    // Outputs
    wb_dat_o, wb_adr_o, wb_sel_o, wb_we_o, wb_cyc_o, wb_stb_o, debug_o,
    // Inputs
-   rst_i, clk_i, wb_dat_i, wb_ack_i, irq_i, gdb_i
+   rst_i, clk_i, wb_dat_i, wb_ack_i, irq_i, gdb_i, buserr_i
    );
 
    // --- Clock and Reset ------------------------------------------
@@ -40,6 +40,7 @@ module moxielite_wb(/*AUTOARG*/
 
    // --- IRQ Interface --------------------------------------------
    input  	 irq_i;
+   input         buserr_i;
 
    // --- Debug Interface ------------------------------------------
    input [1:0] 	 gdb_i;
@@ -73,7 +74,8 @@ module moxielite_wb(/*AUTOARG*/
 		   .wr_l_n (cpu_wr_l_n),
 		   .gdb_i (gdb_i),
 		   .debug_o (debugml),
-		   .irq_i (irq_i));
+		   .irq_i (irq_i),
+		   .buserr_i (buserr_i));
    
    assign cpu_din = wb_dat_i;
    assign wb_dat_o = cpu_dout;

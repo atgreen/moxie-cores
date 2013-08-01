@@ -1,5 +1,15 @@
-MSOURCES = $(wildcard ../../../../cores/MoxieLite/*.v*) \
-	$(wildcard ../../../../cores/wishbone/*.v)
+MSOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
+	  $(wildcard ../../../../cores/MoxieLite/*.v) \
+	  $(wildcard ../../../../cores/wishbone/*.v) \
+	  ../../../../cores/uart3/uart.v \
+	  ../../../../cores/uart3/uart_wb.v \
+	  $(wildcard ../../../../cores/ram16bit/*.v) \
+	  $(wildcard ../../../../cores/statled/rtl/*.v) \
+	  $(wildcard ../../../../cores/hex_display/*.v) \
+	  ../../../../cores/mpic/mpic.v \
+	  ../../../../cores/mtimer/mtimer.v \
+	  $(wildcard ../../rtl/*.v) \
+	  pll.v ram4k16bit.v
 
 PROJECT = marin
 
@@ -7,9 +17,22 @@ ASSIGNMENT_FILES = $(PROJECT).qpf $(PROJECT).qsf
 
 all: bootrom.vh smart.log $(PROJECT).asm.rpt
 
-bootrom.vh: ../../../../firmware/bootrom.s
-	moxie-elf-as -o bootrom.x ../../../../firmware/bootrom.s
-	moxie-elf-objcopy -O verilog bootrom.x bootrom.vh
+CFLAGS = -Os  -mno-crt0
+
+BOOTROM_SOURCES = ../../../../firmware/marin.S ../../../../firmware/bootload.c ../../../../firmware/handler.S
+
+bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin-onchip.ld
+	moxie-elf-gcc $(CFLAGS) -c -o marin.o ../../../../firmware/marin.S
+	moxie-elf-gcc $(CFLAGS) -c -o bootload.o ../../../../firmware/bootload.c
+	moxie-elf-gcc $(CFLAGS) -c -o handler.o ../../../../firmware/handler.S
+	moxie-elf-gcc $(CFLAGS) marin.o bootload.o handler.o -o bootrom.elf -Wl,--gc-sections -T../../moxie-marin-onchip.ld -lnosys
+	moxie-elf-objcopy --adjust-vma -0x1000 bootrom.elf
+	/home/green/Xilinx/14.4/ISE_DS/ISE/bin/lin64/data2mem -bd bootrom.elf -d -o m bootrom.mem
+	grep -v @ bootrom.mem > bootrom.vh
+
+#bootrom.vh: ../../../../firmware/bootrom.s
+#	moxie-elf-as -o bootrom.x ../../../../firmware/bootrom.s
+#	moxie-elf-objcopy -O verilog bootrom.x bootrom.vh
 
 map: smart.log $(PROJECT).map.rpt
 fit: smart.log $(PROJECT).fit.rpt
@@ -60,8 +83,10 @@ asm.chg:
 clean: 
 	-rm -f a.out *.vh *.x *.vcd *~
 	-rm -rf *.rpt *.chg smart.log *.htm *.eqn *.pin *.sof *.pof 
-	-rm -rf db incremental_db *.qpf *.qsf muskoka.done
+	-rm -rf db incremental_db *.qpf *.qsf *.qdf
 	-rm -rf *.ssf *.csf *.esf *.fsf *.psf *.quartus *.qws
-	-rm -rf *.summary *.smsg
+	-rm -rf *.summary *.smsg greybox_tmp
+	-rm -rf output_files
+
 
 

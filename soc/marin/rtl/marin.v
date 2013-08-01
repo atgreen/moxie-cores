@@ -20,23 +20,36 @@
 
 module marin (/*AUTOARG*/
    // Outputs
-   seg, an, tx_o, leds_o, mem_addr, mem_clk, mem_cen, mem_cre,
+   tx_o, leds_o, 
+`ifdef XILINX
+   mem_addr, mem_clk, mem_cen, mem_cre,
    mem_oen, mem_wen, mem_adv, mem_ben,
+   seg, an, 
    // Inouts
    mem_data_t,
+`else
+   hex0_o, hex1_o, hex2_o, hex3_o,
+`endif	      
    // Inputs
-   rst_i, clk_100mhz_i, btnl, btnr, btnu, btnd, btns, rx_i
+   clk_external_i, btnl, btnr, btnu, btnd, btns, rx_i
    );
  
   // --- Clock and Reset ------------------------------------------
-  input  rst_i, clk_100mhz_i;
-  reg 	 rst;
+  input  clk_external_i;
+   reg 	 rst_i = 1'b0;
 
   input btnl, btnr, btnu, btnd, btns;
    
+`ifdef XILINX
    // -- Seven Segment Display -------------------------------------
   output [7:0] seg;
   output [3:0] an;
+`else
+   output [6:0] hex0_o;
+   output [6:0] hex1_o;
+   output [6:0] hex2_o;
+   output [6:0] hex3_o;
+`endif   
 
   // -- UART ------------------------------------------------------
   output tx_o;
@@ -45,6 +58,7 @@ module marin (/*AUTOARG*/
   // -- LEDs ------------------------------------------------------
   output [7:0] leds_o;
 
+`ifdef XILINX
   // -- psram -----------------------------------------------------
   output [25:0] mem_addr;
   output        mem_clk;
@@ -55,6 +69,7 @@ module marin (/*AUTOARG*/
   output        mem_adv;
   inout [15:0]  mem_data_t;
   output [1:0]  mem_ben;
+`endif
 
   // MoxieLite IRQ Line
   wire  	pi2mx_irq;
@@ -128,15 +143,30 @@ module marin (/*AUTOARG*/
   wire        wb2pi_stb;
   wire 	      pi2wb_ack;
 
-   wire ti2pi_irq;
+  // Bus Watchdog
+  wire [15:0] wd2wb_dat;
+  wire [31:0] wb2wd_adr;
+  wire [1:0]  wb2wd_sel;
+  wire 	      wb2wd_we;
+  wire 	      wb2wd_cyc;
+  wire        wb2wd_stb;
+  wire 	      wd2wb_ack;
+
+  wire ti2pi_irq;
 
   wire      clk_cpu;
-  wire      clk_100mhz;
+  wire      clk_external;
 
-  clk_wiz_v3_6 clockgen (.CLK_IN1 (clk_100mhz_i),
+`ifdef XILINX   
+  clk_wiz_v3_6 clockgen (.CLK_IN1 (clk_external_i),
 			 .RESET (rst_i),
 			 .CLK_OUT1 (clk_cpu),
-			 .CLK_OUT2 (clk_100mhz));
+			 .CLK_OUT2 (clk_external));
+`else
+  pll clockgen (.inclk0 (clk_external_i),
+		.areset (rst_i),
+		.c0 (clk_cpu));
+`endif
     
   wb_intercon #(.data_width (16),
 		/* ROM @ 0xF00001000 */
@@ -156,7 +186,10 @@ module marin (/*AUTOARG*/
 	        .slave_4_addr (32'b0011_0000_0000_0000_0000_0000_0000_0000),
 		/* PIC @ 0xF0000010 */
 		.slave_5_mask (32'b1111_1111_1111_1111_1111_1111_1111_1100),
-	        .slave_5_addr (32'b1111_0000_0000_0000_0000_0000_0001_0000))
+	        .slave_5_addr (32'b1111_0000_0000_0000_0000_0000_0001_0000),
+		/* Bus Watchdog @ 0xF0000020 */
+		.slave_6_mask (32'b1111_1111_1111_1111_1111_1111_1111_1100),
+	        .slave_6_addr (32'b1111_0000_0000_0000_0000_0000_0010_0000))
 
   bus_intercon (.wbm_dat_o (wb2mx_dat),
 		.wbm_dat_i (mx2wb_dat),
@@ -219,22 +252,20 @@ module marin (/*AUTOARG*/
 		.wbs_5_we_o (wb2pi_we),
 		.wbs_5_cyc_o (wb2pi_cyc),
 		.wbs_5_stb_o (wb2pi_stb),
-		.wbs_5_ack_i (pi2wb_ack));
+		.wbs_5_ack_i (pi2wb_ack),
+
+		.wbs_6_dat_i (wd2wb_dat),
+		.wbs_6_adr_o (wb2wd_adr),
+		.wbs_6_sel_o (wb2wd_sel),
+		.wbs_6_we_o (wb2wd_we),
+		.wbs_6_cyc_o (wb2wd_cyc),
+		.wbs_6_stb_o (wb2wd_stb),
+		.wbs_6_ack_i (wd2wb_ack));
   
    wire       br_debug;
    wire [7:0] ml_debug;
 
-  wire [31:0] watchdog_adr;
   wire 	      watchdog_fault;
-
-  // Wishbone Bus Watchdog.
-  wb_watchdog watchdog (.clk_i (clk_cpu),
-			.rst_i (rst_i),
-			.wbm_adr_i (mx2wb_adr),
-			.wbm_stb_i (mx2wb_stb),
-			.wbm_ack_i (wb2mx_ack),
-			.adr_o (watchdog_adr),
-			.fault_o (watchdog_fault));
 
   // Wishbone bus slaves.
   bootrom16 rom (.clk_i (clk_cpu),
@@ -267,7 +298,8 @@ module marin (/*AUTOARG*/
 	       .wb_dat_o (pi2wb_dat),
 	       .irq_o (pi2mx_irq),
 	       .irq_i ({btnl, btnr, btnu, btnd, ti2pi_irq}));
-   
+
+`ifdef XILINX   
   psram_wb cellram (.clk_i (clk_cpu),
   		    // Wishbone Interface
   		    .wb_dat_i (wb2cr_dat),
@@ -289,13 +321,15 @@ module marin (/*AUTOARG*/
   		    .mem_wait_i (mem_wait),
   		    .mem_data_t (mem_data_t),
 		    .mem_ben_o (mem_ben));
-
+`endif
+   
   mtimer tick_generator (.clk_i (clk_cpu),
 			 .rst_i (rst_i),
 			 .tick_o (ti2pi_irq));
    
   wire [12:0]  gdbdebug;
 
+`ifdef XILINX
   nexys7seg_wb disp (.rst_i (rst_i),
 		     .clk_i (clk_cpu),
 		     .wb_dat_i (wb2dp_dat),
@@ -305,10 +339,24 @@ module marin (/*AUTOARG*/
 		     .wb_cyc_i (wb2dp_cyc),
 		     .wb_stb_i (wb2dp_stb),
 		     .wb_ack_o (dp2wb_ack),
-  		     .clk_100mhz_i (clk_cpu),
+  		     .clk_external_i (clk_cpu),
 		     .seg (seg),
 		     .an (an)); 
-
+`else
+  hex_display_wb disp (.rst_i (rst_i),
+		       .clk_i (clk_cpu),
+		       .wb_dat_i (wb2dp_dat),
+		       .wb_sel_i (wb2dp_sel),
+		       .wb_we_i (wb2dp_we),
+		       .wb_cyc_i (wb2dp_cyc),
+		       .wb_stb_i (wb2dp_stb),
+		       .wb_ack_o (dp2wb_ack),
+		       .hex0_o (hex0_o),
+		       .hex1_o (hex1_o),
+		       .hex2_o (hex2_o),
+		       .hex3_o (hex3_o));
+`endif
+   
   uart_wb uart (.rst_i (rst_i),
 		.clk_i (clk_cpu),
 		.wb_adr_i (wb2ua_adr),
@@ -321,6 +369,17 @@ module marin (/*AUTOARG*/
 		.wb_ack_o (ua2wb_ack),
 		.rx_i (rx_i),
 		.tx_o (tx_o));
+   
+   wb_watchdog watchdog (.rst_i (rst_i),
+			 .clk_i (clk_cpu),
+			 .wb_adr_i (wb2wd_adr),
+			 .wb_dat_o (wd2wb_dat),
+			 .wb_sel_i (wb2wd_sel),
+			 .wb_we_i (wb2wd_we),
+			 .wb_cyc_i (wb2wd_cyc),
+			 .wb_stb_i (wb2wd_stb),
+			 .wb_ack_o (wd2wb_ack),
+			 .fault_o (watchdog_fault));
    
   wire [1:0]	       gdb2mx;
   
@@ -336,12 +395,15 @@ module marin (/*AUTOARG*/
 		     .wb_ack_i (wb2mx_ack),
 		     .gdb_i (2'b0), /* (gdb2mx), */
 		     .debug_o (ml_debug),
-		     .irq_i (pi2mx_irq));
+		     .irq_i (pi2mx_irq),
+		     .buserr_i (watchdog_fault));
 
+`ifdef XILINX
   statled status_led (.clk (clk_cpu),
 		      .rst (rst_i),
 		      .status (CODE_SIX),
 		      .led (sled));
+`endif
 
   wire [7:0]  debug;
 /*
@@ -360,6 +422,6 @@ module marin (/*AUTOARG*/
 		  .tx_o (),
 		  .gdb_ctrl_o (gdb2mx));
   */        
-   assign leds_o = ml_debug;
+   assign leds_o = { 1'b1, ml_debug[6:0] };
 
 endmodule

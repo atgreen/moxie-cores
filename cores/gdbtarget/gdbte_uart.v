@@ -67,7 +67,7 @@ module gdbte_uart (/*AUTOARG*/
 	    .is_receiving (),
 	    .is_transmitting (ua_is_transmitting));
 
-  fifo_generator_v9_2 rx_fifo(.clk (clk_i),
+  fifo_generator_v9_3 rx_fifo(.clk (clk_i),
 			      .rst (rst_i),
 			      .din (ua2ff_byte),
 			      .wr_en (ua2ff_received),

@@ -30,7 +30,7 @@ MEMORY
 
 SECTIONS
 {
-  .text : AT (0x0)
+  .text :
   {
     *(.text.boot)
     *(.text*)
@@ -42,7 +42,7 @@ SECTIONS
   _etext = .;
   PROVIDE (etext = .);
 
-  .rodata : AT (SIZEOF(.text))
+  .rodata :
   { 
     *(.rodata*) 
     *(.ctors) 
@@ -59,7 +59,7 @@ SECTIONS
     _stack = __ram_top;
   } > RAM
 
-  .romdata : AT (SIZEOF(.text)+SIZEOF(.rodata)) 
+  .romdata :
   { 
     __data_load__ = LOADADDR (.romdata) + 0x1000; 
     __data_start__ = .; 

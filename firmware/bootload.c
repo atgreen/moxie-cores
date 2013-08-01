@@ -59,10 +59,11 @@ static void fatal_error (short code, const char *msg) // __attribute__((noreturn
 #endif
 }
 
-#define MOXIE_EX_DIV0 0 /* Divide by zero */
-#define MOXIE_EX_BAD  1 /* Illegal instruction */
-#define MOXIE_EX_IRQ  2 /* Interrupt request */
-#define MOXIE_EX_SWI  3 /* Software interrupt */
+#define MOXIE_EX_DIV0   0 /* Divide by zero */
+#define MOXIE_EX_BAD    1 /* Illegal instruction */
+#define MOXIE_EX_IRQ    2 /* Interrupt request */
+#define MOXIE_EX_SWI    3 /* Software interrupt */
+#define MOXIE_EX_BUSERR 4 /* Software interrupt */
 
 /* Called from our asm code.  Must return the return address.  */
 void *__handle_exception (void *faddr, int exc, int code)
@@ -88,6 +89,10 @@ void *__handle_exception (void *faddr, int exc, int code)
       return faddr;
     case MOXIE_EX_SWI:
       fatal_error (0, "SOFTWARE INTERRUPT REQUEST");
+    case MOXIE_EX_BUSERR:
+      fatal_error (0, "BUS ERROR");
+      // TRY LOOPING FOREVER
+      while (1);
     default:
       fatal_error (0, "UNKNOWN EXCEPTION");
     }
@@ -283,6 +288,9 @@ int main()
 	  break;
 	case '7':
 	  done = 1;
+	  length = length*2;
+	  while (length--)
+	    wait_for_uart_char ();
 	  break;
 	case '9':
 	  done = 1;

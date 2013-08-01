@@ -18,22 +18,27 @@
 
 
 module wb_watchdog #(
-  parameter timeout_width = 4
+  parameter timeout_width = 5
   )(/*AUTOARG*/
-  // Outputs
-  adr_o, fault_o,
-  // Inputs
-  clk_i, rst_i, wbm_adr_i, wbm_stb_i, wbm_ack_i
-  );
+   // Outputs
+   wb_dat_o, wb_ack_o, fault_o,
+   // Inputs
+   rst_i, clk_i, wb_dat_i, wb_adr_i, wb_sel_i, wb_we_i, wb_cyc_i,
+   wb_stb_i
+   );
 
   // Wishbone Master Interface
-  input         clk_i;
-  input 	rst_i;
-  input [31:0]  wbm_adr_i;
-  input         wbm_stb_i;
-  input 	wbm_ack_i;
-  output        adr_o;
-  output        fault_o;
+   input  rst_i, clk_i;
+   input [15:0] wb_dat_i;
+   input [31:0] wb_adr_i;
+   output reg [15:0] wb_dat_o;
+   input [1:0] 	wb_sel_i;
+   input 	wb_we_i;
+   input 	wb_cyc_i;
+   input 	wb_stb_i;
+   output reg	wb_ack_o;
+
+   output reg 	fault_o = 1'b0;
 
   // Watchdog counter
   reg [timeout_width-1:0] counter = 0;
@@ -45,17 +50,17 @@ module wb_watchdog #(
   reg 		active = 1'b0;
 
   wire 		timeout;
-  assign timeout = (counter == 4'b1111);
-  
-  assign adr_o = address;
-  assign fault_o = active & timeout;
+  assign timeout = (counter == 5'b11111);
 
+  wire trap = active & timeout;
+  
   always @(posedge clk_i) begin
-    counter <= wbm_stb_i ? 0 : counter + 1;
-    address <= wbm_stb_i ? wbm_adr_i : address;
-//    active <= (rst_i | fault_o) ? 1'b0 : wbm_stb_i ? 1'b1 : wbm_ack_i ? 1'b0 : active;
-    active <= (rst_i) ? 1'b0 : wbm_stb_i ? 1'b1 : wbm_ack_i ? 1'b0 : active;
+     counter <= rst_i ? 1'b0 : wb_cyc_i ? counter + 1 : 0;
+     active <= (rst_i | fault_o) ? 1'b0 : wb_ack_o ? 1'b0 : wb_cyc_i ? 1'b1 : active;
+     wb_dat_o <= trap ? wb_adr_i : wb_dat_o;
+     wb_ack_o  <= rst_i ? 1'b0 : wb_stb_i & wb_cyc_i;
+     fault_o <= wb_stb_i & wb_cyc_i ? 1'b0 : trap ? 1'b1 : fault_o;
   end
-    
+
 endmodule // wb_watchdog
 
