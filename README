@@ -10,7 +10,8 @@ Cores
 System-on-Chips
 ----------------
 
-* marin - a MoxieLite-based SoC for the Spartan 6 based Nexys3 eval board.
+* marin - a MoxieLite-based SoC for the Spartan 6 based Nexys3 and
+          Cyclone II based DE2 eval boards.
 * muskoka - a mox125-based SoC for the Cyclone II based Altera DE2 eval board.
 
 
