@@ -321,6 +321,9 @@ module marin (/*AUTOARG*/
   		    .mem_wait_i (mem_wait),
   		    .mem_data_t (mem_data_t),
 		    .mem_ben_o (mem_ben));
+`else // !`ifdef XILINX
+   assign cr2wb_ack = wb2cr_stb & wb2cr_cyc;
+   assign cr2wb_dat = 16'b0;
 `endif
    
   mtimer tick_generator (.clk_i (clk_cpu),
@@ -422,6 +425,7 @@ module marin (/*AUTOARG*/
 		  .tx_o (),
 		  .gdb_ctrl_o (gdb2mx));
   */        
-   assign leds_o = { 1'b1, ml_debug[6:0] };
-
+   assign leds_o = { ml_debug[7:0] };
+//   assign leds_o = { mx2wb_adr[31:24] };
+   
 endmodule

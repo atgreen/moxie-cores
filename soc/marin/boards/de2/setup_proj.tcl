@@ -15,7 +15,7 @@ set_global_assignment -name CYCLONE_OPTIMIZATION_TECHNIQUE SPEED
 
 # The DE2 board has PIN_N2 as a 50MHz clock and PIN_D13 as a 27MHz
 # clock.
-set_location_assignment -to clk_i PIN_N2
+set_location_assignment -to clk_external_i PIN_N2
 
 # Assign pushbutton[0] to the reset signal.
 set_location_assignment -to rst_i PIN_G26
@@ -101,13 +101,6 @@ set_location_assignment -to hex3_o[3] PIN_Y26
 set_location_assignment -to hex3_o[4] PIN_Y25
 set_location_assignment -to hex3_o[5] PIN_U22
 set_location_assignment -to hex3_o[6] PIN_W24
-set_location_assignment -to hex4_o[0] PIN_U9
-set_location_assignment -to hex4_o[1] PIN_U1
-set_location_assignment -to hex4_o[2] PIN_U2
-set_location_assignment -to hex4_o[3] PIN_T4
-set_location_assignment -to hex4_o[4] PIN_R7
-set_location_assignment -to hex4_o[5] PIN_R6
-set_location_assignment -to hex4_o[6] PIN_T3
 
 # Create timing assignments
 create_base_clock -fmax "50 MHz" -target PIN_N2 clk50_i
