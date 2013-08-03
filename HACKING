@@ -18,3 +18,19 @@ Then, at the sbcl prompt, "(quicklisp-quickstart:install)", and
 This should be all that is required to prepare your quicklisp
 environment.
 
+
+
+Programming the DE2
+---------------------
+
+The Altera bitstream file that is built for marin is called
+"marin.sof".  Build it with GNU make in the soc/marin/bards/de2
+directory.  Make sure that Altera's jtagd daemon is running as root
+and run something like the following to program the DE2 board:
+
+$ quartus_pgm -z -m JTAG -o "p;marin.sof" 
+
+The on-chip bootloader will display FEED on the 7 segment display and
+a message to the serial port, which you can connect to with any
+terminal program at 9600 N81 (I use minicom on Linux).
+

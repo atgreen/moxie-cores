@@ -9,7 +9,7 @@ MSOURCES = $(wildcard ../../../../cores/MoxieLite/*.vhd) \
 	  ../../../../cores/mpic/mpic.v \
 	  ../../../../cores/mtimer/mtimer.v \
 	  $(wildcard ../../rtl/*.v) \
-	  pll.v ram4k16bit.v
+	  pll.v
 
 PROJECT = marin
 
@@ -86,7 +86,4 @@ clean:
 	-rm -rf db incremental_db *.qpf *.qsf *.qdf
 	-rm -rf *.ssf *.csf *.esf *.fsf *.psf *.quartus *.qws
 	-rm -rf *.summary *.smsg greybox_tmp
-	-rm -rf output_files
-
-
-
+	-rm -rf output_files bootrom* *.jdi *.o
