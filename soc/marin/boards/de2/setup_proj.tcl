@@ -129,6 +129,7 @@ set_global_assignment -name VERILOG_FILE ../../../../cores/mtimer/mtimer.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/hex_display/hex_display.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/hex_display/hex_display_wb.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/hex_display/seg_7.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/altera_sdram/sdram_controller.v
 
 
 project_close

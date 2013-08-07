@@ -19,18 +19,16 @@
 
 
 module marin (/*AUTOARG*/
-   // Outputs
-   tx_o, leds_o, 
-`ifdef XILINX
-   mem_addr, mem_clk, mem_cen, mem_cre,
-   mem_oen, mem_wen, mem_adv, mem_ben,
-   seg, an, 
-   // Inouts
-   mem_data_t,
+`ifdef XILINX	      
+   seg, an, mem_cen, mem_cre, mem_oen, mem_wen, mem_adv, mem_ben, 
+   mem_data_t, mem_addr, mem_clk,     
 `else
+   DRAM_ADDR, DRAM_BA_0, DRAM_BA_1, DRAM_CAS_N, DRAM_CKE,
+   DRAM_CLK, DRAM_CS_N, DRAM_LDQM, DRAM_UDQM, DRAM_RAS_N, DRAM_WE_N,
    hex0_o, hex1_o, hex2_o, hex3_o,
-`endif	      
-   // Inputs
+   DRAM_DQ, 
+`endif
+   tx_o, leds_o, 
    clk_external_i, btnl, btnr, btnu, btnd, btns, rx_i
    );
  
@@ -45,6 +43,21 @@ module marin (/*AUTOARG*/
   output [7:0] seg;
   output [3:0] an;
 `else
+   // SDRAM signals
+   output [11:0] DRAM_ADDR;
+   output DRAM_BA_0;
+   output DRAM_BA_1;
+   output DRAM_CAS_N;
+   output DRAM_CKE;
+   output DRAM_CLK;
+   output DRAM_CS_N;
+   inout [15:0] DRAM_DQ;
+   output DRAM_LDQM;
+   output DRAM_UDQM;
+   output DRAM_RAS_N;
+   output DRAM_WE_N;
+
+    // 7-segment display output
    output [6:0] hex0_o;
    output [6:0] hex1_o;
    output [6:0] hex2_o;
@@ -163,9 +176,17 @@ module marin (/*AUTOARG*/
 			 .CLK_OUT1 (clk_cpu),
 			 .CLK_OUT2 (clk_external));
 `else
+  wire     clk_sdram;
+  wire     clk_sdram3ns;
+  wire     clk_locked;
+   
+
   pll clockgen (.inclk0 (clk_external_i),
 		.areset (rst_i),
-		.c0 (clk_cpu));
+		.c0 (clk_cpu),
+		.c1 (clk_sdram),
+		.c2 (clk_sdram3ns),
+		.locked (clk_locked));
 `endif
     
   wb_intercon #(.data_width (16),
@@ -322,8 +343,30 @@ module marin (/*AUTOARG*/
   		    .mem_data_t (mem_data_t),
 		    .mem_ben_o (mem_ben));
 `else // !`ifdef XILINX
-   assign cr2wb_ack = wb2cr_stb & wb2cr_cyc;
-   assign cr2wb_dat = 16'b0;
+  sdram_controller sdram (.clk_i (clk_sdram),
+			  .dram_clk_i (clk_sdram3ns),
+			  .rst_i (rst_i),
+			  .dll_locked (clk_locked),
+   // wishbone interface			  
+			  .dat_i (wb2cr_dat),
+			  .dat_o (cr2wb_dat),
+			  .addr_i (wb2cr_adr[21:0]),
+			  .we_i (wb2cr_we),
+			  .cyc_i (wb2cr_cyc),
+			  .stb_i (wb2cr_stb),
+			  .ack_o (cr2wb_ack),
+   // all ddr signals
+			  .dram_addr (DRAM_ADDR),
+			  .dram_bank ({DRAM_BA_0, DRAM_BA_1}),
+			  .dram_cas_n (DRAM_CAS_N),
+			  .dram_cke (DRAM_CKE),
+			  .dram_clk (DRAM_CLK),
+			  .dram_cs_n (DRAM_CS_N),
+			  .dram_dq (DRAM_DQ),
+			  .dram_ldqm (DRAM_LDQM),
+			  .dram_udqm (DRAM_UDQM),
+			  .dram_ras_n (DRAM_RAS_N),
+			  .dram_we_n (DRAM_WE_N));
 `endif
    
   mtimer tick_generator (.clk_i (clk_cpu),
