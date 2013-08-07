@@ -17,6 +17,9 @@ ASSIGNMENT_FILES = $(PROJECT).qpf $(PROJECT).qsf
 
 all: bootrom.vh smart.log $(PROJECT).asm.rpt
 
+program: all
+	quartus_pgm -z -m JTAG -o "p;marin.sof"
+
 CFLAGS = -Os  -mno-crt0
 
 BOOTROM_SOURCES = ../../../../firmware/marin.S ../../../../firmware/bootload.c ../../../../firmware/handler.S
