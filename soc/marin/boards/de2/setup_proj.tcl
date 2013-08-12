@@ -20,6 +20,8 @@ set_location_assignment -to clk_external_i PIN_N2
 # Assign pushbutton[0] to the reset signal.
 set_location_assignment -to rst_i PIN_G26
 
+
+
 # SRAM address lines - 18bits
 #set_location_assignment -to imem_address_o[0] PIN_AE4
 #set_location_assignment -to imem_address_o[1] PIN_AF4
@@ -101,6 +103,45 @@ set_location_assignment -to hex3_o[3] PIN_Y26
 set_location_assignment -to hex3_o[4] PIN_Y25
 set_location_assignment -to hex3_o[5] PIN_U22
 set_location_assignment -to hex3_o[6] PIN_W24
+
+set_location_assignment PIN_T6 -to DRAM_ADDR[0]
+set_location_assignment PIN_V4 -to DRAM_ADDR[1]
+set_location_assignment PIN_V3 -to DRAM_ADDR[2]
+set_location_assignment PIN_W2 -to DRAM_ADDR[3]
+set_location_assignment PIN_W1 -to DRAM_ADDR[4]
+set_location_assignment PIN_U6 -to DRAM_ADDR[5]
+set_location_assignment PIN_U7 -to DRAM_ADDR[6]
+set_location_assignment PIN_U5 -to DRAM_ADDR[7]
+set_location_assignment PIN_W4 -to DRAM_ADDR[8]
+set_location_assignment PIN_W3 -to DRAM_ADDR[9]
+set_location_assignment PIN_Y1 -to DRAM_ADDR[10]
+set_location_assignment PIN_V5 -to DRAM_ADDR[11]
+set_location_assignment PIN_AE2 -to DRAM_BA_0
+set_location_assignment PIN_AE3 -to DRAM_BA_1
+set_location_assignment PIN_AB3 -to DRAM_CAS_N
+set_location_assignment PIN_AA6 -to DRAM_CKE
+set_location_assignment PIN_AA7 -to DRAM_CLK
+set_location_assignment PIN_AC3 -to DRAM_CS_N
+set_location_assignment PIN_V6 -to DRAM_DQ[0]
+set_location_assignment PIN_AA2 -to DRAM_DQ[1]
+set_location_assignment PIN_AA1 -to DRAM_DQ[2]
+set_location_assignment PIN_Y3 -to DRAM_DQ[3]
+set_location_assignment PIN_Y4 -to DRAM_DQ[4]
+set_location_assignment PIN_R8 -to DRAM_DQ[5]
+set_location_assignment PIN_T8 -to DRAM_DQ[6]
+set_location_assignment PIN_V7 -to DRAM_DQ[7]
+set_location_assignment PIN_W6 -to DRAM_DQ[8]
+set_location_assignment PIN_AB2 -to DRAM_DQ[9]
+set_location_assignment PIN_AB1 -to DRAM_DQ[10]
+set_location_assignment PIN_AA4 -to DRAM_DQ[11]
+set_location_assignment PIN_AA3 -to DRAM_DQ[12]
+set_location_assignment PIN_AC2 -to DRAM_DQ[13]
+set_location_assignment PIN_AC1 -to DRAM_DQ[14]
+set_location_assignment PIN_AA5 -to DRAM_DQ[15]
+set_location_assignment PIN_AD2 -to DRAM_LDQM
+set_location_assignment PIN_Y5 -to DRAM_UDQM
+set_location_assignment PIN_AB4 -to DRAM_RAS_N
+set_location_assignment PIN_AD3 -to DRAM_WE_N
 
 # Create timing assignments
 create_base_clock -fmax "50 MHz" -target PIN_N2 clk50_i
