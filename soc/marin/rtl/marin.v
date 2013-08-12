@@ -17,6 +17,7 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 // 02110-1301, USA.
 
+`include "config.v"
 
 module marin (/*AUTOARG*/
 `ifdef XILINX	      
@@ -385,7 +386,7 @@ module marin (/*AUTOARG*/
 		     .wb_cyc_i (wb2dp_cyc),
 		     .wb_stb_i (wb2dp_stb),
 		     .wb_ack_o (dp2wb_ack),
-  		     .clk_external_i (clk_cpu),
+  		     .clk_100mhz_i (clk_cpu),
 		     .seg (seg),
 		     .an (an)); 
 `else
