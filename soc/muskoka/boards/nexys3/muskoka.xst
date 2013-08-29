@@ -6,7 +6,7 @@ run
 -opt_level 1
 -fsm_extract NO
 -iuc NO
--keep_hierarchy NO
+-keep_hierarchy YES
 -glob_opt AllClockNets
 -read_cores YES
 -write_timing_constraints NO
@@ -16,7 +16,6 @@ run
 -case maintain
 -slice_utilization_ratio 100
 -safe_implementation NO
--fsm_style lut
 -ram_extract YES
 -ram_style Auto
 -rom_extract YES

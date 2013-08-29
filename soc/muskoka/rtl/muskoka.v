@@ -19,9 +19,9 @@
 
 module muskoka (/*AUTOARG*/
    // Outputs
-   hex0_, hex1_, hex2_, hex3_, uart_txd_o,
+   hex0_, hex1_, hex2_, hex3_, tx_o,
    // Inputs
-   rst_i, clk_i
+   rst_i, clk_i, rx_i
    );
    
   // --- Clock and Reset ------------------------------------------
@@ -33,8 +33,9 @@ module muskoka (/*AUTOARG*/
   output [6:0] hex2_;
   output [6:0] hex3_;
 
-  // --- UART -----------------------------------------------------
-  output  uart_txd_o;
+  // -- UART ------------------------------------------------------
+  output tx_o;
+  input rx_i;
 
   // Always zero
   wire [0:0] zero = 0;
@@ -145,15 +146,19 @@ module muskoka (/*AUTOARG*/
 		 .wbs_2_ack_i (zero),
 		 .wbs_3_ack_i (zero));
 
-  uart_top uart (.wb_dat_i (dw2ua_dat),
-		 .wb_dat_o (ua2dw_dat),
-		 .wb_adr_i (dw2ua_adr),
-		 .wb_sel_i (dw2ua_sel),
-		 .wb_we_i (dw2ua_we),
-		 .wb_cyc_i (dw2ua_cyc),
-		 .wb_stb_i (dw2ua_stb),
-		 .wb_ack_o (ua2dw_ack));
-  
+  uart_wb uart (.rst_i (rst_i),
+		.clk_i (clk_i),
+		.wb_adr_i (wb2ua_adr),
+		.wb_dat_i (wb2ua_dat),
+		.wb_dat_o (ua2wb_dat),
+		.wb_sel_i (wb2ua_sel),
+		.wb_we_i (wb2ua_we),
+		.wb_cyc_i (wb2ua_cyc),
+		.wb_stb_i (wb2ua_stb),
+		.wb_ack_o (ua2wb_ack),
+		.rx_i (rx_i),
+		.tx_o (tx_o));
+
   bootrom rom (.wb_dat_i (iw2br_dat),
 	       .wb_dat_o (br2iw_dat),
 	       .wb_adr_i (iw2br_adr),

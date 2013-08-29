@@ -1,6 +1,7 @@
 MSOURCES = $(wildcard ../../../../cores/muskoka/*.v) \
 	$(wildcard ../../../../cores/wishbone/*.v) \
-	$(wildcard ../../../../cores/hex_display/*.v)
+	$(wildcard ../../../../cores/hex_display/*.v) \
+	$(wildcard ../../../../cores/uart3/*.v)
 
 PROJECT = muskoka
 

@@ -118,15 +118,5 @@ set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/MEM_1w1r.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/MEM_1w4r.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/MEM_2w4r.v
 set_global_assignment -name VERILOG_FILE ../../../../cores/LVT-regs/MUX_WORD_2to1.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/raminfr.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/timescale.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_debug_if.v  
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_defines.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_receiver.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_regs.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_rfifo.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_sync_flops.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_tfifo.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_top.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_transmitter.v
-set_global_assignment -name VERILOG_FILE ../../../../cores/uart16550/rtl/verilog/uart_wb.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart3/uart_wb.v
+set_global_assignment -name VERILOG_FILE ../../../../cores/uart3/uart.v
