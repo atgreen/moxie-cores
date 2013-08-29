@@ -96,8 +96,8 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
       operand_o <= 32'b0;
       read_ptr <= 0;
       write_ptr <= 0;
-      ptr_gap = 0;
-      full_o = 0;
+      ptr_gap <= 0;
+      full_o <= 0;
       valid_o <= 0;
       next_PC <= PC_i;
     end else begin
@@ -155,11 +155,11 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 	     read_ptr <= (read_ptr + 1) % 4;
 	     valid_o <= 1;
 	     next_PC <= PC + 2;
-	     ptr_gap = ptr_gap + 1;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     ptr_gap <= ptr_gap + 1;
+	     full_o <= ((ptr_gap == 3) || (ptr_gap == 4));
 	  end 
 	  else begin
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     full_o <= ((ptr_gap == 3) || (ptr_gap == 4));
 	     // #1 $display ("U - ERROR %x %x %x %x %x %x", write_en_i, read_en_i, write_ptr, read_ptr, ptr
 	     // _gap, full_o);
 	  end
@@ -169,8 +169,8 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 	     buffer[(write_ptr+1)%4] <= data_i[15:0];
 	     write_ptr <= write_ptr + 2;
 	     valid_o <= 0;
-	     ptr_gap = ptr_gap + 2;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     ptr_gap <= ptr_gap + 2;
+	     full_o <= ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if ((!write_en_i) && read_en_i && (can_read_48)) begin
 	     opcode_o <= buffer[read_ptr];
@@ -179,16 +179,16 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 	     valid_o <= 1;
 	     next_PC <= PC + 6;
 	     read_ptr <= read_ptr + 3;
-	     ptr_gap = ptr_gap - 3;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     ptr_gap <= ptr_gap - 3;
+	     full_o <= ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && buffer_empty) begin
 	     buffer[write_ptr] <= data_i[31:16];
 	     buffer[write_ptr+1] <= data_i[15:0];
 	     write_ptr <= write_ptr + 2;
 	     valid_o <= 0;
-	     ptr_gap = ptr_gap + 2;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     ptr_gap <= ptr_gap + 2;
+	     full_o <= ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && buffer_full) begin
 	     opcode_o <= buffer[read_ptr];
@@ -197,8 +197,8 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 	     valid_o <= 1;
 	     next_PC <= PC + 6;
 	     read_ptr <= read_ptr + 3;
-	     ptr_gap = ptr_gap - 3;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     ptr_gap <= ptr_gap - 3;
+	     full_o <= ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && (can_write_32) && (can_read_48)) begin
 	     buffer[write_ptr] <= data_i[31:16];
@@ -210,8 +210,8 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 	     read_ptr <= read_ptr + 3;
 	     valid_o <= 1;
 	     next_PC <= PC + 6;
-	     ptr_gap = ptr_gap - 1;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     ptr_gap <= ptr_gap - 1;
+	     full_o <= ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && (ptr_gap == 2)) begin
 	     buffer[(write_ptr)%4] <= data_i[31:16];
@@ -223,8 +223,8 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 	     read_ptr <= (read_ptr + 3) % 4;
 	     valid_o <= 1;
 	     next_PC <= PC + 6;
-	     ptr_gap = 1;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4));
+	     ptr_gap <= 1;
+	     full_o <= ((ptr_gap == 3) || (ptr_gap == 4));
 	  end
 	  else if (write_en_i && read_en_i && (ptr_gap == 1)) begin
 	     opcode_o <= buffer[read_ptr];
@@ -233,8 +233,8 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 	     read_ptr <= (read_ptr + 1) % 4; // FIXME: this is probably not needed
 	     valid_o <= 1;
 	     next_PC <= PC + 6;
-	     ptr_gap = 0;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4)); // FIXME: neither is this
+	     ptr_gap <= 0;
+	     full_o <= ((ptr_gap == 3) || (ptr_gap == 4)); // FIXME: neither is this
 	  end 
 	  else if (write_en_i && read_en_i && (ptr_gap == 3)) begin
 	     buffer[write_ptr] <= data_i[31:16];
@@ -246,8 +246,8 @@ module cpu_ififo #(parameter BOOT_ADDRESS = 32'h00001000
 	     read_ptr <= read_ptr + 3;
 	     valid_o <= 1;
 	     next_PC <= PC + 6;
-	     ptr_gap = ptr_gap - 1;
-	     full_o = ((ptr_gap == 3) || (ptr_gap == 4)); // FIXME: this is probably not needed
+	     ptr_gap <= ptr_gap - 1;
+	     full_o <= ((ptr_gap == 3) || (ptr_gap == 4)); // FIXME: this is probably not needed
 	  end
        end
     end
