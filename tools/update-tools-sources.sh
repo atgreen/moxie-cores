@@ -24,9 +24,9 @@
 
 (cd gcc; ./contrib/gcc_update)
 
+(cd binutils-gdb; git pull)
+
 cvs -z3 -d:pserver:anoncvs@sourceware.org:/cvs/src co \
-    binutils \
-    gdb \
     sim \
     newlib \
     libgloss

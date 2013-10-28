@@ -28,12 +28,17 @@ if ! test -f src/src-release; then
   exit 1
 fi
 
+if ! test -f binutils-gdb/src-release; then
+  echo "ERROR: missing binutils-gdb tree."
+  exit 1
+fi
+
 if ! test -f gcc/gcc/version.h; then
   echo "ERROR: missing GNU gcc tree."
   exit 1
 fi
 
-for dir in buildrtems/gcc buildrtems/src buildrtems/gdb buildrtems/rtems root/usr; do
+for dir in buildrtems/gcc buildrtems/binutils-gdb buildrtems/src buildrtems/gdb buildrtems/rtems root/usr; do
   if ! test -d $dir; then
     mkdir -p $dir;
   fi;
@@ -44,8 +49,8 @@ PREFIX=`(cd root/usr; pwd)`
 PATH=$PREFIX/bin:$PATH
 WRAPPER=`(cd ../scripts/; pwd)`/moxie-rtems-gcc-wrapper
 
-(cd buildrtems/src;
-  ../../src/configure --target=moxie-rtems \
+(cd buildrtems/binutils-gdb;
+  ../../binutils-gdb/configure --target=moxie-rtems \
                       --with-sysroot=$PREFIX/moxie-rtems \
                       --disable-gdbtk \
                       --prefix=$PREFIX;
@@ -53,6 +58,9 @@ WRAPPER=`(cd ../scripts/; pwd)`/moxie-rtems-gcc-wrapper
   make install-binutils install-gas install-ld)
 
 (cd buildrtems/src;
+  ../../src/configure --target=moxie-rtems \
+                      --with-sysroot=$PREFIX/moxie-rtems \
+                      --prefix=$PREFIX;
   make -j$MAKEJOBS all-target-newlib all-target-libgloss \
       CC_FOR_TARGET=$WRAPPER;
   make install-target-newlib install-target-libgloss \
@@ -71,7 +79,7 @@ WRAPPER=`(cd ../scripts/; pwd)`/moxie-rtems-gcc-wrapper
   make -j$MAKEJOBS all;
   make install)
 
-(cd buildrtems/src;
+(cd buildrtems/binutils-gdb;
   make -j$MAKEJOBS all-sim all-gdb;
   make install-sim install-gdb)
 

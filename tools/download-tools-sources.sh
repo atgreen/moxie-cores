@@ -2,7 +2,7 @@
 
 # download-tools-sources.sh
 #
-# Copyright (c) 2012  Anthony Green
+# Copyright (c) 2012, 2013  Anthony Green
 # 
 # The above named program is free software; you can redistribute it
 # and/or modify it under the terms of the GNU General Public License
@@ -24,10 +24,9 @@ git clone git://git.qemu.org/qemu.git
 
 svn checkout svn://gcc.gnu.org/svn/gcc/trunk gcc
 
+git clone git://sourceware.org/git/binutils-gdb.git
+
 cvs -z3 -d:pserver:anoncvs@sourceware.org:/cvs/src co \
-    binutils \
-    gdb \
-    sim \
     newlib \
     libgloss
 
