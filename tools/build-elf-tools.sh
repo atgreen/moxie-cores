@@ -28,12 +28,17 @@ if ! test -f src/src-release; then
   exit 1
 fi
 
+if ! test -f binutils-gdb/src-release; then
+  echo "ERROR: missing binutils-gdb tree."
+  exit 1
+fi
+
 if ! test -f gcc/gcc/version.h; then
   echo "ERROR: missing GNU gcc tree."
   exit 1
 fi
 
-for dir in build/gcc-boot build/gcc build/src build/gdb root/usr; do
+for dir in build/gcc-boot build/gcc build/binutils-gdb build/src build/gdb root/usr; do
   if ! test -d $dir; then
     mkdir -p $dir;
   fi;
@@ -41,10 +46,10 @@ done;
 
 PREFIX=`(cd root/usr; pwd)`
 
-(cd build/src;
-  ../../src/configure --target=moxie-elf \
-                      --disable-gdbtk \
-                      --prefix=$PREFIX;
+(cd build/binutils-gdb;
+  ../../binutils-gdb/configure --target=moxie-elf \
+      --disable-gdbtk \
+      --prefix=$PREFIX;
   make -j$MAKEJOBS all-binutils all-gas all-ld;
   make install-binutils install-gas install-ld)
 
@@ -59,9 +64,10 @@ PREFIX=`(cd root/usr; pwd)`
   make install)
 
 # Put our new tools on the PATH
-PATH=$PREFIX/root/usr/bin:$PATH
+PATH=$PREFIX/bin:$PATH
 
 (cd build/src;
+  ../../src/configure --target=moxie-elf --prefix=$PREFIX;
   make -j$MAKEJOBS all-target-newlib all-target-libgloss \
       CC_FOR_TARGET=moxie-elf-gcc;
   make install-target-newlib install-target-libgloss \
@@ -78,7 +84,7 @@ PATH=$PREFIX/root/usr/bin:$PATH
   make -j$MAKEJOBS all;
   make install)
 
-(cd build/src;
+(cd build/binutils-gdb;
   make -j$MAKEJOBS all-sim all-gdb;
   make install-sim install-gdb)
 
