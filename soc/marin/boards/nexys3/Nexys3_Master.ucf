@@ -7,8 +7,8 @@
 ## Clock signal ---------------------------------------------------------------------
 ## ----------------------------------------------------------------------------------
 
-Net "clk_100mhz_i" LOC=V10 | IOSTANDARD=LVCMOS33;
-Net "clk_100mhz_i" TNM_NET = sys_clk_pin;
+Net "clk_external_i" LOC=V10 | IOSTANDARD=LVCMOS33;
+Net "clk_external_i" TNM_NET = sys_clk_pin;
 #TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100000 kHz;
 
 ## ----------------------------------------------------------------------------------
