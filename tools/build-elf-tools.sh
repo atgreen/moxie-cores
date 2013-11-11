@@ -64,7 +64,7 @@ PREFIX=`(cd root/usr; pwd)`
   make install)
 
 # Put our new tools on the PATH
-PATH=$PREFIX/root/usr/bin:$PATH
+PATH=$PREFIX/bin:$PATH
 
 (cd build/src;
   ../../src/configure --target=moxie-elf --prefix=$PREFIX;
