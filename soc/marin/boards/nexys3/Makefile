@@ -21,6 +21,9 @@ PROJECT = marin
 
 all: hello.srec $(PROJECT).bit
 
+program: $(PROJECT).bit
+	djtgcfg prog -d Nexys3 -i 0 -f $<
+
 hello.srec: hello.elf
 	moxie-elf-objcopy -O srec --srec-forceS3 hello.elf hello.srec
 
@@ -95,3 +98,4 @@ clean:
 	-rm -rf $(COREGEN_SOURCES:.v=_xmdf.tcl)
 	-rm -rf $(COREGEN_SOURCES:.v=.cgc)
 	-rm -rf $(COREGEN_SOURCES:.v=)
+	-rm -rf *.elf *.srec *.o *.mem
