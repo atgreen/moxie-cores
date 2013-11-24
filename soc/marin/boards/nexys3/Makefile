@@ -31,13 +31,13 @@ hello.elf: hello.c m.S
 	moxie-elf-gcc -Os hello.c m.S -T../../moxie-marin.ld -o hello.elf -lnosys 
 
 ram4k16bit.v: ram4k16bit.xco coregen.cgp
-	coregen -b ram4k16bit.xco -p coregen.cgp
+	XIL_CG_LOAD_ALL_FAMILIES=true coregen -b ram4k16bit.xco -p coregen.cgp
 
 clk_wiz_v3_6.v: clk_wiz_v3_6.xco coregen.cgp
-	coregen -b clk_wiz_v3_6.xco -p coregen.cgp
+	XIL_CG_LOAD_ALL_FAMILIES=true coregen -b clk_wiz_v3_6.xco -p coregen.cgp
 
 fifo_generator_v9_3.v: fifo_generator_v9_3.xco coregen.cgp
-	coregen -b fifo_generator_v9_3.xco -p coregen.cgp
+	XIL_CG_LOAD_ALL_FAMILIES=true coregen -b fifo_generator_v9_3.xco -p coregen.cgp
 
 # CFLAGS = -Os -ffunction-sections -mno-crt0
 CFLAGS = -Os  -mno-crt0
