@@ -1,7 +1,7 @@
 /*
  * The Marin SoC Linker Script for On-Chip Boot Loader
  *
- * Copyright (C) 2012 Anthony Green
+ * Copyright (C) 2012, 2013 Anthony Green
  *
  * The authors hereby grant permission to use, copy, modify,
  * distribute, and license this software and its documentation for any
@@ -23,14 +23,14 @@ GROUP(-lc -lgcc)
 
 MEMORY 
 {
-  ROM (rx)  : ORIGIN = 0x00001000, LENGTH = 8k 
+  ROM (rx)  : ORIGIN = 0x00001000, LENGTH = 4k 
   RAM (rwx) : ORIGIN = 0x10000000, LENGTH = 4k  
   PORTS (rw) : ORIGIN = 0xF0000000, LENGTH = 1k
 } 
 
 SECTIONS
 {
-  .text :
+  .text : AT (0x0)
   {
     *(.text.boot)
     *(.text*)
@@ -42,7 +42,7 @@ SECTIONS
   _etext = .;
   PROVIDE (etext = .);
 
-  .rodata :
+  .rodata : AT (SIZEOF(.text))
   { 
     *(.rodata*) 
     *(.ctors) 
@@ -59,7 +59,7 @@ SECTIONS
     _stack = __ram_top;
   } > RAM
 
-  .romdata :
+  .romdata : AT (SIZEOF(.text)+SIZEOF(.rodata)) 
   { 
     __data_load__ = LOADADDR (.romdata) + 0x1000; 
     __data_start__ = .; 
