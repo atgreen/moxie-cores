@@ -30,10 +30,11 @@ module bootrom16 (
 		  output [0:0]	wb_ack_o
 		  );
 
-  // 16k boot ROM
-  reg  [7:0] rom[0:16383];
+  // 4k boot ROM
+  reg  [7:0] rom[0:4095];
   wire [11:0] index;
 
+  // We're just looking at the least significant 4k address bits
   assign index = wb_adr_i[11:0];
 
   reg [0:0]  wb_ack_o_reg;
