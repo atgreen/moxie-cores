@@ -28,7 +28,7 @@ hello.srec: hello.elf
 	moxie-elf-objcopy -O srec --srec-forceS3 hello.elf hello.srec
 
 hello.elf: hello.c m.S
-	moxie-elf-gcc -Os hello.c m.S -T../../moxie-marin.ld -o hello.elf -lnosys 
+	moxie-elf-gcc -Wl,-Map,hello.map -Os hello.c m.S -T../../moxie-marin.ld -o hello.elf -lnosys 
 
 ram4k16bit.v: ram4k16bit.xco coregen.cgp
 	XIL_CG_LOAD_ALL_FAMILIES=true coregen -b ram4k16bit.xco -p coregen.cgp
