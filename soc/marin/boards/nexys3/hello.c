@@ -8,6 +8,7 @@ int _write (int fd, char *buf, int len)
 {
   int i = 0;
   port_7seg_display = 0x2222;
+  
   while ((i < len) && (buf[i] != 0))
     {
       /* Wait for UART to be ready to transmit.  */
@@ -62,8 +63,9 @@ _exit (int v) { while (1); }
 
 int main()
 {
-  port_7seg_display = 0x1111;
-  _write (0, "Hello World!", 12);
-  puts ("Hello World!");
-  while (1);
+  void *reset = (void *)0x1000;  // Start of the on-chip bootloader.
+
+  puts ("Hello World!\n");
+  fflush(stdout);
+  goto *reset;
 }
