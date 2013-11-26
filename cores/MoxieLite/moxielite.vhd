@@ -188,7 +188,8 @@ BEGIN
             if data_byte_count="001" then
 
                                         -- Aligned only byte
-              dout(7 downto 0) <= data_bswap(7 downto 0);
+              dout(15 downto 8) <= data_bswap(7 downto 0);
+            -- AGSWAP 
               wr_l_n <= '0';
 
             else
@@ -202,7 +203,8 @@ BEGIN
           else
 
                                         -- Unaligned first or only byte
-            dout(15 downto 8) <= data_bswap(7 downto 0);
+            dout(7 downto 0) <= data_bswap(7 downto 0);
+            -- AGSWAP 
             wr_h_n <= '0';
 
           end if;
@@ -214,7 +216,8 @@ BEGIN
           if data_byte_count="010" then
 
                                         -- Second byte of unaligned word read
-            dout(7 downto 0) <= data_bswap(15 downto 8);
+            dout(15 downto 8) <= data_bswap(15 downto 8);
+          -- AGSWAP
             wr_l_n <= '0';
 
           else
@@ -236,7 +239,8 @@ BEGIN
         else
 
 					-- Final byte of unaligned dword read
-          dout(7 downto 0) <= data_bswap(31 downto 24);
+          dout(15 downto 8) <= data_bswap(31 downto 24);
+        -- AGSWAP
           wr_l_n <= '0';
 
         end if;
