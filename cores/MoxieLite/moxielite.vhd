@@ -1090,8 +1090,13 @@ BEGIN
             Null;
 
           when state_execute_brk =>
-            -- write (l, String'("BRK"));
-            -- writeline (output, l);
+                                        -- Save the "fault address" in sr5.
+            sregfile(5) <= PC;
+                                        -- Jump to the handler in sr1.
+            PC <= sregfile(1);
+                                        -- Set sr2 to "5", indicating BRK
+            sregfile(2) <= "00000000000000000000000000000101";
+            state <= state_fetch_pre;
             debug_o <= "00100010";
             null;
 
