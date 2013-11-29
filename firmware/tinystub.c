@@ -78,7 +78,7 @@ static void mx_puts (const char *str, int checksum)
 {
   char c;
 
-  while (c = *str)
+  while ((c = *str))
     {
       /* Wait for UART to be ready to transmit.  */
       while (port_uart[1] != 1)
@@ -108,8 +108,6 @@ void __moxie_exception_handler();
 
 static int hex2int (char c)
 {
-  int n;
-
   switch (c)
     {
     case '0': case '1': case '2': case '3': case '4': 
@@ -142,7 +140,7 @@ static int read_hex_value_fixed_length (int length)
 
 static int read_delimited_hex_value ()
 {
-  int n = 0, len = 0, v;
+  int n = 0, v;
   do 
     {
       char c = wait_for_uart_char ();
@@ -158,7 +156,6 @@ void gdb_protocol_handler_loop ()
 {
   char c;
   int i;
-  int iter = 0;
 
   /* Main packet waiting loop.  */
   while (1)
