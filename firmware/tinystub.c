@@ -28,12 +28,20 @@
    OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
    EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.  */
 
-char wait_for_uart_char();
-
 /* Various moxie I/O ports.  */
 extern volatile short port_7seg_display;
 extern volatile short port_uart[4];
 extern volatile short port_pic;
+
+static void fatal_error (short code) __attribute__((noreturn));
+static void fatal_error (short code)
+{
+  port_7seg_display = code;
+  while (1);
+}
+
+/* Blocking wait for a byte from the serial port.  */
+char wait_for_uart_char();
 
 /* A register cache.  */
 static int regbuf[20];
@@ -89,20 +97,12 @@ static void mx_send_checksum_and_reset ()
   csum = 0;
 }
 
-static void fatal_error (short code) __attribute__((noreturn));
-
-static void fatal_error (short code)
-{
-  port_7seg_display = code;
-  while (1);
-}
-
 #define MOXIE_EX_DIV0   0 /* Divide by zero */
 #define MOXIE_EX_BAD    1 /* Illegal instruction */
 #define MOXIE_EX_IRQ    2 /* Interrupt request */
 #define MOXIE_EX_SWI    3 /* Software interrupt */
-#define MOXIE_EX_BUSERR 4 /* Software interrupt */
-#define MOXIE_EX_BRK    5 /* Software interrupt */
+#define MOXIE_EX_BUSERR 4 /* Bus error exceotion */
+#define MOXIE_EX_BRK    5 /* Break instruction  */
 
 void __moxie_exception_handler();
 
