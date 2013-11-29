@@ -26,8 +26,6 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-.global delay
-	
 	.text
 	.p2align 1
 	.global __moxie_exception_handler
