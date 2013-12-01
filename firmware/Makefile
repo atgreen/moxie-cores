@@ -4,7 +4,7 @@ tinystub.srec: tinystub.elf
 	moxie-elf-objcopy -O srec --srec-forceS3 tinystub.elf tinystub.srec
 
 tinystub.elf: tinystub.c m.S marin.S
-	moxie-elf-gcc -Wl,-Map,tinystub.map -g3 -Wl,--gc-sections -Os \
+	moxie-elf-gcc -Wl,-Map,tinystub.map -g3 -Wl,--gc-sections -Os -Wall \
 		-ffunction-sections tinystub.c handler.S tinystart.S \
 		-T../soc/marin/moxie-marin.ld -o tinystub.elf -lnosys 
 
