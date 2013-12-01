@@ -268,9 +268,9 @@ void *__handle_exception (void *faddr, int exc, int code)
       mx_puts ("$", 0);
       mx_puts ("S05", 1);
       mx_send_checksum_and_reset ();
-      regbuf[16] = (int) faddr;
+      regbuf[16] = ((int) faddr) - 2;
       gdb_protocol_handler_loop ();
-      break;
+      return (void *) regbuf[16];
     default:
       fatal_error (0xFFFF);
     }
