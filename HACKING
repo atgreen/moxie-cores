@@ -19,6 +19,12 @@ This should be all that is required to prepare your quicklisp
 environment.
 
 
+Programming the Nexys3
+-----------------------
+
+The soc/marin/boards/nexys3/Makefile contains a "program" target that
+will download the Marin SoC bitstream to the Nexys3 board.
+
 
 Programming the DE2
 ---------------------
