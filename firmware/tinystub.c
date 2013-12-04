@@ -264,13 +264,24 @@ void *__handle_exception (void *faddr, int exc, int code)
       port_pic = 0;
       return faddr;
     case MOXIE_EX_BRK:
-      /* Software breakpoint */
-      mx_puts ("$", 0);
-      mx_puts ("S05", 1);
-      mx_send_checksum_and_reset ();
-      regbuf[16] = ((int) faddr) - 2;
-      gdb_protocol_handler_loop ();
-      return (void *) regbuf[16];
+      {
+	int i;
+	int *fp;
+	asm ("mov %0, $fp" : "=r"(fp) : "0"(fp));
+	/* Software breakpoint */
+	mx_puts ("$", 0);
+	mx_puts ("S05", 1);
+	mx_send_checksum_and_reset ();
+	for (i = 2; i < 16; i++)
+	  regbuf[i] = fp[i+1];
+	regbuf[0] = fp[0];
+	regbuf[1] = (int) fp;
+	regbuf[16] = ((int) faddr) - 2;
+	gdb_protocol_handler_loop ();
+	for (i = 2; i < 16; i++)
+	  fp[i+1] = regbuf[i];
+	return (void *) regbuf[16];
+      }
     default:
       fatal_error (0xFFFF);
     }

@@ -38,20 +38,20 @@ __moxie_exception_handler:
 
 	/* Save all general purpose registers.  */
 	mov   $fp, $sp
-	push  $sp, $r0
-	push  $sp, $r1
-	push  $sp, $r2
-	push  $sp, $r3
-	push  $sp, $r4
-	push  $sp, $r5
-	push  $sp, $r6
-	push  $sp, $r7
-	push  $sp, $r8
-	push  $sp, $r9
-	push  $sp, $r10
-	push  $sp, $r11
-	push  $sp, $r12
 	push  $sp, $r13
+	push  $sp, $r12
+	push  $sp, $r11
+	push  $sp, $r10
+	push  $sp, $r9
+	push  $sp, $r8
+	push  $sp, $r7
+	push  $sp, $r6
+	push  $sp, $r5
+	push  $sp, $r4
+	push  $sp, $r3
+	push  $sp, $r2
+	push  $sp, $r1
+	push  $sp, $r0
 
 	/* Get our handler parameters ...
 	   (*handler)(fault_address, fault_type, fault_code) */
@@ -76,20 +76,20 @@ __moxie_exception_handler:
 
 	/* Restore all general purpose registers.  */
 
-	pop   $sp, $r13
-	pop   $sp, $r12
-	pop   $sp, $r11
-	pop   $sp, $r10
-	pop   $sp, $r9
-	pop   $sp, $r8
-	pop   $sp, $r7
-	pop   $sp, $r6
-	pop   $sp, $r5
-	pop   $sp, $r4
-	pop   $sp, $r3
-	pop   $sp, $r2
-	pop   $sp, $r1
 	pop   $sp, $r0
+	pop   $sp, $r1
+	pop   $sp, $r2
+	pop   $sp, $r3
+	pop   $sp, $r4
+	pop   $sp, $r5
+	pop   $sp, $r6
+	pop   $sp, $r7
+	pop   $sp, $r8
+	pop   $sp, $r9
+	pop   $sp, $r10
+	pop   $sp, $r11
+	pop   $sp, $r12
+	pop   $sp, $r13
 	
 	ret
 
