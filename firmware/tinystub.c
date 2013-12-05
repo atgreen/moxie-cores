@@ -274,8 +274,8 @@ void *__handle_exception (void *faddr, int exc, int code)
 	mx_send_checksum_and_reset ();
 	for (i = 2; i < 16; i++)
 	  regbuf[i] = fp[i+1];
-	regbuf[0] = fp[0];
-	regbuf[1] = (int) fp;
+	regbuf[1] = fp[0];
+	regbuf[0] = *(int*)fp[0];
 	regbuf[16] = ((int) faddr) - 2;
 	gdb_protocol_handler_loop ();
 	for (i = 2; i < 16; i++)
