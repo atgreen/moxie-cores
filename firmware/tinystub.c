@@ -33,15 +33,24 @@ extern volatile short port_7seg_display;
 extern volatile short port_uart[4];
 extern volatile short port_pic;
 
+/* Are we reading the first character?  */
+static short first;
+
+/* Global checksum count.  */
+static int csum = 0;
+
+/* Blocking wait for a byte from the serial port.  */
+char wait_for_uart_char();
+
+/* The exception handling routine.  */
+void __moxie_exception_handler();
+
 static void fatal_error (short code) __attribute__((noreturn));
 static void fatal_error (short code)
 {
   port_7seg_display = code;
   while (1);
 }
-
-/* Blocking wait for a byte from the serial port.  */
-char wait_for_uart_char();
 
 /* A register cache.  */
 static int regbuf[20];
@@ -70,9 +79,6 @@ static char *word2hex(int word)
   buf[8] = 0;
   return buf;
 }
-
-/* Global checksum count.  */
-static int csum = 0;
 
 static void mx_puts (const char *str, int checksum)
 {
@@ -104,16 +110,14 @@ static void mx_send_checksum_and_reset ()
 #define MOXIE_EX_BUSERR 4 /* Bus error exceotion */
 #define MOXIE_EX_BRK    5 /* Break instruction  */
 
-void __moxie_exception_handler();
-
 static int hex2int (char c)
 {
   switch (c)
     {
-    case '0': case '1': case '2': case '3': case '4': 
+    case '0': case '1': case '2': case '3': case '4':
     case '5': case '6': case '7': case '8': case '9':
       return c - '0';
-    case 'A': case 'B': case 'C': 
+    case 'A': case 'B': case 'C':
     case 'D': case 'E': case 'F':
       return c - 'A' + 10;
     case 'a': case 'b': case 'c':
@@ -141,7 +145,7 @@ static int read_hex_value_fixed_length (int length)
 static int read_delimited_hex_value ()
 {
   int n = 0, v;
-  do 
+  do
     {
       char c = wait_for_uart_char ();
       v = hex2int(c);
@@ -152,6 +156,105 @@ static int read_delimited_hex_value ()
   return n;
 }
 
+#define FATALCODE(code) ((code << 8)+row)
+#define STORE(T,A,V) *(T*)(A) = V
+
+void download_srecord_executable ()
+{
+  int done = 0;
+  short row = 1;
+  short c, record_type, length;
+  char *address;
+
+  while (! done)
+    {
+      /* Get the start of the s-record.  */
+      if (! first)
+	{
+	  do {
+	    c = wait_for_uart_char();
+	  } while (c != 'S');
+	}
+      else
+	first = 0;
+
+      /* Get the record type.  */
+      record_type = wait_for_uart_char();
+
+      if ((record_type < '0') | (record_type > '9'))
+	fatal_error (FATALCODE(record_type));
+
+      /* Get the record length in 2-char bytes.  */
+      length = read_hex_value_fixed_length (2);
+
+      port_7seg_display = row;
+
+      switch (record_type)
+	{
+	case '0':
+	  length = length*2;
+	  while (length--)
+	    wait_for_uart_char ();
+	  break;
+	case '3':
+	  {
+	    /* Get the record address.  */
+	    address = (char *) read_hex_value_fixed_length (8);
+	    length -= 4;
+
+	    while (length > 4)
+	      {
+		int value = read_hex_value_fixed_length (8);
+		STORE(int,address,value);
+		address += 4;
+		length -= 4;
+	      }
+
+	    while (length > 2)
+	      {
+		short value = read_hex_value_fixed_length (4);
+		STORE(short,address,value);
+		address += 2;
+		length -= 2;
+	      }
+
+	    while (length > 1)
+	      {
+		char value = read_hex_value_fixed_length (2);
+		STORE(char,address,value);
+		address += 1;
+		length -= 1;
+	      }
+
+	    /* Skip checksum for now */
+	    read_hex_value_fixed_length (2);
+	  }
+	  break;
+	case '7':
+	  done = 1;
+	  length = length*2;
+	  while (length--)
+	    wait_for_uart_char ();
+	  break;
+	case '9':
+	  done = 1;
+	  break;
+	default:
+	  fatal_error (FATALCODE(record_type));
+	  break;
+	}
+      row++;
+    }
+
+  mx_puts ("Jumping to code at 0x30000000.\n\r", 0);
+
+  /* Hint that we're just about to jump to 0x30000000.  */
+  port_7seg_display = 0x3000;
+
+  /* Jump to our new program in RAM.  Never return.  */
+  asm ("jmpa 0x30000000");
+}
+
 void gdb_protocol_handler_loop ()
 {
   char c;
@@ -160,9 +263,15 @@ void gdb_protocol_handler_loop ()
   /* Main packet waiting loop.  */
   while (1)
     {
-      do {
-	c = wait_for_uart_char();
-      } while (c != '$');
+
+      if (! first)
+	{
+	  do {
+	    c = wait_for_uart_char();
+	  } while (c != '$');
+	}
+      else
+	first = 0;
 
       c = wait_for_uart_char();
 
@@ -246,6 +355,7 @@ void gdb_protocol_handler_loop ()
 	  wait_for_uart_char();
 	  wait_for_uart_char();
 	  mx_puts ("+$#00", 0);
+	  break;
 	}
     }
 }
@@ -291,6 +401,7 @@ void *__handle_exception (void *faddr, int exc, int code)
 int main()
 {
   int i = 0;
+  char c;
 
   /* Set the exception handler.  */
   asm("ssr %0, 1" : : "r" (__moxie_exception_handler));
@@ -298,8 +409,42 @@ int main()
   /* Enable interrupts.  */
   asm("ssr %0, 0" : : "r" (i));
 
-  for (i = 0; i < 20; i++)
-    regbuf[i] = 0;
-  gdb_protocol_handler_loop ();
-  goto *regbuf[16];
+  /* Reset the global checksum.  */
+  csum = 0;
+
+  /* Print out welcome message.  */
+  mx_puts ("MOXIE On-Chip Bootloader v2.0\n\r", 0);
+  mx_puts ("Copyright (c) 2013 Anthony Green <green@moxielogic.com>\n\r", 0);
+  mx_puts ("\n\r", 0);
+  mx_puts ("Waiting for an S-Record Download or Remote GDB Connection...\n\r", 0);
+
+  /* Update global state.  We've just read our first character.  */
+  first = 1;
+
+  /* Wait for either an S-Record download, or a remote gdb connection.  */
+  do {
+    c = wait_for_uart_char();
+  } while ((c != '$') && (c != 'S'));
+
+  if (c == '$')
+    {
+      /* We're connecting to gdb... */
+      int i;
+
+      /* Indicate that we're in remote debug mode.  */
+      port_7seg_display = 0xdeb2;
+
+      /* Clear register cache, and start debugging.  */
+      for (i = 0; i < 20; i++)
+	regbuf[i] = 0;
+      gdb_protocol_handler_loop ();
+      goto *regbuf[16];
+    }
+  else
+    {
+      /* We're doing an srecord file download... */
+      download_srecord_executable ();
+    }
+
+  while (1);
 }

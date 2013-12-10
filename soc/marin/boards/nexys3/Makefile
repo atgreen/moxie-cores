@@ -39,16 +39,16 @@ clk_wiz_v3_6.v: clk_wiz_v3_6.xco coregen.cgp
 fifo_generator_v9_3.v: fifo_generator_v9_3.xco coregen.cgp
 	XIL_CG_LOAD_ALL_FAMILIES=true coregen -b fifo_generator_v9_3.xco -p coregen.cgp
 
-# CFLAGS = -Os -ffunction-sections -mno-crt0
-CFLAGS = -Os  -mno-crt0
+CFLAGS = -Os -ffunction-sections -mno-crt0
+# CFLAGS = -Os  -mno-crt0
 
-BOOTROM_SOURCES = ../../../../firmware/marin.S ../../../../firmware/bootload.c ../../../../firmware/handler.S
+BOOTROM_SOURCES = ../../../../firmware/tinystart.S ../../../../firmware/tinystub.c ../../../../firmware/handler.S
 
 bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin-onchip.ld
-	moxie-elf-gcc $(CFLAGS) -c -o marin.o ../../../../firmware/marin.S
-	moxie-elf-gcc $(CFLAGS) -c -o bootload.o ../../../../firmware/bootload.c
+	moxie-elf-gcc $(CFLAGS) -c -o tinystart.o ../../../../firmware/tinystart.S
+	moxie-elf-gcc $(CFLAGS) -c -o tinystub.o ../../../../firmware/tinystub.c -Wall 
 	moxie-elf-gcc $(CFLAGS) -c -o handler.o ../../../../firmware/handler.S
-	moxie-elf-gcc $(CFLAGS) marin.o bootload.o handler.o -o bootrom.elf -Wl,--gc-sections -T../../moxie-marin-onchip.ld -lnosys
+	moxie-elf-gcc $(CFLAGS) -Wl,-Map,bootrom.map tinystart.o tinystub.o handler.o -o bootrom.elf -Wl,--gc-sections -T../../moxie-marin-onchip.ld -lnosys
 #	moxie-elf-objcopy -O verilog bootrom.elf bootrom.vh
 	data2mem -bd bootrom.elf -d -o m bootrom.mem
 	grep -v @ bootrom.mem > bootrom.vh
