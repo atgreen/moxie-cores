@@ -41,7 +41,10 @@ module ram16bit_wb (input         rst_i,
    
   always @(posedge clk_i)
     begin
-      wb_dat_o_reg <= {ram[index], ram[index+1]};
+      if (wb_sel_i[0])
+	wb_dat_o_reg[15:8] <= ram[index];
+      if (wb_sel_i[1])
+	wb_dat_o_reg[7:0] <= ram[index+1];
       wb_ack_o_reg <= wb_stb_i & wb_cyc_i;
     end
   
@@ -50,8 +53,10 @@ module ram16bit_wb (input         rst_i,
      begin
 	if (wb_stb_i & wb_cyc_i & wb_we_i)
 	  begin
-	     ram[index+1] <= wb_dat_i[7:0];
-	     ram[index] <= wb_dat_i[15:8];
+	     if (wb_sel_i[1])
+	       ram[index+1] <= wb_dat_i[7:0];
+	     if (wb_sel_i[0])
+	       ram[index] <= wb_dat_i[15:8];
 	  end
      end
    
