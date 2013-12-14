@@ -30,7 +30,7 @@ MEMORY
 
 SECTIONS
 {
-  .text : AT (0x0)
+  .text : AT (0x1000)
   {
     *(.text.boot)
     *(.text*)
@@ -41,8 +41,8 @@ SECTIONS
 
   _etext = .;
   PROVIDE (etext = .);
-
-  .rodata : AT (SIZEOF(.text))
+/* : AT (0x1000+SIZEOF(.text)) */
+  .rodata :
   { 
     *(.rodata*) 
     *(.ctors) 
@@ -61,7 +61,7 @@ SECTIONS
 
   .romdata : AT (SIZEOF(.text)+SIZEOF(.rodata)) 
   { 
-    __data_load__ = LOADADDR (.romdata) + 0x1000; 
+    __data_load__ = LOADADDR (.romdata); 
     __data_start__ = .; 
     *(.data .data.* .gnu.linkonce.d.*) 
     . = ALIGN (4); 

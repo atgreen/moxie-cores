@@ -40,18 +40,28 @@ fifo_generator_v9_3.v: fifo_generator_v9_3.xco coregen.cgp
 	XIL_CG_LOAD_ALL_FAMILIES=true coregen -b fifo_generator_v9_3.xco -p coregen.cgp
 
 CFLAGS = -Os -ffunction-sections -mno-crt0
-# CFLAGS = -Os  -mno-crt0
 
-BOOTROM_SOURCES = ../../../../firmware/tinystart.S ../../../../firmware/tinystub.c ../../../../firmware/handler.S
+BOOTROM_SOURCES = ../../../../firmware/tinystart.S \
+		../../../../firmware/tinystub.c \
+		../../../../firmware/handler.S
 
 bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin-onchip.ld
-	moxie-elf-gcc $(CFLAGS) -c -o tinystart.o ../../../../firmware/tinystart.S
-	moxie-elf-gcc $(CFLAGS) -c -o tinystub.o ../../../../firmware/tinystub.c -Wall 
+	moxie-elf-gcc $(CFLAGS) -c -o tinystart.o \
+		../../../../firmware/tinystart.S
+	moxie-elf-gcc $(CFLAGS) -c -o tinystub.o \
+		../../../../firmware/tinystub.c -Wall 
 	moxie-elf-gcc $(CFLAGS) -c -o handler.o ../../../../firmware/handler.S
-	moxie-elf-gcc $(CFLAGS) -Wl,-Map,bootrom.map tinystart.o tinystub.o handler.o -o bootrom.elf -Wl,--gc-sections -T../../moxie-marin-onchip.ld -lnosys
-#	moxie-elf-objcopy -O verilog bootrom.elf bootrom.vh
-	data2mem -bd bootrom.elf -d -o m bootrom.mem
-	grep -v @ bootrom.mem > bootrom.vh
+	moxie-elf-gcc $(CFLAGS) -Wl,-Map,bootrom.map tinystart.o \
+		tinystub.o handler.o -o bootrom.elf -Wl,--gc-sections \
+		-T../../moxie-marin-onchip.ld -lnosys
+	# Adjust the loadable section addresses down by 1k so they will load
+	# properly into bootrom16.v.  Use bootrom.elf for simulators like
+	# qemu, and bootrom0.elf for input into the verilog code.
+	moxie-elf-objcopy --change-section-lma .rodata-0x1000 \
+		--change-section-lma .text-0x1000 bootrom.elf bootrom0.elf
+	data2mem -bd bootrom0.elf -d -o m bootrom0.mem
+	grep -v @ bootrom0.mem > bootrom.vh
+	rm bootrom0*
 
 $(PROJECT).prj: bootrom.vh ../../../../cores/gdbtarget/messages.vh $(SOURCES)
 	rm -f $(PROJECT).prj
