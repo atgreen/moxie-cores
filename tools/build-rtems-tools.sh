@@ -24,7 +24,7 @@
 MAKEJOBS=4
 
 if ! test -f src/src-release; then
-  echo "ERROR: missing GNU src tree."
+  echo "ERROR: missing GNU src tree (i.e., newlib and libgloss)."
   exit 1
 fi
 
