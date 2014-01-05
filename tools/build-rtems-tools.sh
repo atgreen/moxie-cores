@@ -49,6 +49,10 @@ PREFIX=`(cd root/usr; pwd)`
 PATH=$PREFIX/bin:$PATH
 WRAPPER=`(cd ../scripts/; pwd)`/moxie-rtems-gcc-wrapper
 
+# Check that the moxie-elf toolchain has been installed since it is required to
+# build newlib below
+moxie-elf-gcc -v >/dev/null 2>&1 || { echo >&2 "I require the moxie-elf toolchain, but it's not installed.  Aborting."; exit 1; }
+
 (cd buildrtems/binutils-gdb;
   ../../binutils-gdb/configure --target=moxie-rtems \
                       --with-sysroot=$PREFIX/moxie-rtems \
