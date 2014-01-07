@@ -90,7 +90,7 @@ PATH=$PREFIX/bin:$PATH
 
 (mkdir build/qemu;
   cd build/qemu;
-  ../../qemu/configure --target-list=moxie-softmmu \
+  ../../qemu-moxie/configure --target-list=moxie-softmmu \
       --prefix=`(cd ../../root/usr/; pwd)`;
   make -j$MAKEJOBS;
   make install)

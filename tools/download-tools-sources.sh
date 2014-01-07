@@ -20,7 +20,8 @@
 
 # A basic script to download the upstream GNU toolchain sources.
 
-git clone git://git.qemu.org/qemu.git
+# git clone git://git.qemu.org/qemu.git
+git clone git://github.com/atgreen/qemu-moxie.git
 
 svn checkout svn://gcc.gnu.org/svn/gcc/trunk gcc
 
