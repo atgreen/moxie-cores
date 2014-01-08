@@ -39,13 +39,13 @@ clk_wiz_v3_6.v: clk_wiz_v3_6.xco coregen.cgp
 fifo_generator_v9_3.v: fifo_generator_v9_3.xco coregen.cgp
 	XIL_CG_LOAD_ALL_FAMILIES=true coregen -b fifo_generator_v9_3.xco -p coregen.cgp
 
-CFLAGS = -Os -ffunction-sections -mno-crt0
+CFLAGS = -Os -g -ffunction-sections -mno-crt0
 
 BOOTROM_SOURCES = ../../../../firmware/tinystart.S \
 		../../../../firmware/tinystub.c \
 		../../../../firmware/handler.S
 
-bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin-onchip.ld
+bootrom.elf: $(BOOTROM_SOURCES) ../../moxie-marin-onchip.ld
 	moxie-elf-gcc $(CFLAGS) -c -o tinystart.o \
 		../../../../firmware/tinystart.S
 	moxie-elf-gcc $(CFLAGS) -c -o tinystub.o \
@@ -54,6 +54,8 @@ bootrom.vh: $(BOOTROM_SOURCES) ../../moxie-marin-onchip.ld
 	moxie-elf-gcc $(CFLAGS) -Wl,-Map,bootrom.map tinystart.o \
 		tinystub.o handler.o -o bootrom.elf -Wl,--gc-sections \
 		-T../../moxie-marin-onchip.ld -lnosys
+
+bootrom.vh: bootrom.elf
 	# Adjust the loadable section addresses down by 1k so they will load
 	# properly into bootrom16.v.  Use bootrom.elf for simulators like
 	# qemu, and bootrom0.elf for input into the verilog code.
