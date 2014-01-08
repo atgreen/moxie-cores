@@ -20,7 +20,8 @@
 
 # A basic script to download the upstream GNU toolchain sources.
 
-(cd qemu; git pull)
+# (cd qemu; git pull)
+(cd qemu-moxie; git pull)
 
 (cd gcc; ./contrib/gcc_update)
 

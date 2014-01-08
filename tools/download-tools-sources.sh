@@ -23,7 +23,8 @@
 # Some of the Ubuntu packages required to download and build:
 # sudo apt-get install cvs libgmp-dev libmpfr-dev libmpc-dev device-tree-compiler
 
-git clone git://git.qemu.org/qemu.git
+# git clone git://git.qemu.org/qemu.git
+git clone git://github.com/atgreen/qemu-moxie.git
 
 svn checkout svn://gcc.gnu.org/svn/gcc/trunk gcc
 

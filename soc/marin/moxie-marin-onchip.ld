@@ -21,6 +21,11 @@ ENTRY(_start)
 
 GROUP(-lc -lgcc)
 
+PHDRS
+{
+  ROM_SEGMENT PT_LOAD;
+}
+
 MEMORY 
 {
   ROM (rx)  : ORIGIN = 0x00001000, LENGTH = 4k 
@@ -37,11 +42,11 @@ SECTIONS
     KEEP(*(.init))
     KEEP(*(.fini))
     . = ALIGN(0x4); 
-  } > ROM
+  } > ROM :ROM_SEGMENT
 
   _etext = .;
   PROVIDE (etext = .);
-/* : AT (0x1000+SIZEOF(.text)) */
+
   .rodata :
   { 
     *(.rodata*) 
@@ -51,7 +56,7 @@ SECTIONS
     *(.jcr)
     *(.tm_clone_table)
     . = ALIGN(0x4); 
-  } > ROM 
+  } > ROM :ROM_SEGMENT
 
   .ramtop : 
   {
