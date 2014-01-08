@@ -400,14 +400,13 @@ void *__handle_exception (void *faddr, int exc, int code)
 
 int main()
 {
-  int i = 0;
   char c;
 
   /* Set the exception handler.  */
   asm("ssr %0, 1" : : "r" (__moxie_exception_handler));
 
   /* Enable interrupts.  */
-  asm("ssr %0, 0" : : "r" (i));
+  asm("ssr %0, 0" : : "r" (1));
 
   /* Reset the global checksum.  */
   csum = 0;
