@@ -88,7 +88,7 @@ moxie-elf-gcc -v >/dev/null 2>&1 || { echo >&2 "I require the moxie-elf toolchai
   make install-sim install-gdb)
 
 (cd buildrtems/rtems;
-  ../../rtems/configure --target=moxie-rtems --enable-testsuite=samples \
+  ../../RTEMS/configure --target=moxie-rtems --enable-testsuite=samples \
                         --prefix=$PREFIX;
   make -j$MAKEJOBS;
   make install)
