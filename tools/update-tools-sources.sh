@@ -2,7 +2,7 @@
 
 # update-tools-sources.sh
 #
-# Copyright (c) 2013  Anthony Green
+# Copyright (c) 2013, 2014  Anthony Green
 # 
 # The above named program is free software; you can redistribute it
 # and/or modify it under the terms of the GNU General Public License
@@ -28,10 +28,9 @@
 (cd binutils-gdb; git pull)
 
 cvs -z3 -d:pserver:anoncvs@sourceware.org:/cvs/src co \
-    sim \
     newlib \
     libgloss
 
-(cd rtems; git pull; ./bootstrap)
+(cd RTEMS; git pull; ./bootstrap)
 
 

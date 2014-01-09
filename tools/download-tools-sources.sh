@@ -2,7 +2,7 @@
 
 # download-tools-sources.sh
 #
-# Copyright (c) 2012, 2013  Anthony Green
+# Copyright (c) 2012, 2013, 2014  Anthony Green
 # 
 # The above named program is free software; you can redistribute it
 # and/or modify it under the terms of the GNU General Public License
@@ -34,6 +34,7 @@ cvs -z3 -d:pserver:anoncvs@sourceware.org:/cvs/src co \
     newlib \
     libgloss
 
-git clone git://git.rtems.org/rtems.git
-(cd rtems; ./bootstrap)
+# git clone git://git.rtems.org/rtems.git
+git clone git://github.com/atgreen/RTEMS.git
+(cd RTEMS; ./bootstrap)
 

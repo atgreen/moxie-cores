@@ -2,7 +2,7 @@
 
 # build-rtems-tools.sh
 #
-# Copyright (c) 2012  Anthony Green
+# Copyright (c) 2012, 2014  Anthony Green
 # 
 # The above named program is free software; you can redistribute it
 # and/or modify it under the terms of the GNU General Public License
@@ -88,7 +88,7 @@ moxie-elf-gcc -v >/dev/null 2>&1 || { echo >&2 "I require the moxie-elf toolchai
   make install-sim install-gdb)
 
 (cd buildrtems/rtems;
-  ../../rtems/configure --target=moxie-rtems \
+  ../../rtems/configure --target=moxie-rtems --enable-testsuite=samples \
                         --prefix=$PREFIX;
   make -j$MAKEJOBS;
   make install)
