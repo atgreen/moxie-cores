@@ -43,8 +43,8 @@ module uart_wb (input         rst_i,
 	  
    uart 
 #(
-  /* (/ 50000000 9600) */
-    .UART_DIVISOR(5208)
+  /* (/ 50000000 115200) */
+    .UART_DIVISOR(434)
 ) 
 uart_instance (.clk_i (clk_i),
 		       .rst_i (rst_i),
