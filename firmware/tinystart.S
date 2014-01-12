@@ -25,8 +25,8 @@ _start:
 	jmpa	.L3
 
 .L4:
-/*	ldi.l	$r0, 0xFEED
-	sta.s	port_7seg_display, $r0 */
+	ldi.l	$r0, 0xFEED
+	sta.s	port_7seg_display, $r0 
 	
 	# Run main(int argc, char *argv[], char *env[])
 	xor	$r0, $r0
