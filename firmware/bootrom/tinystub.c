@@ -246,6 +246,13 @@ void download_srecord_executable ()
       row++;
     }
 
+  /* Consume all trailing input.  */
+  while (port_uart[0])
+    {
+      volatile short junk;
+      junk = port_uart[2];
+    }
+
   mx_puts ("Jumping to code at 0x30000000.\n\r", 0);
 
   /* Hint that we're just about to jump to 0x30000000.  */

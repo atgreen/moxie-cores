@@ -41,19 +41,35 @@ fifo_generator_v9_3.v: fifo_generator_v9_3.xco coregen.cgp
 
 CFLAGS = -Os -g -ffunction-sections -mno-crt0
 
-BOOTROM_SOURCES = ../../../../firmware/tinystart.S \
-		../../../../firmware/tinystub.c \
-		../../../../firmware/handler.S
+BOOTROM_SOURCES = ../../../../firmware/bootrom/tinystart.S \
+		../../../../firmware/bootrom/tinystub.c \
+		../../../../firmware/bootrom/handler.S
+
+XDL_SOURCES = ../../../../firmware/bootrom/tinystart.S \
+		../../../../firmware/xdl/xdl.c \
+		../../../../firmware/xdl/xdl_boot.S
 
 bootrom.elf: $(BOOTROM_SOURCES) ../../moxie-marin-onchip.ld
 	moxie-elf-gcc $(CFLAGS) -c -o tinystart.o \
-		../../../../firmware/tinystart.S
+		../../../../firmware/bootrom/tinystart.S
 	moxie-elf-gcc $(CFLAGS) -c -o tinystub.o \
-		../../../../firmware/tinystub.c -Wall 
-	moxie-elf-gcc $(CFLAGS) -c -o handler.o ../../../../firmware/handler.S
+		../../../../firmware/bootrom/tinystub.c -Wall 
+	moxie-elf-gcc $(CFLAGS) -c -o handler.o ../../../../firmware/bootrom/handler.S
 	moxie-elf-gcc $(CFLAGS) -Wl,-Map,bootrom.map tinystart.o \
 		tinystub.o handler.o -o bootrom.elf -Wl,--gc-sections \
 		-T../../moxie-marin-onchip.ld -lnosys
+
+xdl.srec: $(XDL_SOURCES) ../../moxie-marin-xdl.ld
+	moxie-elf-gcc $(CFLAGS) -c -o tinystart.o \
+		../../../../firmware/bootrom/tinystart.S
+	moxie-elf-gcc $(CFLAGS) -c -o xdl_boot.o \
+		../../../../firmware/xdl/xdl_boot.S
+	moxie-elf-gcc $(CFLAGS) -c -o xdl.o \
+		../../../../firmware/xdl/xdl.c -Wall 
+	moxie-elf-gcc $(CFLAGS) -Wl,-Map,xdl.map xdl.o xdl_boot.o \
+		tinystart.o -o xdl.elf \
+		-T../../moxie-marin-xdl.ld -lnosys
+	moxie-elf-objcopy -O srec --srec-forceS3 xdl.elf xdl.srec
 
 bootrom.vh: bootrom.elf
 	# Adjust the loadable section addresses down by 1k so they will load

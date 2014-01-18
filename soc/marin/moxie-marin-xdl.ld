@@ -1,7 +1,7 @@
 /*
- * The Marin SoC Linker Script for running in Cellular RAM
+ * The Marin SoC Linker Script for xmodem download code
  *
- * Copyright (C) 2012 Anthony Green
+ * Copyright (C) 2014 Anthony Green
  *
  * The authors hereby grant permission to use, copy, modify,
  * distribute, and license this software and its documentation for any
@@ -23,12 +23,18 @@ GROUP(-lc -lgcc)
 
 MEMORY 
 {
-  RAM (rwx) : ORIGIN = 0x30000000, LENGTH = 16M  
+  BOOTROM (rx) : ORIGIN = 0x30000000, LENGTH = 1k
+  RAM (rwx) : ORIGIN = 0x30F00000, LENGTH = 1M  
   PORTS (rw) : ORIGIN = 0xF0000000, LENGTH = 1k
 } 
 
 SECTIONS
 {
+  .xdl_boot :
+  {
+    *(.xdl_boot)    
+  } > BOOTROM
+
   .text : 
   {
     *(.text.boot)
@@ -73,7 +79,7 @@ SECTIONS
   {
     __ram_top = 0x1000000 - 0x8000;
     _stack = __ram_top;
-  } > RAM
+  } > BOOTROM
 
   .ports : 
   {
