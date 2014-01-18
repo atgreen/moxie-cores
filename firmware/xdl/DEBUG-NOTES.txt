@@ -1,0 +1,22 @@
+xdl is an xmodem downloader for srecord files.  To debug xdl.elf, open
+three terminal sessions.
+
+Session 1.
+
+$ qemu-system-moxie -S -s --nographic --machine marin --kernel xdl.elf --serial pty
+QEMU 1.7.50 monitor - type 'help' for more information
+(qemu) char device redirected to /dev/pts/14 (label serial0)
+
+
+Session 2.
+
+$ sx hello.srec < /dev/pts/14 > /dev/pts/14 
+
+
+Session 3. 
+
+$ moxie-elf-gdb xdl.elf
+(gdb) target remote localhost 1234
+(gdb) b main
+(gdb) c
+
