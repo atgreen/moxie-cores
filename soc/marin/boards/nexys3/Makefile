@@ -39,7 +39,8 @@ clk_wiz_v3_6.v: clk_wiz_v3_6.xco coregen.cgp
 fifo_generator_v9_3.v: fifo_generator_v9_3.xco coregen.cgp
 	XIL_CG_LOAD_ALL_FAMILIES=true coregen -b fifo_generator_v9_3.xco -p coregen.cgp
 
-CFLAGS = -Os -g -ffunction-sections -mno-crt0
+#CFLAGS = -Os -g -ffunction-sections -mno-crt0
+CFLAGS = -O0 -gdwarf-2 -mno-crt0
 
 BOOTROM_SOURCES = ../../../../firmware/bootrom/tinystart.S \
 		../../../../firmware/bootrom/tinystub.c \

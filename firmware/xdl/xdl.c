@@ -1,4 +1,4 @@
-/* xmodem.c - a simple xmodem-crc receive implementation
+/* xdl.c - a simple xmodem-crc srecord receive implementation
 
    Copyright (c) 2014, Anthony Green
 
@@ -62,7 +62,7 @@ static void moxie_puts (const char *str)
     }
 }
 
-static int moxie_readchar(unsigned long delay)
+static int moxie_readchar (unsigned long delay)
 {
   while (port_uart[0] == 0)
     {
@@ -72,7 +72,14 @@ static int moxie_readchar(unsigned long delay)
 	  return -1;
 	}
     }
-  return port_uart[2] & 0xf;
+  return port_uart[2] & 0xff;
+}
+
+static void moxie_flushinput ()
+{
+  short junk = 0;
+  while (port_uart[0])
+    junk += port_uart[2];
 }
 
 static int hex2int (char c)
@@ -91,23 +98,6 @@ static int hex2int (char c)
     default:
       return -1;
     }
-}
-
-static int read_hex_value_fixed_length (int length)
-{
-  int n = 0;
-
-  while (length--)
-    {
-      int v;
-      int c = moxie_readchar(TIMEOUT);
-      if (c == -1)
-	fatal_error(7777);
-      v = hex2int(c);
-      n = (n << 4) + v;
-    }
-
-  return n;
 }
 
 static int moxie_rxready()
@@ -139,10 +129,10 @@ static int moxie_rxready()
 
 typedef struct 
 {
-  int expected_packet_number;
+  unsigned char expected_packet_number;
   int read_index;
   int finished;
-  char buffer[XMODEM_PACKET_SIZE];
+  unsigned char buffer[XMODEM_PACKET_SIZE];
 } rx_state_t;
 
 static void init_rx_state (rx_state_t *rxs)
@@ -156,27 +146,35 @@ static int xmodem_rx_packet (rx_state_t *rxs)
 {
   int c, i = 0;
   short crc = 0;
-  char *buffer = rxs->buffer;
+  unsigned char *buffer = rxs->buffer;
 
   do 
     {
       c = moxie_readchar (TIMEOUT);
       if (c == -1)
-	return RX_TIMEOUT;
+	{
+	  if (buffer[0] == XMODEM_EOT)
+	    return RX_EOT;
+	  else
+	    return RX_TIMEOUT;
+	}
       else
 	buffer[i++] = c;
     } while (i < XMODEM_PACKET_SIZE);
 
   port_7seg_display = 0x4448;
 
-  if (c == XMODEM_EOT)
-    return RX_EOT;
+  if (buffer[0] == XMODEM_EOT)
+    {
+      return RX_EOT;
+    }
 
   if (buffer[0] != XMODEM_SOH)
-    return RX_BAD_HEADER;
+    {
+      return RX_BAD_HEADER;
+    }
 #if 0
   port_7seg_display = (buffer[1] << 8) | buffer[2];
-  while (1);
 
   if (buffer[1] != (~buffer[2] & 0xff))
     return RX_BAD_PACKET_NUMBER;
@@ -184,10 +182,14 @@ static int xmodem_rx_packet (rx_state_t *rxs)
 #endif  
 
   if (buffer[1] == (rxs->expected_packet_number - 1))
-    return RX_DUPLICATE_PACKET_NUMBER;
+    {
+      return RX_DUPLICATE_PACKET_NUMBER;
+    }
 
   if (buffer[1] != rxs->expected_packet_number)
-    return RX_UNEXPECTED_PACKET_NUMBER;
+    {
+      return RX_UNEXPECTED_PACKET_NUMBER;
+    }
 
   /* Now we check the buffer checksum.  */
   for (i = 3; i < XMODEM_PACKET_SIZE-2; i++)
@@ -203,12 +205,12 @@ static int xmodem_rx_packet (rx_state_t *rxs)
 	    crc = (crc << 1);
 	}
     }
-
+#if 0
   if ((buffer [XMODEM_PACKET_SIZE - 2] != ((crc >> 8) & 0xff))
       || (buffer [XMODEM_PACKET_SIZE - 1] != (crc & 0xff)))
     return RX_BAD_CHECKSUM;
-
-  rxs->expected_packet_number++;    
+#endif
+  rxs->expected_packet_number++;
   return RX_OK;
 }
 
@@ -235,7 +237,8 @@ static int xmodem_read_char (rx_state_t *rxs)
 	    
 	  default:
 	    port_7seg_display = 0x3300 + (rc & 0xff);
-	    while (1);
+	    moxie_flushinput ();
+	    /* FIXME: is this required?  Or do we just timeout?  */
 	    moxie_putchar (XMODEM_NAK);
 	    break;
 	  }
@@ -244,25 +247,33 @@ static int xmodem_read_char (rx_state_t *rxs)
     return rxs->buffer[rxs->read_index++];
 }
 
+static int read_hex_value_fixed_length (rx_state_t *rxs, int length)
+{
+  int n = 0;
+
+  while (length--)
+    {
+      int v;
+      int c = xmodem_read_char (rxs);
+      if (c == -1)
+	fatal_error(7777);
+      v = hex2int(c);
+      n = (n << 4) + v;
+    }
+
+  return n;
+}
+
 int main ()
 {
   int done = 0;
   short row = 1;
   short c, record_type, length;
   char *address;
-  int first = 1;
   rx_state_t rxs;
 
   port_7seg_display = 0x4444;
   init_rx_state (&rxs);
-
-  {
-    int count = 0;
-    while (moxie_readchar(TIMEOUT) != -1)
-      {
-	port_7seg_display = count++;
-      }
-  }
 
   /* Start the transfer with 'C', indicating an xmodem-crc download.  */
   do
@@ -278,14 +289,9 @@ int main ()
   while (! done)
     {
       /* Get the start of the s-record.  */
-      if (! first)
-	{
-	  do {
-	    c = xmodem_read_char(&rxs);
-	  } while (c != 'S');
-	}
-      else
-	first = 0;
+      do {
+	c = xmodem_read_char(&rxs);
+      } while (c != 'S');
 
       /* Get the record type.  */
       record_type = xmodem_read_char(&rxs);
@@ -294,7 +300,7 @@ int main ()
 	fatal_error (FATALCODE(record_type));
 
       /* Get the record length in 2-char bytes.  */
-      length = read_hex_value_fixed_length (2);
+      length = read_hex_value_fixed_length (&rxs, 2);
 
       port_7seg_display = row;
 
@@ -308,12 +314,12 @@ int main ()
 	case '3':
 	  {
 	    /* Get the record address.  */
-	    address = (char *) read_hex_value_fixed_length (8);
+	    address = (char *) read_hex_value_fixed_length (&rxs, 8);
 	    length -= 4;
 
 	    while (length > 4)
 	      {
-		int value = read_hex_value_fixed_length (8);
+		int value = read_hex_value_fixed_length (&rxs, 8);
 		STORE(int,address,value);
 		address += 4;
 		length -= 4;
@@ -321,7 +327,7 @@ int main ()
 
 	    while (length > 2)
 	      {
-		short value = read_hex_value_fixed_length (4);
+		short value = read_hex_value_fixed_length (&rxs, 4);
 		STORE(short,address,value);
 		address += 2;
 		length -= 2;
@@ -329,14 +335,14 @@ int main ()
 
 	    while (length > 1)
 	      {
-		char value = read_hex_value_fixed_length (2);
+		char value = read_hex_value_fixed_length (&rxs, 2);
 		STORE(char,address,value);
 		address += 1;
 		length -= 1;
 	      }
 
 	    /* Skip checksum for now */
-	    read_hex_value_fixed_length (2);
+	    read_hex_value_fixed_length (&rxs, 2);
 	  }
 	  break;
 	case '7':
@@ -354,6 +360,8 @@ int main ()
 	}
       row++;
     }
+
+  while (xmodem_read_char (&rxs) != -1);
 
   moxie_puts ("Jumping to code at 0x30000000.\n\r");
 
