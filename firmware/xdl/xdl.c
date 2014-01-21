@@ -75,7 +75,7 @@ static int moxie_readchar (unsigned long delay)
   return port_uart[2] & 0xff;
 }
 
-static void moxie_flushinput ()
+void moxie_flush_input ()
 {
   short junk = 0;
   while (port_uart[0])
@@ -130,6 +130,7 @@ static int moxie_rxready()
 typedef struct 
 {
   unsigned char expected_packet_number;
+  char ack;
   int read_index;
   int finished;
   unsigned char buffer[XMODEM_PACKET_SIZE];
@@ -139,6 +140,7 @@ static void init_rx_state (rx_state_t *rxs)
 {
   rxs->finished = 0;
   rxs->expected_packet_number = 1;
+  rxs->ack = 0;
   rxs->read_index = 128+3;
 }
 
@@ -173,13 +175,9 @@ static int xmodem_rx_packet (rx_state_t *rxs)
     {
       return RX_BAD_HEADER;
     }
-#if 0
-  port_7seg_display = (buffer[1] << 8) | buffer[2];
 
   if (buffer[1] != (~buffer[2] & 0xff))
     return RX_BAD_PACKET_NUMBER;
-  port_7seg_display = 0x5432;
-#endif  
 
   if (buffer[1] == (rxs->expected_packet_number - 1))
     {
@@ -205,11 +203,11 @@ static int xmodem_rx_packet (rx_state_t *rxs)
 	    crc = (crc << 1);
 	}
     }
-#if 0
+
   if ((buffer [XMODEM_PACKET_SIZE - 2] != ((crc >> 8) & 0xff))
       || (buffer [XMODEM_PACKET_SIZE - 1] != (crc & 0xff)))
     return RX_BAD_CHECKSUM;
-#endif
+
   rxs->expected_packet_number++;
   return RX_OK;
 }
@@ -221,12 +219,17 @@ static int xmodem_read_char (rx_state_t *rxs)
   else if (rxs->read_index == 128+3)
     {
       int rc;
-
+      
+      if (rxs->ack)
+	{
+	  moxie_putchar (XMODEM_ACK);
+	  rxs->ack = 0;
+	}
       for (;;)
 	switch (rc = xmodem_rx_packet (rxs))
 	  {
 	  case RX_OK:
-	    moxie_putchar (XMODEM_ACK);
+	    rxs->ack = XMODEM_ACK;
 	    rxs->read_index = 4;
 	    return rxs->buffer[3];
 	    
@@ -237,8 +240,7 @@ static int xmodem_read_char (rx_state_t *rxs)
 	    
 	  default:
 	    port_7seg_display = 0x3300 + (rc & 0xff);
-	    moxie_flushinput ();
-	    /* FIXME: is this required?  Or do we just timeout?  */
+	    moxie_flush_input ();
 	    moxie_putchar (XMODEM_NAK);
 	    break;
 	  }
@@ -274,6 +276,8 @@ int main ()
 
   port_7seg_display = 0x4444;
   init_rx_state (&rxs);
+
+  moxie_flush_input ();
 
   /* Start the transfer with 'C', indicating an xmodem-crc download.  */
   do
