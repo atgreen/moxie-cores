@@ -132,6 +132,18 @@ BEGIN
 					AddrMode <= addrmode_narg;
 					ExecuteState <= state_execute_nop;
 
+				when "0010000" =>
+					-- sex.b
+					AddrMode <= addrmode_ab;
+					ExecuteState <= state_execute_alu;
+                                        AluOp <= aluop_sexb;
+
+				when "0010001" =>
+					-- sex.s
+					AddrMode <= addrmode_ab;
+					ExecuteState <= state_execute_alu;
+                                        AluOp <= aluop_sexs;
+
 				when "0011001" =>
 					-- jsr
 					AddrMode <= addrmode_ab;

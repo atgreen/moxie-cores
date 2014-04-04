@@ -128,6 +128,22 @@ BEGIN
 			when aluop_rcr =>
 				R_int <= C & A(31 downto 1);
 
+                        when aluop_sexb =>
+                                R_int <= B(7) & B(7) & B(7) & B(7) &
+                                         B(7) & B(7) & B(7) & B(7) &
+                                         B(7) & B(7) & B(7) & B(7) &
+                                         B(7) & B(7) & B(7) & B(7) &
+                                         B(7) & B(7) & B(7) & B(7) &
+                                         B(7) & B(7) & B(7) & B(7) &
+                                         B(7 downto 0);
+                                
+                        when aluop_sexs =>
+                                R_int <= B(15) & B(15) & B(15) & B(15) &
+                                         B(15) & B(15) & B(15) & B(15) &
+                                         B(15) & B(15) & B(15) & B(15) &
+                                         B(15) & B(15) & B(15) & B(15) &
+                                         B(15 downto 0);
+                                
 			when others =>
 				R_int <= (others=>'0');
 		end case;

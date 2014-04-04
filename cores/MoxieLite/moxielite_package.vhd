@@ -27,6 +27,8 @@ type aluop_type is
 	aluop_not,	
 	aluop_neg,
 	aluop_mov,
+        aluop_sexb,
+        aluop_sexs,
 
 	-- Sequential Operations
 	-- (implemented by secondary ALU)
