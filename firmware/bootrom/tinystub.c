@@ -1,6 +1,6 @@
 /* tinystub.c - a really tiny gdb remote protocol stub for moxie.
 
-   Copyright (c) 2013, Anthony Green
+   Copyright (c) 2013, 2014 Anthony Green
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions
@@ -159,7 +159,7 @@ static int read_delimited_hex_value ()
 #define FATALCODE(code) ((code << 8)+row)
 #define STORE(T,A,V) *(T*)(A) = V
 
-void download_srecord_executable ()
+static void download_srecord_executable ()
 {
   int done = 0;
   short row = 1;
@@ -249,7 +249,7 @@ void download_srecord_executable ()
   /* Consume all trailing input.  */
   while (port_uart[0])
     {
-      volatile short junk;
+      volatile short junk __attribute__((unused));
       junk = port_uart[2];
     }
 
@@ -262,7 +262,7 @@ void download_srecord_executable ()
   asm ("jmpa 0x30000000");
 }
 
-void gdb_protocol_handler_loop ()
+static void gdb_protocol_handler_loop ()
 {
   char c;
   int i;
@@ -384,7 +384,7 @@ void *__handle_exception (void *faddr, int exc, int code)
       {
 	int i;
 	int *fp;
-	asm ("mov %0, $fp" : "=r"(fp) : "0"(fp));
+	asm ("mov %0, $fp" : "=r"(fp));
 	/* Software breakpoint */
 	mx_puts ("$", 0);
 	mx_puts ("S05", 1);
