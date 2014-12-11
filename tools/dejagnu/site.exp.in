@@ -1,0 +1,34 @@
+# Copyright (C) 2008, 2010  Anthony Green
+#
+# This file is part of moxiedev.
+#
+# ggxdev is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# ggxdev is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with ggxdev; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Make sure we look in the right place for the board description files.
+if ![info exists boards_dir] {
+    set boards_dir {}
+}
+
+lappend boards_dir @DEJAGNUDIR@
+
+verbose "Global Config File: target_triplet is $target_triplet" 2
+global target_list
+
+case "$target_triplet" in {
+    { "moxie-elf" } {
+	set target_list "moxie-sim"
+    }
+}
+
