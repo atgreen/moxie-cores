@@ -80,8 +80,8 @@ ARCHITECTURE behavior OF moxielite IS
   signal state : state_type := state_reset;
   signal state_next : state_type;
   signal state_resolved : state_type;
-  signal has_imm : std_logic;
-  signal have_imm : std_logic;
+  signal has_imm32 : std_logic;
+  signal have_imm32 : std_logic;
   signal have_deref : std_logic;
   signal imm_reg : std_logic_vector(31 downto 0);	-- The loaded immediate value
 
@@ -522,30 +522,30 @@ BEGIN
   end process ConditionMatch_process;
 
   -- Work out if the current instruction is followed by an immediate 4 byte word
-  resolve_has_imm : process(addrmode)
+  resolve_has_imm32 : process(addrmode)
   begin
 
     case addrmode is
 
       when addrmode_a_imm | addrmode_a_immptr | addrmode_immptr_a | addrmode_aptro_b | addrmode_a_bptro | addrmode_imm =>
-        has_imm <= '1';
+        has_imm32 <= '1';
 
       when others =>
-        has_imm <= '0';
+        has_imm32 <= '0';
 
     end case;
 
-  end process resolve_has_imm;
+  end process resolve_has_imm32;
 
   -- Resolve pseudo states into an actual state
-  resolve_state : process(state, execute_state, has_imm, have_imm, deref_ptr, have_deref)
+  resolve_state : process(state, execute_state, has_imm32, have_imm32, deref_ptr, have_deref)
   begin
     case state is
 
       when state_decode =>
 
         -- Do we need to read the 4 byte immediate value?
-        if has_imm='1' and have_imm='0' then
+        if has_imm32='1' and have_imm32='0' then
           state_resolved <= state_read_imm_setup;
 
         elsif deref_ptr='1' and have_deref='0' then
@@ -617,7 +617,7 @@ BEGIN
       regfile <= (others => (others=>'0'));
       sregfile <= (others => (others=>'0'));
       instruction <= (others => '0');
-      have_imm <= '0';
+      have_imm32 <= '0';
       have_deref <= '0';
       imm_reg <= (others => '0');
       ZFlag <= '0';
@@ -714,7 +714,7 @@ BEGIN
           when state_fetch_memcycle =>
 
             state <= state_fetch_wait;
-            have_imm <= '0';
+            have_imm32 <= '0';
             have_deref <= '0';
             debug_o <= "00000010";
 
@@ -747,16 +747,16 @@ BEGIN
             addr_reg <= PC;
             data_byte_index <= "000";
             data_byte_count <= "100";
-            state_next <= state_latch_imm;
+            state_next <= state_latch_imm32;
             state <= state_load_memcycle;
             debug_o <= "00000101";
 
-          when state_latch_imm =>
+          when state_latch_imm32 =>
 
  					-- Finished reading the immediate value
  					-- Store it and continue decoding
             PC <= addr_reg;
-            have_imm <= '1';
+            have_imm32 <= '1';
             imm_reg <= data_bswap;
             state <= state_decode;
             debug_o <= "00000110";

@@ -52,7 +52,7 @@ type state_type is
 	-- Instruction decode and fetch immediate stage
 	state_decode,
 	state_read_imm_setup,
-	state_latch_imm,
+	state_latch_imm32,
 	state_deref_ptr_setup,
 	state_latch_deref,
 
