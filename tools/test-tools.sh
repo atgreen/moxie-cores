@@ -23,8 +23,10 @@
 
 DEJAGNUDIR=`pwd`/dejagnu
 SITEFILE=`pwd`/build/site.exp
+PATH=`pwd`/root/usr/bin:$PATH
+
 cp dejagnu/site.exp.in build/site.exp
 sed -i -e 's:@DEJAGNUDIR@:'"$DEJAGNUDIR"':g' $SITEFILE
 
 (cd build/gcc/gcc;
-  DEJAGNU=$SITEFILE make check RUNTESTFLAGS="--target_board moxie-sim ${expfile}")
+  PATH=$PATH DEJAGNU=$SITEFILE make check RUNTESTFLAGS="--target_board moxie-sim ${expfile}")
