@@ -144,6 +144,12 @@ BEGIN
                                          B(15) & B(15) & B(15) & B(15) &
                                          B(15 downto 0);
                                 
+                        when aluop_zexb =>
+                                R_int <= x"000000" & B(7 downto 0);
+                                
+                        when aluop_zexs =>
+                                R_int <= x"0000" & B(15 downto 0);
+                                
 			when others =>
 				R_int <= (others=>'0');
 		end case;

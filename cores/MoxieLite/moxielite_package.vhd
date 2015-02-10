@@ -29,6 +29,8 @@ type aluop_type is
 	aluop_mov,
         aluop_sexb,
         aluop_sexs,
+        aluop_zexb,
+        aluop_zexs,
 
 	-- Sequential Operations
 	-- (implemented by secondary ALU)
@@ -51,8 +53,9 @@ type state_type is
 
 	-- Instruction decode and fetch immediate stage
 	state_decode,
-	state_read_imm_setup,
-	state_latch_imm32,
+	state_read_imm32_setup,
+	state_read_imm16_setup,
+	state_latch_imm,
 	state_deref_ptr_setup,
 	state_latch_deref,
 

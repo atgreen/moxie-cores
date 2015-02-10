@@ -144,6 +144,18 @@ BEGIN
 					ExecuteState <= state_execute_alu;
                                         AluOp <= aluop_sexs;
 
+				when "0010010" =>
+					-- zex.b
+					AddrMode <= addrmode_ab;
+					ExecuteState <= state_execute_alu;
+                                        AluOp <= aluop_zexb;
+
+				when "0010011" =>
+					-- zex.s
+					AddrMode <= addrmode_ab;
+					ExecuteState <= state_execute_alu;
+                                        AluOp <= aluop_zexs;
+
 				when "0011001" =>
 					-- jsr
 					AddrMode <= addrmode_ab;

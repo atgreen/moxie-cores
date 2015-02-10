@@ -81,9 +81,10 @@ ARCHITECTURE behavior OF moxielite IS
   signal state_next : state_type;
   signal state_resolved : state_type;
   signal has_imm32 : std_logic;
+  signal has_imm16 : std_logic;
   signal have_imm32 : std_logic;
   signal have_deref : std_logic;
-  signal imm_reg : std_logic_vector(31 downto 0);	-- The loaded immediate value
+  signal imm32_reg : std_logic_vector(31 downto 0);	-- The loaded immediate value
 
   -- Register decoder
   signal reg_A : std_logic_vector(3 downto 0);
@@ -351,7 +352,7 @@ BEGIN
   end process reg_B_multiplexer;
 
   -- Operand A decoder
-  operand_A_decoder : process(addrmode, reg_A_value, imm_reg, instruction)
+  operand_A_decoder : process(addrmode, reg_A_value, imm32_reg, instruction)
   begin
     case addrmode is
 
@@ -359,7 +360,7 @@ BEGIN
         operand_A <= reg_A_value;
 
       when addrmode_immptr_a | addrmode_imm =>
-        operand_A <= imm_reg;
+        operand_A <= imm32_reg;
 
       when addrmode_pcrel =>
         operand_A <= (31 downto 11 => instruction(9)) & instruction(9 downto 0) & "0";
@@ -372,7 +373,7 @@ BEGIN
   end process operand_A_decoder;
 
   -- Operand B decoder
-  operand_B_decoder : process(addrmode, reg_A_value, reg_B_value, imm_reg, data_bswap, instruction)
+  operand_B_decoder : process(addrmode, reg_A_value, reg_B_value, imm32_reg, data_bswap, instruction)
   begin
     case addrmode is
 
@@ -380,7 +381,7 @@ BEGIN
         operand_B <= reg_B_value;
 
       when addrmode_a_imm =>
-        operand_B <= imm_reg;
+        operand_B <= imm32_reg;
 
       when addrmode_a_immptr | addrmode_a_bptr | addrmode_a_bptro=>
         operand_B <= data_bswap;
@@ -401,7 +402,7 @@ BEGIN
   end process operand_B_decoder;
 
   -- Memory pointer decoder
-  ptr_base_decoder : process(addrmode, imm_reg, reg_A_value, reg_B_value)
+  ptr_base_decoder : process(addrmode, imm32_reg, reg_A_value, reg_B_value)
   begin
 
     ptr_base <= (others => '0');
@@ -410,11 +411,11 @@ BEGIN
     case addrmode is
 
       when addrmode_a_immptr =>
-        ptr_base <= imm_reg;
+        ptr_base <= imm32_reg;
         deref_ptr <= '1';
 
       when addrmode_immptr_a | addrmode_imm =>
-        ptr_base <= imm_reg;
+        ptr_base <= imm32_reg;
 
       when addrmode_a_bptr | addrmode_a_bptro =>
         ptr_base <= reg_B_value;
@@ -430,12 +431,12 @@ BEGIN
 
   end process ptr_base_decoder;
 
-  ptr_offset_decoder : process(addrmode, imm_reg)
+  ptr_offset_decoder : process(addrmode, imm32_reg)
   begin
     case addrmode is
 
       when addrmode_aptro_b | addrmode_a_bptro =>
-        ptr_offset <= imm_reg;
+        ptr_offset <= imm32_reg;
 
       when others =>
         ptr_offset <= (others => '0');
@@ -522,20 +523,26 @@ BEGIN
   end process ConditionMatch_process;
 
   -- Work out if the current instruction is followed by an immediate 4 byte word
-  resolve_has_imm32 : process(addrmode)
+  resolve_has_imm : process(addrmode)
   begin
 
     case addrmode is
 
-      when addrmode_a_imm | addrmode_a_immptr | addrmode_immptr_a | addrmode_aptro_b | addrmode_a_bptro | addrmode_imm =>
+      when addrmode_a_imm | addrmode_a_immptr | addrmode_immptr_a | addrmode_imm =>
         has_imm32 <= '1';
+        has_imm16 <= '0';
 
+      when addrmode_aptro_b | addrmode_a_bptro =>
+        has_imm16 <= '1';
+        has_imm32 <= '0';
+        
       when others =>
+        has_imm16 <= '0';
         has_imm32 <= '0';
 
     end case;
 
-  end process resolve_has_imm32;
+  end process resolve_has_imm;
 
   -- Resolve pseudo states into an actual state
   resolve_state : process(state, execute_state, has_imm32, have_imm32, deref_ptr, have_deref)
@@ -546,7 +553,10 @@ BEGIN
 
         -- Do we need to read the 4 byte immediate value?
         if has_imm32='1' and have_imm32='0' then
-          state_resolved <= state_read_imm_setup;
+          state_resolved <= state_read_imm32_setup;
+
+        elsif has_imm16='1' and have_imm32='0' then
+          state_resolved <= state_read_imm16_setup;
 
         elsif deref_ptr='1' and have_deref='0' then
           state_resolved <= state_deref_ptr_setup;
@@ -619,7 +629,7 @@ BEGIN
       instruction <= (others => '0');
       have_imm32 <= '0';
       have_deref <= '0';
-      imm_reg <= (others => '0');
+      imm32_reg <= (others => '0');
       ZFlag <= '0';
       CFlag <= '0';
       OFlag <= '0';
@@ -741,23 +751,34 @@ BEGIN
             debug_o <= "00000100";
             null;
 
-          when state_read_imm_setup =>
+          when state_read_imm32_setup =>
 
 					-- Setup to read a 4 byte immediate value
             addr_reg <= PC;
             data_byte_index <= "000";
             data_byte_count <= "100";
-            state_next <= state_latch_imm32;
+            state_next <= state_latch_imm;
             state <= state_load_memcycle;
             debug_o <= "00000101";
 
-          when state_latch_imm32 =>
+          when state_read_imm16_setup =>
+
+					-- Setup to read a 2 byte immediate value
+            addr_reg <= PC;
+            data_byte_index <= "000";
+            data_byte_count <= "010";
+            state_next <= state_latch_imm;
+            state <= state_load_memcycle;
+            data_reg <= (others => '0');
+            debug_o <= "00100111";
+
+          when state_latch_imm =>
 
  					-- Finished reading the immediate value
  					-- Store it and continue decoding
             PC <= addr_reg;
             have_imm32 <= '1';
-            imm_reg <= data_bswap;
+            imm32_reg <= data_bswap;
             state <= state_decode;
             debug_o <= "00000110";
 
