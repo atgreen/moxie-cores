@@ -176,7 +176,7 @@ module moxie (/*AUTOARG*/
 			 .branch_flag_i         (xf_branch_flag),
 			 .branch_target_i       (xf_branch_target),
 			 .stall_i               (1'b0),
-			 .imem_data_i           (wb_I_dat_i[31:0]));
+			 .imem_data_i           (wb_I_dat_i[15:0]));
     
   cpu_decode stage_decode (// Inputs
 			   .rst_i			(rst_i),

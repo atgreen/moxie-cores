@@ -87,11 +87,17 @@ module icache (/*AUTOARG*/
    assign hit2 = valid[set2] & (tags[set2] == tag);
 
    initial $readmemh("valid-init.txt", valid);
+
+   wire [31:0] 	     a;
+   reg [31:0] 	     b;
+   wire [31:0] 	     c;
+   wire [31:0] 	     d;
+   assign a = (set0 * 16) + adr_i[4:1];
    
    always @(posedge clk_i)
      begin
 	hit_o <= (!rst_i) & (hit0 & hit1 & hit2);
-	inst_o <= line[set0 * 16 + adr_i[4:1]];
+	inst_o <= line[(set0 * 16) + adr_i[4:1]];
 	data_o[31:16] <= line[(set0 * 16) + adr_i[4:1] + 1];
 	data_o[15:0] <= line[(set0 * 16) + adr_i[4:1] + 2];
      end
@@ -137,6 +143,7 @@ module icache (/*AUTOARG*/
 		  if (wb_ack_i)
 		    begin
 		       line[(set0 * 16) + count] <= wb_dat_i;
+		       b <= (set0 * 16) + count;
 		       wb_adr_o <= wb_adr_o + 2;
 		       count <= count + 1;
 		       if (count == 15)

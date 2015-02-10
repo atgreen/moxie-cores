@@ -110,8 +110,11 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
 
   assign fetchPC = branch_flag_i ? branch_target_i : nextPC;
 
+   wire		ili;
+   assign ili = is_long_insn(opcode[15:8]);
+   
   always @(posedge clk_i) begin
-     nextPC <= rst_i ? BOOT_ADDRESS : (valid & !stall_i ? nextPC + 2 + (is_long_insn (opcode) ? 4 : 0) : nextPC);
+     nextPC <= rst_i ? BOOT_ADDRESS : (valid & !stall_i ? nextPC + 2 + (is_long_insn (opcode[15:8]) ? 4 : 0) : nextPC);
   end
 
 endmodule // cpu_fetch
