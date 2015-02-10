@@ -1,6 +1,5 @@
 MSOURCES = sim.v testram.v \
 	$(wildcard ../rtl/*.v) \
-	$(wildcard ../../../cores/cache/icache.v) \
 	$(wildcard ../../../cores/mox125/*.v) \
 	$(wildcard ../../../cores/mox125/*.h) \
 	$(wildcard ../../../cores/wishbone/*.v) \
