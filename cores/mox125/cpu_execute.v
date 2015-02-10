@@ -123,7 +123,7 @@ module cpu_execute (/*AUTOARG*/
        | ((op_i == `OP_BGT) & CC_result[2])
        | ((op_i == `OP_BGTU) & CC_result[4])
        | ((op_i == `OP_BLE) & (CC_result[0] | CC_result[1]))
-       | ((op_i == `OP_BGE) & (CC_result[0] | CC_result[2]))
+       | ((op_i == `OP_BGE) & (CC_result[0] | CC_result[2])) 
        | ((op_i == `OP_BLEU) & (CC_result[0] | CC_result[3]))
        | ((op_i == `OP_BGEU) & (CC_result[0] | CC_result[4]));
 

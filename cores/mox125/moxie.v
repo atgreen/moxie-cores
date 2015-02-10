@@ -20,37 +20,61 @@
 `include "defines.h"
 
 module moxie (/*AUTOARG*/
-  // Outputs
-  wb_I_dat_o, wb_I_adr_o, wb_I_we_o, wb_I_cyc_o, wb_I_stb_o,
-  wb_D_dat_o, wb_D_adr_o, wb_D_we_o, wb_D_cyc_o, wb_D_stb_o,
-  // Inputs
-  rst_i, clk_i, wb_I_dat_i, wb_I_sel_i, wb_I_ack_i, wb_D_dat_i,
-  wb_D_sel_i, wb_D_ack_i
-  );
+   // Outputs
+   wb_dat_o, wb_adr_o, wb_sel_i, wb_we_o, wb_cyc_o, wb_stb_o,
+   wb_I_dat_o, wb_I_adr_o, wb_I_sel_o, wb_I_we_o, wb_I_cyc_o,
+   wb_I_stb_o, wb_D_dat_o, wb_D_adr_o, wb_D_sel_o, wb_D_we_o,
+   wb_D_cyc_o, wb_D_stb_o,
+   // Inputs
+   rst_i, clk_i, wb_dat_i, wb_ack_i, wb_I_dat_i, wb_I_ack_i,
+   wb_D_dat_i, wb_D_ack_i
+   );
    
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
   reg 	 rst;
 
+  // --- Wishbone Interconnect ------------------------------------
+  input [15:0]  wb_dat_i;
+  output [15:0] wb_dat_o;
+  output [31:0] wb_adr_o;
+  output [1:0]   wb_sel_i;
+  output        wb_we_o;
+  output        wb_cyc_o;
+  output        wb_stb_o;
+  input         wb_ack_i;
+
   // --- Wishbone Interconnect for INSTRUCTION Memory -------------
-  input [31:0]  wb_I_dat_i;
-  output [31:0] wb_I_dat_o;
+  input [15:0]  wb_I_dat_i;
+  output [15:0] wb_I_dat_o;
   output [31:0] wb_I_adr_o;
-  input [1:0]   wb_I_sel_i;
+  output [1:0]   wb_I_sel_o;
   output        wb_I_we_o;
   output        wb_I_cyc_o;
   output        wb_I_stb_o;
   input         wb_I_ack_i;
 
-  // --- Wishbone Interconnect for DATA Memory --------------------
-  input [31:0]  wb_D_dat_i;
-  output [31:0] wb_D_dat_o;
+ // --- Wishbone Interconnect for DATA Memory --------------------
+  input [15:0]  wb_D_dat_i;
+  output [15:0] wb_D_dat_o;
   output [31:0] wb_D_adr_o;
-  input [1:0]   wb_D_sel_i;
+  output [1:0]   wb_D_sel_o;
   output        wb_D_we_o;
   output        wb_D_cyc_o;
   output        wb_D_stb_o;
   input         wb_D_ack_i;
+
+  // --- Wishbone bus arbitration ---------------------------------
+  assign wb_I_dat_i = wb_dat_i;
+  assign wb_D_dat_i = wb_dat_i;
+  assign wb_dat_o = wb_D_dat_o;
+  assign wb_adr_o = wb_I_cyc_o ? wb_I_adr_o : wb_D_adr_o;
+  assign wb_sel_o = wb_I_cyc_o ? 2'b11 : wb_D_sel_o;
+  assign wb_we_o = wb_I_cyc_o ? 1'b0 : wb_D_we_o;
+  assign wb_cyc_o = wb_I_cyc_o | wb_D_cyc_o;
+  assign wb_stb_o = wb_I_cyc_o ? wb_I_stb_o : wb_D_stb_o;
+  assign wb_I_ack_i  = wb_I_cyc_o ? wb_ack_i : 1'b0;
+  assign wb_D_ack_i  = wb_I_cyc_o ? 1'b0 : wb_ack_i;
 
   // --- Wires to connect the 5 pipeline stages -------------------
   //
@@ -99,13 +123,11 @@ module moxie (/*AUTOARG*/
 
   wire [0:0]  flush_x;
 
-  reg [0:0]  wb_I_stb_o;
-
   // synthesis translate_off 
   initial
     begin
       $dumpvars(1,stage_fetch); 
-      $dumpvars(1,stage_fetch.ififo); 
+      $dumpvars(1,stage_fetch.cache); 
       $dumpvars(1,stage_decode); 
       $dumpvars(1,stage_decode.mcode); 
       $dumpvars(1,stage_execute); 
@@ -133,18 +155,6 @@ module moxie (/*AUTOARG*/
 			 .value0_i (xr_reg0_result),
 			 .value1_i (0));
 
-  always @(posedge clk_i)
-    if (rst_i) begin
-      /* AUTORESET */
-      // Beginning of autoreset for uninitialized flops
-      wb_I_stb_o <= 1'h0;
-      // End of automatics
-    end else begin
-      wb_I_stb_o <= (wb_I_stb_o & !wb_I_ack_i) | (!wb_I_stb_o);
-    end
-
-  assign wb_I_cyc_o = wb_I_stb_o;
-  
   // Forwarding logic.  
   reg maybe_forward_0;
   reg maybe_forward_1;
@@ -156,6 +166,9 @@ module moxie (/*AUTOARG*/
 			 .valid		        (fd_valid),
 			 .operand		(fd_operand[31:0]),
 			 .imem_address_o        (wb_I_adr_o[31:0]),
+			 .imem_stb_o            (wb_I_stb_o),
+			 .imem_cyc_o            (wb_I_cyc_o),
+			 .imem_ack_i            (wb_I_ack_i),
 			 .PC_o                  (fd_PC[31:0]),
 			 // Inputs
 			 .rst_i			(rst_i),

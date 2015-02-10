@@ -1,5 +1,6 @@
 SOURCES = $(wildcard ../../../../cores/mox125/*.v) \
 	  $(wildcard ../../../../cores/wishbone/*.v) \
+	  $(wildcard ../../../../cores/cache/icache.v) \
 	  $(wildcard ../../../../cores/uart3/*.v) \
 	  $(wildcard ../../../../cores/LVT-regs/*.v) \
 	  ../../../../cores/hex_display/seg_7.v \
@@ -12,6 +13,12 @@ SOURCES = $(wildcard ../../../../cores/mox125/*.v) \
 PROJECT = muskoka
 
 all: $(PROJECT).ngd
+
+$(PROJECT).ys: $(SOURCES)
+	rm -f $(PROJECT).ys
+	for s in `echo $^`; do \
+		echo "read_verilog $$s;" >> $@; \
+	done;
 
 $(PROJECT).prj: $(SOURCES)
 	rm -f $(PROJECT).prj

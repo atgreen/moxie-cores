@@ -10,7 +10,7 @@
 ;;; 0101010101010101010101010101010101010101010101010101010101010101010101010101010
 ;;; 1010101010101010101010101010101010101010101010101010101010101010101010101010101
 
-;;; Copyright (C) 2012  Anthony Green <green@moxielogic.com>
+;;; Copyright (C) 2012, 2015  Anthony Green <green@moxielogic.com>
 ;;; Distrubuted under the terms of the GPL v3 or later.
 
 ;;; This program reads an input file called microcode.org, which

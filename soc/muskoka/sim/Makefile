@@ -1,10 +1,11 @@
 MSOURCES = sim.v testram.v \
 	$(wildcard ../rtl/*.v) \
+	$(wildcard ../../../cores/cache/icache.v) \
 	$(wildcard ../../../cores/mox125/*.v) \
 	$(wildcard ../../../cores/mox125/*.h) \
 	$(wildcard ../../../cores/wishbone/*.v) \
 	$(wildcard ../../../cores/LVT-regs/*.v) \
-	$(wildcard ../../../cores/uart16550/rtl/verilog/*.v) \
+	$(wildcard ../../../cores/uart3/*.v) \
 	$(wildcard ../../../cores/hex_display/*.v)
 
 PROJECT = muskoka

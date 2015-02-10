@@ -48,10 +48,12 @@ module icache (/*AUTOARG*/
    output reg [31:0] wb_adr_o;
    input [15:0]      wb_dat_i;
    output reg [1:0]  wb_sel_o;
-   output reg	     wb_cyc_o;
+   output      wb_cyc_o;
    output reg	     wb_stb_o;
    input  	     wb_ack_i;
 
+   assign wb_cyc_o = wb_stb_o;
+   
    // We have an 8k instruction cache with cache lines that are 32
    // bytes long.  
    // (/ 8196 32) = 256 cache lines.

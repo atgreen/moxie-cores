@@ -23,9 +23,11 @@
 module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
 		   )(/*AUTOARG*/
    // Outputs
-   imem_address_o, PC_o, opcode, valid, operand,
+   imem_address_o, imem_stb_o, imem_cyc_o, PC_o, opcode, valid,
+   operand,
    // Inputs
-   rst_i, clk_i, imem_data_i, branch_flag_i, branch_target_i, stall_i
+   rst_i, clk_i, imem_data_i, imem_ack_i, branch_flag_i,
+   branch_target_i, stall_i
    );
   
   // --- Clock and Reset ------------------------------------------
@@ -33,8 +35,11 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
   
   // --- Instruction memory ---------------------------------------
   output [31:0] imem_address_o;
-  input  [31:0] imem_data_i;
+  input  [15:0] imem_data_i;
+  output 	imem_stb_o;
+  output 	imem_cyc_o;
   output [31:0] PC_o;
+  input 	imem_ack_i;
 
   // --- Branch controls ------------------------------------------
   input 	branch_flag_i;
@@ -59,42 +64,54 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
 
   wire [31:0]  imem_address_o;
   
-  assign imem_address_o = fetchPC;
-  
-  // The instruction FIFO
-  cpu_ififo ififo (
-		   // Outputs
-		   .opcode_o	(opcode[15:0]),
-		   .operand_o	(operand[31:0]),
-		   .valid_o	(valid),
-		   .full_o	(full),
-		   .PC_o	(PC_o),
-		   // Inputs
-		   .rst_i	(rst_i),
-		   .clk_i	(clk_i),
-		   .PC_i	(fetchPC),
-		   .newPC_p_i	(newPC_p),
-		   .write_en_i	(wren),
-		   .read_en_i	(rden),
-		   .data_i	(imem_data_i));
+  // This is a rediculous bit of logic.  We should try to recode the
+  // moxie instructions so that we can determine the length with less
+  // logic.
+  function [0:0] is_long_insn;
+    input [7:0] op;
+    is_long_insn = ((op == 8'h01) //  ldi.l
+		    || (op == 8'h03) // jsra
+		    || (op == 8'h08) // lda.l
+		    || (op == 8'h09) // sta.l
+		    || (op == 8'h0c) // ldo.l
+		    || (op == 8'h0d) // sto.l
+		    || (op == 8'h1a) // jmpa
+		    || (op == 8'h1b) // ldi.b
+		    || (op == 8'h1d) // lda.b
+		    || (op == 8'h1f) // sta.b
+		    || (op == 8'h20) // ldi.s
+		    || (op == 8'h22) // lda.s
+		    || (op == 8'h24) // sta.s
+		    || (op == 8'h25) // jmp
+		    || (op == 8'h30) // swi
+		    || (op == 8'h36) // ldo.b
+		    || (op == 8'h37) // sto.b
+		    || (op == 8'h38) // ldo.s
+		    || (op == 8'h39)); // sto.s
+  endfunction
 
-  /* Only read if we aren't stalled or branching.  This makes sure we don't increment
-     the PC in those cases.  */
-  assign rden = !(stall_i | branch_flag_i);
+  icache cache (
+		// Outputs
+		.inst_o (opcode[15:0]),
+		.data_o (operand[31:0]),
+		.hit_o (valid),
+		.wb_adr_o (imem_address_o),
+		.wb_sel_o (imem_sel_o),
+		.wb_cyc_o (imem_cyc_o),
+		.wb_stb_o (imem_stb_o),
 
-  reg delay_write;
+		// Inputs
+		.rst_i	(rst_i),
+		.clk_i	(clk_i),
+		.adr_i	(fetchPC),
+		.stb_i	(!stall_i),
+		.wb_dat_i (imem_data_i),
+		.wb_ack_i (imem_ack_i));
 
-  /* Only write if we the instruction FIFO isn't full or we aren't branching.  */
-  assign wren = !(rst_i | full | branch_flag_i | delay_write);
-
-  assign newPC_p = rst_i | (!stall_i & branch_flag_i);
-
-  assign fetchPC = rst_i ? BOOT_ADDRESS :
-   		     branch_flag_i ? branch_target_i : nextPC;
+  assign fetchPC = branch_flag_i ? branch_target_i : nextPC;
 
   always @(posedge clk_i) begin
-     nextPC <= wren ? fetchPC+4 : fetchPC;
-     delay_write <= branch_flag_i;
+     nextPC <= rst_i ? BOOT_ADDRESS : (valid & !stall_i ? nextPC + 2 + (is_long_insn (opcode) ? 4 : 0) : nextPC);
   end
 
 endmodule // cpu_fetch

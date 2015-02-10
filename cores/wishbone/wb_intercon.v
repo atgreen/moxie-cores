@@ -1,6 +1,6 @@
 // wb_intercon.v - Wishbone Shared Bus Interconnect 
 //
-// Copyright (c) 2010, 2011, 2012, 2013 Anthony Green.  All Rights
+// Copyright (c) 2010, 2011, 2012, 2013, 2015 Anthony Green.  All Rights
 // Reserved.  DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -186,7 +186,9 @@ module wb_intercon #(
   assign wbs_6_stb_o = wbm_cyc_i & wbm_stb_i & slave_6_sel;
 
   // Master bus acknowlegement.
-  assign wbm_ack_o = wbs_0_ack_i | wbs_1_ack_i | wbs_2_ack_i | wbs_3_ack_i | wbs_4_ack_i | wbs_5_ack_i | wbs_6_ack_i;
+  assign wbm_ack_o = wbs_0_ack_i | wbs_1_ack_i 
+		     | wbs_2_ack_i | wbs_3_ack_i 
+		     | wbs_4_ack_i | wbs_5_ack_i | wbs_6_ack_i;
   
   // Master bus data output comes from the selected slave.
   wire [data_width-1:0] i_dat_s;   // internal shared bus, slave data to master
