@@ -25,6 +25,8 @@
 // provides all 48 bits even if they may not all be required.  This
 // means that there may be times when we load a redundant cache line
 // from RAM.
+//
+// Does not latch output from cache!
 
 module icache (/*AUTOARG*/
    // Outputs
@@ -40,9 +42,9 @@ module icache (/*AUTOARG*/
    input 	 stb_i;
 
    // Cache hit indicator, instruction, data. 
-   output reg	     hit_o;
-   output reg [15:0] inst_o;
-   output reg [31:0] data_o;
+   output      hit_o;
+   output  [15:0] inst_o;
+   output  [31:0] data_o;
    
    // Interface to external memory.
    output reg [31:0] wb_adr_o;
@@ -70,8 +72,6 @@ module icache (/*AUTOARG*/
    reg [18:0] 	     tags[0:255];
    reg [15:0] 	     line[0:4095];
 
-   reg 		     hit;
-   
    wire [18:0]	     tag;
    assign tag[18:0]  = adr_i[31:13];
 
@@ -82,9 +82,11 @@ module icache (/*AUTOARG*/
    wire [7:0] 	     set2 = adr_i[12:5] + is_at_least_28;
 
    wire 	     hit0, hit1, hit2;
+   
    assign hit0 = valid[set0] & (tags[set0] == tag);
    assign hit1 = valid[set1] & (tags[set1] == tag);
    assign hit2 = valid[set2] & (tags[set2] == tag);
+   assign hit_o = (!rst_i) & (hit0 & hit1 & hit2);
 
    initial $readmemh("valid-init.txt", valid);
 
@@ -93,14 +95,10 @@ module icache (/*AUTOARG*/
    wire [31:0] 	     c;
    wire [31:0] 	     d;
    assign a = (set0 * 16) + adr_i[4:1];
-   
-   always @(posedge clk_i)
-     begin
-	hit_o <= (!rst_i) & (hit0 & hit1 & hit2);
-	inst_o <= line[(set0 * 16) + adr_i[4:1]];
-	data_o[31:16] <= line[(set0 * 16) + adr_i[4:1] + 1];
-	data_o[15:0] <= line[(set0 * 16) + adr_i[4:1] + 2];
-     end
+
+   assign inst_o = line[(set0 * 16) + adr_i[4:1]];
+   assign data_o[31:16] = line[(set0 * 16) + adr_i[4:1] + 1];
+   assign data_o[15:0] = line[(set0 * 16) + adr_i[4:1] + 2];
 
    // --- State machine states -----------------------------------------
    parameter ICACHE_IDLE = 4'd0;
