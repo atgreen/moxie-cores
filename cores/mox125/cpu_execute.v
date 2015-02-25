@@ -1,6 +1,6 @@
 // cpu_execute.v - The moxie execute stage
 //
-// Copyright (c) 2010, 2011, 2012 Anthony Green.
+// Copyright (c) 2010, 2011, 2012, 2105 Anthony Green.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -295,12 +295,19 @@ module cpu_execute (/*AUTOARG*/
 		    // Decrement $sp by 8 bytes and store the return address.
 		    reg0_result_o <= sp_i - 8;
 		    memory_address_o <= sp_i - 8;
-		    mem_result_o <= PC_i+6;
+		    mem_result_o <= PC_i+2;
 		    register0_write_index_o <= 1; // $sp
+		    branch_target_o <= regA_i;
 		    next_state <= STATE_JSR1;
 		  end
 		`OP_JSRA:
 		  begin
+		    // Decrement $sp by 8 bytes and store the return address.
+		    reg0_result_o <= sp_i - 8;
+		    memory_address_o <= sp_i - 8;
+		    mem_result_o <= PC_i+6;
+		    register0_write_index_o <= 1; // $sp
+		    branch_target_o <= operand_i;
 		    next_state <= STATE_JSR1;
 		  end
 		`OP_LDA_B:
@@ -511,7 +518,6 @@ module cpu_execute (/*AUTOARG*/
 	      memory_address_o <= sp_i - 4;
 	      mem_result_o <= fp_i;
 	      register0_write_index_o <= 1; // $sp
-	      branch_target_o <= operand_i;
 	      next_state <= STATE_READY;
 	    end
 	  STATE_RET1:

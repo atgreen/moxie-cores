@@ -103,7 +103,8 @@ module cpu_decode (/*AUTOARG*/
    
    always @(posedge clk_i)
      begin
-       if (flush_i | !valid_i)
+//       if (flush_i | !valid_i)
+       if (!valid_i)
 	 op_o <= `OP_NOP;
        else begin
 	 register0_write_index_o <= riA_o;
@@ -125,6 +126,7 @@ module cpu_decode (/*AUTOARG*/
 	   8'b00000011:
 	     begin
 	       op_o <= `OP_JSRA;
+	       operand_o <= operand_i;
 	     end
 	   8'b00000100:
 	     begin

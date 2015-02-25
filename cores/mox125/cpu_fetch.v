@@ -67,14 +67,12 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
   // This is a rediculous bit of logic.  We should try to recode the
   // moxie instructions so that we can determine the length with less
   // logic.
-  function [0:0] is_long_insn;
+  function [0:0] is_48bit_insn;
     input [7:0] op;
-    is_long_insn = ((op == 8'h01) //  ldi.l
+    is_48bit_insn = ((op == 8'h01) //  ldi.l
 		    | (op == 8'h03) // jsra
 		    | (op == 8'h08) // lda.l
 		    | (op == 8'h09) // sta.l
-		    | (op == 8'h0c) // ldo.l
-		    | (op == 8'h0d) // sto.l
 		    | (op == 8'h1a) // jmpa
 		    | (op == 8'h1b) // ldi.b
 		    | (op == 8'h1d) // lda.b
@@ -83,13 +81,20 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
 		    | (op == 8'h22) // lda.s
 		    | (op == 8'h24) // sta.s
 		    | (op == 8'h25) // jmp
-		    | (op == 8'h30) // swi
+		     | (op == 8'h30)); // swi
+  endfunction
+
+   function [0:0] is_32bit_insn;
+    input [7:0] op;
+    is_32bit_insn = ((op == 8'h0c) // ldo.l
+		    | (op == 8'h0d) // sto.l
 		    | (op == 8'h36) // ldo.b
 		    | (op == 8'h37) // sto.b
 		    | (op == 8'h38) // ldo.s
 		    | (op == 8'h39)); // sto.s
   endfunction
 
+   
   icache cache (
 		// Outputs
 		.inst_o (opcode[15:0]),
@@ -111,11 +116,8 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
   assign fetchPC = branch_flag_i ? branch_target_i : nextPC;
   assign PC_o = fetchPC;
 
-   wire		ili;
-   assign ili = is_long_insn(opcode[15:8]);
-   
   always @(posedge clk_i) begin
-     nextPC <= rst_i ? BOOT_ADDRESS : (valid & !stall_i ? fetchPC + 2 + (is_long_insn (opcode[15:8]) ? 4 : 0) : fetchPC);
+     nextPC <= rst_i ? BOOT_ADDRESS : (valid & !stall_i ? fetchPC + 2 + (is_48bit_insn (opcode[15:8]) ? 4 : is_32bit_insn (opcode[15:8]) ? 2 : 0) : fetchPC);
   end
 
 endmodule // cpu_fetch
