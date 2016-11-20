@@ -16,8 +16,6 @@ module hex_display_wb (input rst_i,
    reg 				  ack = 1'b0;
    assign wb_ack_o = ack;
 
-   /* output wire [7:0] 		  hex0_o, hex1_o, hex2_o, hex3_o; */
-   
    always @(posedge clk_i)
      begin
 	value <= (wb_we_i & wb_stb_i & wb_cyc_i) ? wb_dat_i[15:0] : value;
@@ -26,9 +24,9 @@ module hex_display_wb (input rst_i,
 
    hex_display display (.num (value),
 			.en (1'b1),
-			.hex0 (hex0_o),
-			.hex1 (hex1_o),
-			.hex2 (hex2_o),
-			.hex3 (hex3_o));
+			.hex0 (hex0_o[6:0]),
+			.hex1 (hex1_o[6:0]),
+			.hex2 (hex2_o[6:0]),
+			.hex3 (hex3_o[6:0]));
 
 endmodule
