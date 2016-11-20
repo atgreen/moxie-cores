@@ -81,6 +81,11 @@ module icache (/*AUTOARG*/
    wire [7:0] 	     set1 = adr_i[12:5] + is_at_least_30;
    wire [7:0] 	     set2 = adr_i[12:5] + is_at_least_28;
 
+   reg [7:0] 	     hold_set0;
+   reg [7:0] 	     hold_set1;
+   reg [7:0] 	     hold_set2;
+   reg [18:0] 	     hold_tag;
+
    wire 	     hit0, hit1, hit2;
    
    assign hit0 = valid[set0] & (tags[set0] == tag);
@@ -134,20 +139,25 @@ module icache (/*AUTOARG*/
 		  wb_stb_o <= (stb_i & !(hit0 & hit1 & hit2));
 		  wb_adr_o <= { adr_i[31:13],
                                 !hit0 ? set0 : (!hit1 ? set1 : set2), 5'b00000 };
+
+		  hold_set0 <= set0;
+		  hold_set1 <= set1;
+		  hold_set2 <= set2;
+		  hold_tag  <= tag;
 	       end
 	     
 	     ICACHE_FILL0:
 	       begin
 		  if (wb_ack_i)
 		    begin
-		       line[(set0 * 16) + count] <= wb_dat_i;
-		       b <= (set0 * 16) + count;
+		       line[(hold_set0 * 16) + count] <= wb_dat_i;
+		       b <= (hold_set0 * 16) + count;
 		       wb_adr_o <= wb_adr_o + 2;
 		       count <= count + 1;
 		       if (count == 15)
 			 begin
-			    tags[set0] <= tag;
-			    valid[set0] <= 1;
+			    tags[hold_set0] <= hold_tag;
+			    valid[hold_set0] <= 1;
 			    count <= 0;
 			    state <= (set0 == set1) | (hit1 & hit2) ? ICACHE_IDLE : ICACHE_FILL1_WAIT;
 			 end
@@ -165,15 +175,15 @@ module icache (/*AUTOARG*/
 	       begin
 		  if (wb_ack_i)
 		    begin
-		       line[(set1 * 16) + count] <= wb_dat_i;
+		       line[(hold_set1 * 16) + count] <= wb_dat_i;
 		       wb_adr_o <= wb_adr_o + 2;
 		       count <= count + 1;
 		       if (count == 15)
 			 begin
-			    tags[set1] <= tag;
-			    valid[set1] <= 1;
-			    tags[set2] <= tag;
-			    valid[set2] <= 1;
+			    tags[hold_set1] <= hold_tag;
+			    valid[hold_set1] <= 1;
+			    tags[hold_set2] <= hold_tag;
+			    valid[hold_set2] <= 1;
 			    count <= 0;
 //			    state <= hit2 ? ICACHE_IDLE : ICACHE_FILL2_WAIT;
 			    state <= ICACHE_IDLE;
@@ -192,13 +202,13 @@ module icache (/*AUTOARG*/
 	       begin
 		  if (wb_ack_i)
 		    begin
-		       line[(set2 * 16) + count] <= wb_dat_i;
+		       line[(hold_set2 * 16) + count] <= wb_dat_i;
 		       wb_adr_o <= wb_adr_o + 2;
 		       count <= count + 1;
 		       if (count == 15)
 			 begin
-			    tags[set2] <= tag;
-			    valid[set2] <= 1;
+			    tags[hold_set2] <= tag;
+			    valid[hold_set2] <= 1;
 			    count <= 0;
 			    state <= ICACHE_IDLE;
 			 end
