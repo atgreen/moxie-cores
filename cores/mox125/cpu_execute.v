@@ -80,7 +80,7 @@ module cpu_execute (/*AUTOARG*/
   output       branch_flag_o;
   output [31:0] branch_target_o;
 
-  reg [0:0] 	branch_flag_o;
+  reg  	branch_flag_o;
   reg [31:0] 	branch_target_o;
 
   reg [3:0]    register0_write_index_o;
@@ -98,8 +98,8 @@ module cpu_execute (/*AUTOARG*/
   assign riA_o = riA_i;
   assign riB_o = riB_i;
 
-   reg [0:0] 	register_wea_o;
-   reg [0:0] 	register_web_o;
+   reg  	register_wea_o;
+   reg  	register_web_o;
 
   wire cc_eq, cc_gt, cc_lt, cc_gtu, cc_ltu;
   wire [31:0] cc_AsubB;
