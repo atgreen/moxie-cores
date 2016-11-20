@@ -37,6 +37,7 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
   output [31:0] imem_address_o;
   input  [15:0] imem_data_i;
   output 	imem_stb_o;
+  output [1:0]	imem_sel_o;
   output 	imem_cyc_o;
   output [31:0] PC_o;
   input 	imem_ack_i;
