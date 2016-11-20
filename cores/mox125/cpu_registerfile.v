@@ -25,18 +25,11 @@ module cpu_registerfile (/*AUTOARG*/
   reg_write_index0_i, reg_write_index1_i, reg_read_index0_i,
   reg_read_index1_i
   );
-   
-  // synthesis translate_off 
-  initial
-    begin
-       $dumpvars(1, mem_2w4r);
-    end
-  // synthesis translate_on 
 
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
 
-   output [31:0] value0_o, value1_o;
+   output reg [31:0] value0_o, value1_o;
    output [31:0] sp_o;
    output [31:0] fp_o;
 
@@ -45,6 +38,7 @@ module cpu_registerfile (/*AUTOARG*/
    input [0:3] reg_write_index0_i, reg_write_index1_i;
    input [0:3] reg_read_index0_i, reg_read_index1_i;
 
+   /*
   MEM_2w4r mem_2w4r (.clock(clk_i),
 		     .we0(write_enable0_i),
 		     .we1(write_enable1_i),
@@ -59,6 +53,29 @@ module cpu_registerfile (/*AUTOARG*/
 		     .read_addr_2(4'b0),
 		     .read_data_2(fp_o),
 		     .read_addr_3(4'b1),
-		     .read_data_3(sp_o));
+		     .read_data_3(sp_o)); */
+
+   reg[31:0] mem[0:15];
+
+   integer   i;
+
+   always @ (posedge rst_i) begin
+      for (i=0; i<16; i=i+1)
+	mem[i] = 0;
+   end
+
+   always @ (posedge clk_i) begin
+      value0_o <= mem[reg_read_index0_i];
+      if (write_enable0_i) begin
+	 mem[reg_write_index0_i] <= value0_i;
+      end
+   end
+
+   always @ (posedge clk_i) begin
+      value1_o <= mem[reg_read_index1_i];
+      if (write_enable1_i) begin
+	 mem[reg_write_index1_i] <= value1_i;
+      end
+   end
   
 endmodule // cpu_registerfile
