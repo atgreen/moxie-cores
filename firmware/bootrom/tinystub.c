@@ -424,7 +424,7 @@ int main()
   mx_puts ("\n\r", 0);
   mx_puts ("Waiting for an S-Record Download or Remote GDB Connection...\n\r", 0);
 
-  /* Update global state.  We've just read our first character.  */
+  /* We're just about to read our first character.  */
   first = 1;
 
   /* Wait for either an S-Record download, or a remote gdb connection.  */
