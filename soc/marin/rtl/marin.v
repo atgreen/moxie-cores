@@ -299,8 +299,9 @@ module marin (/*AUTOARG*/
 		 .wb_cyc_i (wb2br_cyc),
 		 .wb_stb_i (wb2br_stb),
 		 .wb_ack_o (br2wb_ack));
-
+`ifdef XILINX   
   ram16bit_wb ram (.clk_i (clk_cpu),
+		   .rst_i (rst_i),
 		   .wb_dat_i (wb2rm_dat),
 		   .wb_dat_o (rm2wb_dat),
 		   .wb_adr_i (wb2rm_adr),
@@ -309,7 +310,9 @@ module marin (/*AUTOARG*/
 		   .wb_cyc_i (wb2rm_cyc),
 		   .wb_stb_i (wb2rm_stb),
 		   .wb_ack_o (rm2wb_ack));
-
+`endif
+/*
+`ifdef XILINX   
   mpic_wb pic (.clk_i (clk_cpu),
 	       .rst_i (rst_i),
 	       .wb_cyc_i (wb2pi_cyc),
@@ -320,9 +323,11 @@ module marin (/*AUTOARG*/
 	       .wb_dat_o (pi2wb_dat),
 	       .irq_o (pi2mx_irq),
 	       .irq_i ({btnl, btnr, btnu, btnd, ti2pi_irq}));
-
+`endif //  `ifdef XILINX
+*/   
 `ifdef XILINX   
   psram_wb cellram (.clk_i (clk_cpu),
+		    .rst_i (rst_i),
   		    // Wishbone Interface
   		    .wb_dat_i (wb2cr_dat),
   		    .wb_dat_o (cr2wb_dat),
