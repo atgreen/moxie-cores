@@ -3,7 +3,7 @@
 ;;; --------------------------------------------------------------------
 ;;; GTKWave Process Filter to Disassemble Moxie Opcodes
 ;;;
-;;; Copyright (c) 2011, 2012 Anthony Green.
+;;; Copyright (c) 2011, 2012, 2016  Anthony Green.
 ;;; DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 ;;; 
 ;;; The above named program is free software; you can redistribute it
@@ -42,6 +42,9 @@
 (defun moxie-f1-a4 (name instr)
   (format nil "~A ~A __" name 
 	  (regname (logand (ash instr -4) #xf))))
+
+(defun moxie-f1-4 (name instr)
+  (format nil "~A __" name))
 
 (defun moxie-f1-4a (name instr)
   (format nil "~A __ ~A" name
@@ -144,7 +147,7 @@
      (#x2d "ashr" moxie-f1-ab)
      (#x2e "xor" moxie-f1-ab)
      (#x2f "mul.l" moxie-f1-ab)
-     (#x30 "swi" moxie-f1-4 )
+     (#x30 "swi" moxie-f1-4)
      (#x31 "div.l" moxie-f1-ab)
      (#x32 "udiv.l" moxie-f1-ab)
      (#x33 "mod.l" moxie-f1-ab)
@@ -194,24 +197,31 @@
 (defmacro moxie-disassemble (opcode insn table)
   `(format t "~A~%"
 	   (let ((insn-spec (gethash ,insn ,table)))
-	     (funcall (cdr insn-spec)
-		      (car insn-spec)
-		      ,opcode))))
+	     (when insn-spec
+	       "bad"
+	       (funcall (cdr insn-spec)
+			(car insn-spec)
+			,opcode)))))
 
 (loop
    (let* ((s (read-line))
 	  (n (or (parse-integer s :radix 16 :junk-allowed t) s)))
-     (if (eql n s)
-	 (format t "~A~%" s) ; This is not a number.  Just spit it back.
-	 (progn 
-	   (cond ( ;; Handle Form 1 opcodes
-		  (eql (logand n #b1000000000000000) 0) 
-		  (moxie-disassemble n (ash n -8) *form1-opcodes*))
-		 ( ;; Handle Form 2 opcodes
-		  (eql (logand n #b0100000000000000) 0)
-		  (moxie-disassemble n (logand (ash n -12) 3) *form2-opcodes*))
-		 ( ;; Handle Form 3 opcodes
-		  t
-		  (moxie-disassemble n (logand (ash n -10) 15) *form3-opcodes*)))))
-     (finish-output)))
+    (with-open-file 
+     (out "trace.txt" :direction :output
+	  :if-exists :supersede)
+      (format out s))
+    (if (eql n s)
+	(format t "~A~%" s) ; This is not a number.  Just spit it back.
+	(progn 
+	  (cond ( ;; Handle Form 1 opcodes
+		 (eql (logand n #b1000000000000000) 0) 
+		 (moxie-disassemble n (ash n -8) *form1-opcodes*))
+		( ;; Handle Form 2 opcodes
+		 (eql (logand n #b0100000000000000) 0)
+		 (moxie-disassemble n (logand (ash n -12) 3) *form2-opcodes*))
+		( ;; Handle Form 3 opcodes
+		 t
+		 (moxie-disassemble n (logand (ash n -10) 15) *form3-opcodes*)))))
+    (finish-output)))
+
                                                                                 
