@@ -92,7 +92,7 @@ module moxie (/*AUTOARG*/
   wire [31:0] dx_PC;
   wire [31:0] xw_PC;
   wire [`PCB_WIDTH-1:0] dx_pipeline_control_bits;
-  wire [5:0]  dx_op;
+  wire [6:0]  dx_op;
   wire [9:0]  dx_pcrel_offset;
   wire [`PCB_WIDTH-1:0] xw_pipeline_control_bits;
   wire [0:0]  xr_register0_write_enable;

@@ -445,25 +445,25 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_SEX_B:
 		  begin
-		    reg0_result_o <= { 24{regB_i[24]}, regB_i[24:31] };
+		    reg0_result_o <= { {24{regB_i[7]}}, regB_i[7:0] };
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		  end
 		`OP_SEX_S:
 		  begin
-		    reg0_result_o <= { 16{regB_i[16]}, regB_i[16:31] };
+		    reg0_result_o <= { {16{regB_i[15]}}, regB_i[15:0] };
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		  end
 		`OP_ZEX_B:
 		  begin
-		    reg0_result_o <= { 24'b0, regB_i[24:31] };
+		    reg0_result_o <= { 7'b0, regB_i[7:0] };
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		  end
 		`OP_SEX_S:
 		  begin
-		    reg0_result_o <= { 16'b0, regB_i[24:31] };
+		    reg0_result_o <= { 15'b0, regB_i[15:0] };
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		  end
