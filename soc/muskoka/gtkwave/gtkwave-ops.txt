@@ -61,3 +61,8 @@
 3C udiv.l
 3D umod.l
 3E xor
+3F sex.b
+40 sex.s
+41 zex.b
+41 zex.s
+
