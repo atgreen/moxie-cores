@@ -1,6 +1,6 @@
 // icache.v - Direct Mapped Instruction Cache
 //
-// Copyright (c) 2014, 2015  Anthony Green
+// Copyright (c) 2014, 2015, 2016  Anthony Green
 //
 // The above named program is free software; you can redistribute it
 // and/or modify it under the terms of the GNU General Public License
@@ -131,9 +131,9 @@ module icache (/*AUTOARG*/
 	     ICACHE_IDLE:
 	       begin
 		  state <= (stb_i ? 
-			    (!hit0 ? ICACHE_FILL0
-			     : (! hit1 ? ICACHE_FILL1 
-				: (! hit2 ? ICACHE_FILL2 : ICACHE_IDLE)))
+			    (!hit0 ? ICACHE_FILL0_WAIT
+			     : (! hit1 ? ICACHE_FILL1_WAIT 
+				: (! hit2 ? ICACHE_FILL2_WAIT : ICACHE_IDLE)))
 			    : ICACHE_IDLE);
 		  count <= 0;
 		  wb_stb_o <= (stb_i & !(hit0 & hit1 & hit2));
@@ -159,7 +159,7 @@ module icache (/*AUTOARG*/
 			    tags[hold_set0] <= hold_tag;
 			    valid[hold_set0] <= 1;
 			    count <= 0;
-			    state <= (set0 == set1) | (hit1 & hit2) ? ICACHE_IDLE : ICACHE_FILL1_WAIT;
+			    state <= (hold_set0 == hold_set1) | (hit1 & hit2) ? ICACHE_IDLE : ICACHE_FILL1_WAIT;
 			 end
 		       else
 			 state <= ICACHE_FILL0_WAIT;
