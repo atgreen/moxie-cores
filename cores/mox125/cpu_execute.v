@@ -51,7 +51,7 @@ module cpu_execute (/*AUTOARG*/
   input [3:0]  register0_write_index_i;
   input [3:0]  register1_write_index_i;
   input [31:0] operand_i;
-  input [5:0]  op_i;
+  input [6:0]  op_i;
   input [31:0] sp_i;
   input [31:0] fp_i;
   input [31:0] PC_i;
@@ -442,6 +442,30 @@ module cpu_execute (/*AUTOARG*/
 		    reg0_result_o <= sp_i + 8;
 		    register0_write_index_o <= 1; // $sp
 		    next_state <= STATE_RET1;
+		  end
+		`OP_SEX_B:
+		  begin
+		    reg0_result_o <= { 24{regB_i[24]}, regB_i[24:31] };
+		    register0_write_index_o <= register0_write_index_i;
+		    next_state <= STATE_READY;
+		  end
+		`OP_SEX_S:
+		  begin
+		    reg0_result_o <= { 16{regB_i[16]}, regB_i[16:31] };
+		    register0_write_index_o <= register0_write_index_i;
+		    next_state <= STATE_READY;
+		  end
+		`OP_ZEX_B:
+		  begin
+		    reg0_result_o <= { 24'b0, regB_i[24:31] };
+		    register0_write_index_o <= register0_write_index_i;
+		    next_state <= STATE_READY;
+		  end
+		`OP_SEX_S:
+		  begin
+		    reg0_result_o <= { 16'b0, regB_i[24:31] };
+		    register0_write_index_o <= register0_write_index_i;
+		    next_state <= STATE_READY;
 		  end
 		`OP_SSR:
 		  begin
