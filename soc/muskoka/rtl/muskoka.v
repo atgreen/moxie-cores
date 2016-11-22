@@ -60,6 +60,16 @@ module muskoka (/*AUTOARG*/
   wire        wb2br_stb;
   wire 	      br2wb_ack;
 
+  // UART/Wishbone interface
+  wire [15:0] wb2ua_dat;
+  wire [15:0] ua2wb_dat;
+  wire [31:0] wb2ua_adr;
+  wire [1:0]  wb2ua_sel;
+  wire 	      wb2ua_we;
+  wire 	      wb2ua_cyc;
+  wire        wb2ua_stb;
+  wire 	      ua2wb_ack;
+
   // synthesis translate_off
   initial
     begin
@@ -107,7 +117,15 @@ module muskoka (/*AUTOARG*/
 		 .wbs_0_stb_o (wb2br_stb),
 		 .wbs_0_ack_i (br2wb_ack),
 		 
-		 .wbs_1_ack_i (zero),
+		 .wbs_1_dat_o (),
+		 .wbs_1_dat_i (ua2wb_dat),
+		 .wbs_1_adr_o (wb2ua_adr),
+		 .wbs_1_sel_o (wb2ua_sel),
+		 .wbs_1_we_o (wb2ua_we),
+		 .wbs_1_cyc_o (wb2ua_cyc),
+		 .wbs_1_stb_o (wb2ua_stb),
+		 .wbs_1_ack_i (ua2wb_ack),
+		 
 		 .wbs_2_ack_i (zero),
 		 .wbs_3_ack_i (zero));
 
@@ -140,7 +158,7 @@ module muskoka (/*AUTOARG*/
 	      .wb_dat_i (wb2mx_dat),
 	      .wb_dat_o (mx2wb_dat),
 	      .wb_adr_o (mx2wb_adr),
-	      .wb_sel_i (wb2mx_sel),
+	      .wb_sel_i (mx2wb_sel),
 	      .wb_we_o (mx2wb_we),
 	      .wb_cyc_o (mx2wb_cyc),
 	      .wb_stb_o (mx2wb_stb),
@@ -148,7 +166,7 @@ module muskoka (/*AUTOARG*/
    
    hex_display hex16 (.num (mx2wb_adr[19:4]),
 		      .en  (1'b1),
-		      
+	      
 		      .hex0 (hex0_),
 		      .hex1 (hex1_),
 		      .hex2 (hex2_),

@@ -26,7 +26,7 @@ module bootrom16 (
 		  input 	wb_tga_i,
 		  input 	wb_stb_i,
 		  input 	wb_cyc_i,
-		  input [ 1:0] 	wb_sel_i,
+		  input [1:0] 	wb_sel_i,
 		  output [0:0]	wb_ack_o
 		  );
 
