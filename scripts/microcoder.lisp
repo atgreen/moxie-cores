@@ -49,8 +49,9 @@
 	   while line do 
 	   (let ((s (cl-ppcre:split "\\|" line)))
 	     (if (equal 10 (length s))
-		 (destructuring-bind (junk1 name code wA? wB? rA? rB? rm? wm? &rest junk2) 
+		 (destructuring-bind (junk1 name code wA? wB? rA? rB? rm? wm? &rest junk2)
 				     (mapcar (lambda (v) (string-trim " " v)) s)
+				     (declare (ignore junk1 junk2))
 				     (setf (aref opcode-array (parse-integer code :radix 2))
 					   (list name wA? wB? rA? rB? rm? wm?))))))
      (loop for i from 0 to 63
