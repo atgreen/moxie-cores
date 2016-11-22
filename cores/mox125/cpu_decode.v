@@ -112,7 +112,7 @@ module cpu_decode (/*AUTOARG*/
 	 casex (opcode_i[15:8])
 	   8'b00000000:
 	     begin
-	       op_o <= `OP_NOP;
+	       op_o <= `OP_BAD;
 	     end
 	   8'b00000001:
 	     begin
@@ -176,23 +176,23 @@ module cpu_decode (/*AUTOARG*/
 	     end
 	   8'b00001111:
 	     begin
-	       op_o <= `OP_BAD;
+	       op_o <= `OP_NOP;
 	     end
 	   8'b00010000:
 	     begin
-	       op_o <= `OP_BAD;
+	       op_o <= `OP_SEX_B;
 	     end
 	   8'b00010001:
 	     begin
-	       op_o <= `OP_BAD;
+	       op_o <= `OP_SEX_S;
 	     end
 	   8'b00010010:
 	     begin
-	       op_o <= `OP_BAD;
+	       op_o <= `OP_ZEX_B;
 	     end
 	   8'b00010011:
 	     begin
-	       op_o <= `OP_BAD;
+	       op_o <= `OP_ZEX_S;
 	     end
 	   8'b00010100:
 	     begin
