@@ -49,10 +49,10 @@ module cpu_decode (/*AUTOARG*/
    output [9:0] 	   pcrel_offset_o;
    output [3:0] 	   riA_o;
    output [3:0] 	   riB_o;
-   output [5:0] 	   op_o;
+   output [6:0] 	   op_o;
    output [31:0] 	   PC_o;
 
-   reg [5:0] 		   op_o;
+   reg [6:0] 		   op_o;
    reg [9:0] 		   pcrel_offset_o;
    wire [3:0] 		   riA_o;
    wire [3:0] 		   riB_o;
