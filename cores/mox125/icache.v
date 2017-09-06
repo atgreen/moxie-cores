@@ -1,6 +1,6 @@
 // icache.v - Direct Mapped Instruction Cache
 //
-// Copyright (c) 2014, 2015, 2016  Anthony Green
+// Copyright (c) 2014, 2015, 2016, 2017  Anthony Green
 //
 // The above named program is free software; you can redistribute it
 // and/or modify it under the terms of the GNU General Public License
@@ -93,7 +93,7 @@ module icache (/*AUTOARG*/
    assign hit2 = valid[set2] & (tags[set2] == tag);
    assign hit_o = (!rst_i) & (hit0 & hit1 & hit2);
 
-   initial $readmemh("valid-init.txt", valid);
+  //   initial $readmemh("valid-init.txt", valid);
 
    wire [31:0] 	     a;
    reg [31:0] 	     b;
@@ -117,12 +117,14 @@ module icache (/*AUTOARG*/
    reg [2:0] state = ICACHE_IDLE;
    reg [3:0] count = 0;
 
+   integer    i;
    always @(posedge clk_i) begin
       if (rst_i)
 	begin
 	   state <= ICACHE_IDLE;
 	   count <= 0;
 	   wb_stb_o <= 0;
+           for (i=0; i<256; i=i+1) valid[i] <= 1'b0;
 	end
       else
 	begin
