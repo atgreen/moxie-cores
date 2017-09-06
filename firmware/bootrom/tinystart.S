@@ -1,5 +1,6 @@
 	.section .text.boot
 	.p2align	1
+	.global __start
 	.global	_start
 	.global _exit
 	.global msg
@@ -7,6 +8,7 @@
 
 	.equ BIG_ENDIAN,1
 
+__start:	
 _start:	
 	# Set the top of stack and clear the frame pointer.
 	ldi.l	$sp, _stack
