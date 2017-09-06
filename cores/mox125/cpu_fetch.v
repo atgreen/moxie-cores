@@ -24,7 +24,7 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
 		   )(/*AUTOARG*/
    // Outputs
    imem_address_o, imem_stb_o, imem_cyc_o, PC_o, opcode, valid,
-   operand,
+   operand, imem_sel_o,
    // Inputs
    rst_i, clk_i, imem_data_i, imem_ack_i, branch_flag_i,
    branch_target_i, stall_i
