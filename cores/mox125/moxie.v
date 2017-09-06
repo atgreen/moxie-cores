@@ -1,6 +1,6 @@
 // moxie.v - Top level Moxie Core
 //
-// Copyright (c) 2009, 2010, 2011, 2012  Anthony Green.
+// Copyright (c) 2009, 2010, 2011, 2012, 2017  Anthony Green.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -26,7 +26,7 @@ module moxie (/*AUTOARG*/
    wb_I_stb_o, wb_D_dat_o, wb_D_adr_o, wb_D_sel_o, wb_D_we_o,
    wb_D_cyc_o, wb_D_stb_o,
    // Inputs
-   rst_i, clk_i, wb_dat_i, wb_ack_i, wb_I_dat_i, wb_I_ack_i,
+   rst_i, clk_i, wb_dat_i, wb_ack_i, wb_I_dat_i, 
    wb_D_dat_i, wb_D_ack_i
    );
    
@@ -52,7 +52,7 @@ module moxie (/*AUTOARG*/
   output        wb_I_we_o;
   output        wb_I_cyc_o;
   output        wb_I_stb_o;
-  input         wb_I_ack_i;
+  wire         wb_I_ack_i;
 
  // --- Wishbone Interconnect for DATA Memory --------------------
   input [15:0]  wb_D_dat_i;
@@ -65,7 +65,7 @@ module moxie (/*AUTOARG*/
   input         wb_D_ack_i;
 
   // --- Wishbone bus arbitration ---------------------------------
-  assign wb_I_dat_i = wb_dat_i;
+  // assign wb_I_dat_i = wb_dat_i;
   assign wb_D_dat_i = wb_dat_i;
   assign wb_dat_o = wb_D_dat_o;
   assign wb_adr_o = wb_I_cyc_o ? wb_I_adr_o : wb_D_adr_o;
@@ -123,6 +123,7 @@ module moxie (/*AUTOARG*/
 
   wire [0:0]  flush_x;
 
+`ifndef VERILATOR   
   // synthesis translate_off 
   initial
     begin
@@ -136,7 +137,8 @@ module moxie (/*AUTOARG*/
       $dumpvars(1,regs);
       $display("-- BEGINNING --");
     end
-  // synthesis translate_on 
+  // synthesis translate_on
+`endif
 
   cpu_registerfile regs (// Outputs
 			 .value0_o (rx_reg_value1), 
@@ -176,7 +178,7 @@ module moxie (/*AUTOARG*/
 			 .branch_flag_i         (xf_branch_flag),
 			 .branch_target_i       (xf_branch_target),
 			 .stall_i               (1'b0),
-			 .imem_data_i           (wb_I_dat_i[15:0]));
+			 .imem_data_i           (wb_dat_i[15:0]));
     
   cpu_decode stage_decode (// Inputs
 			   .rst_i			(rst_i),
