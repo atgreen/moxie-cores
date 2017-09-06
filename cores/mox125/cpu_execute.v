@@ -1,6 +1,6 @@
 // cpu_execute.v - The moxie execute stage
 //
-// Copyright (c) 2010, 2011, 2012, 2105 Anthony Green.
+// Copyright (c) 2010, 2011, 2012, 2105, 2017 Anthony Green.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -128,9 +128,8 @@ module cpu_execute (/*AUTOARG*/
        | ((op_i == `OP_BGEU) & (CC_result[0] | CC_result[4]));
 
   wire[31:0] pcrel_branch_target;
-  assign pcrel_branch_target = {20'b0,pcrel_offset_i,1'b0} + PC_i + 32'd2;
-
-   
+  assign pcrel_branch_target = {{21{pcrel_offset_i[9]}}, pcrel_offset_i, 1'b0 } + PC_i + 32'd2;
+//  assign pcrel_branch_target = { 20'b0, pcrel_offset_i, 1'b0 } + PC_i + 32'd2;
    
   wire [7:0] incdec_value = pcrel_offset_i[7:0];
     
