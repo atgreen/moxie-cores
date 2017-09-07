@@ -129,7 +129,6 @@ module cpu_execute (/*AUTOARG*/
 
   wire[31:0] pcrel_branch_target;
   assign pcrel_branch_target = {{21{pcrel_offset_i[9]}}, pcrel_offset_i, 1'b0 } + PC_i + 32'd2;
-//  assign pcrel_branch_target = { 20'b0, pcrel_offset_i, 1'b0 } + PC_i + 32'd2;
    
   wire [7:0] incdec_value = pcrel_offset_i[7:0];
     
