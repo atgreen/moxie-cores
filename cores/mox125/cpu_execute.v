@@ -406,7 +406,7 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_NOT:
 		  begin
-		    reg0_result_o <= !regB_i;
+		    reg0_result_o <= ~regB_i;
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		  end
