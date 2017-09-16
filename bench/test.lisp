@@ -49,27 +49,28 @@
        (icache-set-adr-i *ic* address) 
        (icache-set-stb-i *ic* 1)
        
-       (loop do
-	    (tick-up)
+       (loop
+	do (tick-up)
 
 	  ;; simulate wishbone main memory
-	    (let ((check-mem (and (icache-get-wb-stb-o *ic*)
-				  (icache-get-wb-cyc-o *ic*))))
-	      (icache-set-wb-ack-i *ic* check-mem)
-	      (if (eq 1 check-mem)
-		  (icache-set-wb-dat-i *ic* (icache-get-wb-adr-o *ic*))))
-	    
-	    (tick-down)
-
+	(let ((check-mem (and (icache-get-wb-stb-o *ic*)
+			      (icache-get-wb-cyc-o *ic*)))
+	      (wb-fetch-address (icache-get-wb-adr-o *ic*)))
+	  
+	  (icache-set-wb-ack-i *ic* check-mem)
+	  (if (eq 1 check-mem)
+	      (icache-set-wb-dat-i *ic* wb-fetch-address))
+	  
+	  (tick-down)
+	  
 	  ;; check for a cache hit
-	    (if (eq 1 (icache-get-hit-o *ic*))
-		(let ((memory-value (icache-get-inst-o *ic*)))
-		  (format t "HIT @ 0x~A = 0x~A ~%" address memory-value)
-		  (if (not (eq address memory-value))
-		      (format t "ERROR: CACHE FAILURE *********************~%"))
-		  (return))
-		(format t "fill 0x~A~%" (icache-get-wb-adr-o *ic*))))))
-
+	  (if (eq 1 (icache-get-hit-o *ic*))
+	      (let ((memory-value (icache-get-inst-o *ic*)))
+		(format t "HIT @ 0x~A = 0x~A ~%" address memory-value)
+		(if (not (eq address memory-value))
+		    (format t "ERROR: CACHE FAILURE *********************~%"))
+		(return))
+	    (format t "fill 0x~A~%" wb-fetch-address))))))
 
 (defun runtest ()
   
