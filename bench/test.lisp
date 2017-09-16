@@ -1,3 +1,18 @@
+;;; 1010101010101010101010101010101010101010101010101010101010101010101010101010101
+;;; 0101010101010101010101010101010101010101010101010101010101010101010101010101010
+;;; 1   ___  ___          _     ______                                            1
+;;; 0   |  \/  |         (_)    |  _  \              Open Source Tools,           0
+;;; 1   | .  . | _____  ___  ___| | | |_____   __    Firmware, and HDL code for   1
+;;; 0   | |\/| |/ _ \ \/ / |/ _ \ | | / _ \ \ / /    the Moxie processor core.    0
+;;; 1   | |  | | (_) >  <| |  __/ |/ /  __/\ V /                                  1
+;;; 0   \_|  |_/\___/_/\_\_|\___|___/ \___| \_/      http://moxielogic.org/blog   0
+;;; 1                                                                             1
+;;; 0101010101010101010101010101010101010101010101010101010101010101010101010101010
+;;; 1010101010101010101010101010101010101010101010101010101010101010101010101010101
+
+;;; Copyright (C) 2017  Anthony Green <green@moxielogic.com>
+;;; Distributed under the terms of the GPL v3 or later.
+
 ;;; This test program uses a verilator simulator of the moxie
 ;;; instruction cache module, wrapped in a thin lisp veneer by
 ;;; wrapilator.
