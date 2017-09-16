@@ -1,6 +1,6 @@
 // dcache.v - Data cache for the moxie core
 //
-// Copyright (c) 2011  Anthony Green.  All Rights Reserved.
+// Copyright (c) 2011, 2017  Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -36,8 +36,8 @@ module dcache (/*AUTOARG*/
 
   // This is a place holder data cache module with 4k of fake memory.
   reg  [7:0] ram[0:4095];
-  wire [9:0] index;
-  assign index = address_i[9:0];
+  wire [11:0] index;
+  assign index = address_i[11:0];
 
   // Read data 
   assign data_o = {ram[index],ram[index+1],ram[index+2],ram[index+3]};

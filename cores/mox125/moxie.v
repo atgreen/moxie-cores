@@ -20,15 +20,11 @@
 `include "defines.h"
 
 module moxie (/*AUTOARG*/
-   // Outputs
-   wb_dat_o, wb_adr_o, wb_sel_i, wb_we_o, wb_cyc_o, wb_stb_o,
-   wb_I_dat_o, wb_I_adr_o, wb_I_sel_o, wb_I_we_o, wb_I_cyc_o,
-   wb_I_stb_o, wb_D_dat_o, wb_D_adr_o, wb_D_sel_o, wb_D_we_o,
-   wb_D_cyc_o, wb_D_stb_o,
-   // Inputs
-   rst_i, clk_i, wb_dat_i, wb_ack_i, wb_I_dat_i, 
-   wb_D_dat_i, wb_D_ack_i
-   );
+  // Outputs
+  wb_dat_o, wb_adr_o, wb_sel_o, wb_we_o, wb_cyc_o, wb_stb_o,
+  // Inputs
+  rst_i, clk_i, wb_dat_i, wb_ack_i
+  );
    
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
@@ -38,34 +34,34 @@ module moxie (/*AUTOARG*/
   input [15:0]  wb_dat_i;
   output [15:0] wb_dat_o;
   output [31:0] wb_adr_o;
-  output [1:0]   wb_sel_i;
+  output [1:0]   wb_sel_o;
   output        wb_we_o;
   output        wb_cyc_o;
   output        wb_stb_o;
   input         wb_ack_i;
 
   // --- Wishbone Interconnect for INSTRUCTION Memory -------------
-  input [15:0]  wb_I_dat_i;
-  output [15:0] wb_I_dat_o;
-  output [31:0] wb_I_adr_o;
-  output [1:0]   wb_I_sel_o;
-  output        wb_I_we_o;
-  output        wb_I_cyc_o;
-  output        wb_I_stb_o;
+  wire [15:0]  wb_I_dat_i;
+  wire [15:0]  wb_I_dat_o;
+  wire [31:0]  wb_I_adr_o;
+  wire [1:0]   wb_I_sel_o;
+  wire         wb_I_we_o;
+  wire         wb_I_cyc_o;
+  wire         wb_I_stb_o;
   wire         wb_I_ack_i;
 
  // --- Wishbone Interconnect for DATA Memory --------------------
-  input [15:0]  wb_D_dat_i;
-  output [15:0] wb_D_dat_o;
-  output [31:0] wb_D_adr_o;
-  output [1:0]   wb_D_sel_o;
-  output        wb_D_we_o;
-  output        wb_D_cyc_o;
-  output        wb_D_stb_o;
-  input         wb_D_ack_i;
+  wire [15:0]  wb_D_dat_i;
+  wire [15:0]  wb_D_dat_o;
+  wire [31:0]  wb_D_adr_o;
+  wire [1:0]   wb_D_sel_o;
+  wire         wb_D_we_o;
+  wire         wb_D_cyc_o;
+  wire         wb_D_stb_o;
+  wire         wb_D_ack_i;
 
   // --- Wishbone bus arbitration ---------------------------------
-  // assign wb_I_dat_i = wb_dat_i;
+  assign wb_I_dat_i = wb_dat_i;
   assign wb_D_dat_i = wb_dat_i;
   assign wb_dat_o = wb_D_dat_o;
   assign wb_adr_o = wb_I_cyc_o ? wb_I_adr_o : wb_D_adr_o;
@@ -170,6 +166,7 @@ module moxie (/*AUTOARG*/
 			 .imem_address_o        (wb_I_adr_o[31:0]),
 			 .imem_stb_o            (wb_I_stb_o),
 			 .imem_cyc_o            (wb_I_cyc_o),
+			 .imem_sel_o            (),
 			 .imem_ack_i            (wb_I_ack_i),
 			 .PC_o                  (fd_PC[31:0]),
 			 // Inputs
@@ -178,7 +175,7 @@ module moxie (/*AUTOARG*/
 			 .branch_flag_i         (xf_branch_flag),
 			 .branch_target_i       (xf_branch_target),
 			 .stall_i               (1'b0),
-			 .imem_data_i           (wb_dat_i[15:0]));
+			 .imem_data_i           (wb_I_dat_i[15:0]));
     
   cpu_decode stage_decode (// Inputs
 			   .rst_i			(rst_i),
@@ -208,6 +205,13 @@ module moxie (/*AUTOARG*/
 			     .op_i           (dx_op),
 			     .PC_i           (dx_PC),
 			     .PC_o           (xw_PC),
+			     .dmem_address_o (wb_D_adr_o[31:0]),
+			     .dmem_stb_o     (wb_D_stb_o),
+			     .dmem_cyc_o     (wb_D_cyc_o),
+			     .dmem_sel_o     (),
+			     .dmem_ack_i     (wb_D_ack_i),
+			     .dmem_data_i    (wb_D_dat_i[15:0]),
+			     .dmem_data_o    (wb_I_dat_o[15:0]),
 			     .pcrel_offset_i (dx_pcrel_offset),
 			     .operand_i		(dx_operand[31:0]),
 			     .regA_i (forward_0 ? xr_reg0_result : rx_reg_value1),

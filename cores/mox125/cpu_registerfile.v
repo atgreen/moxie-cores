@@ -1,6 +1,6 @@
 // cpu_registerfile.v - moxie register file
 //
-// Copyright (c) 2010, 2011, 2012  Anthony Green.  All Rights Reserved.
+// Copyright (c) 2010, 2011, 2012, 2017  Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -30,12 +30,16 @@ module cpu_registerfile (/*AUTOARG*/
   input  rst_i, clk_i;
 
    output reg [31:0] value0_o, value1_o;
-   output [31:0] sp_o;
-   output [31:0] fp_o;
+   output [31:0] sp_o /*verilator public*/;
+   output [31:0] fp_o /*verilator public*/;
 
-   input write_enable0_i, write_enable1_i;
-   input [31:0] value0_i, value1_i;
-   input [0:3] reg_write_index0_i, reg_write_index1_i;
+  input 	 write_enable0_i /*verilator public*/;
+  input write_enable1_i /*verilator public*/;
+  input [31:0] value0_i /*verilator public*/;
+  input [31:0] value1_i /*verilator public*/;
+  input [0:3]  reg_write_index0_i /*verilator public*/;
+  input [0:3]  reg_write_index1_i  /*verilator public*/;
+  
    input [0:3] reg_read_index0_i, reg_read_index1_i;
 
    /*
@@ -59,22 +63,47 @@ module cpu_registerfile (/*AUTOARG*/
 
    integer   i;
 
+  wire [31:0]	     r0 /*verilator public*/;
+  wire [31:0]	     r1 /*verilator public*/;
+  wire [31:0]	     r2  /*verilator public*/;
+  wire [31:0]	     r3  /*verilator public*/;
+  wire [31:0]	     r4  /*verilator public*/;
+  wire [31:0]	     r5  /*verilator public*/;
+  wire [31:0]	     r6  /*verilator public*/;
+
+  assign r0 = mem[2];
+  assign r1 = mem[3];
+  assign r2 = mem[4];
+  assign r3 = mem[5];
+  assign r4 = mem[6];
+  assign r5 = mem[7];
+  assign r6 = mem[8];
+  assign r7 = mem[9];
+
+  assign fp_o = mem[0];
+  assign sp_o = mem[1];
+  
    always @ (posedge rst_i) begin
       for (i=0; i<16; i=i+1)
 	mem[i] = 0;
    end
 
-   always @ (posedge clk_i) begin
+   // always @ (posedge clk_i) begin
+   //   fp_o <= mem[0];
+   //   sp_o <= mem[1];
+   // end
+  
+   always @(posedge clk_i) begin
       value0_o <= mem[reg_read_index0_i];
       if (write_enable0_i) begin
-	 mem[reg_write_index0_i] <= value0_i;
+	 mem[reg_write_index0_i] = value0_i;
       end
    end
 
-   always @ (posedge clk_i) begin
+   always @(posedge clk_i) begin
       value1_o <= mem[reg_read_index1_i];
       if (write_enable1_i) begin
-	 mem[reg_write_index1_i] <= value1_i;
+	 mem[reg_write_index1_i] = value1_i;
       end
    end
   

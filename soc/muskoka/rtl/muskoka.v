@@ -1,6 +1,6 @@
 // muskoka.v - Top level Muskoka SoC module.
 //
-// Copyright (c) 2009, 2010, 2011  Anthony Green.  All Rights Reserved.
+// Copyright (c) 2009, 2010, 2011, 2017  Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -19,7 +19,7 @@
 
 module muskoka (/*AUTOARG*/
    // Outputs
-   hex0_, hex1_, hex2_, hex3_, tx_o,
+   hex0_o, hex1_o, hex2_o, hex3_o, tx_o,
    // Inputs
    rst_i, clk_i, rx_i
    );
@@ -28,10 +28,10 @@ module muskoka (/*AUTOARG*/
   input  rst_i, clk_i;
   reg 	 rst;
 
-  output [6:0] hex0_;
-  output [6:0] hex1_;
-  output [6:0] hex2_;
-  output [6:0] hex3_;
+  output [6:0] hex0_o;
+  output [6:0] hex1_o;
+  output [6:0] hex2_o;
+  output [6:0] hex3_o;
 
   // -- UART ------------------------------------------------------
   output tx_o;
@@ -60,6 +60,15 @@ module muskoka (/*AUTOARG*/
   wire        wb2br_stb;
   wire 	      br2wb_ack;
 
+  // Display/Wishbone interface
+  wire [15:0] wb2dp_dat;
+  wire [31:0] wb2dp_adr;
+  wire [1:0]  wb2dp_sel;
+  wire 	      wb2dp_we;
+  wire 	      wb2dp_cyc;
+  wire        wb2dp_stb;
+  wire 	      dp2wb_ack;
+
   // UART/Wishbone interface
   wire [15:0] wb2ua_dat;
   wire [15:0] ua2wb_dat;
@@ -70,29 +79,45 @@ module muskoka (/*AUTOARG*/
   wire        wb2ua_stb;
   wire 	      ua2wb_ack;
 
+  // RAM/Wishbone interface
+  wire [15:0] wb2rm_dat;
+  wire [15:0] rm2wb_dat;
+  wire [31:0] wb2rm_adr;
+  wire [1:0]  wb2rm_sel;
+  wire 	      wb2rm_we;
+  wire 	      wb2rm_cyc;
+  wire        wb2rm_stb;
+  wire 	      rm2wb_ack;
+
   // synthesis translate_off
+`ifndef VERILATOR
   initial
     begin
       $dumpvars(1,core);
       $dumpvars(1,rom);
       $dumpvars(1,bus_intercon);
     end
+`endif   
   // synthesis translate_on
 
   // slave 0 - bootrom @ 0x1000 for 512 bytes
-  // slave 1 - unused
-  // slave 2 - unused
-  // slave 3 - unused
+  // slave 1 - 7-segment display @ 0xF0000000
+  // slave 2 - UART @ 0xF0000008
+  // slave 3 - Boot RAM - 1k @ 10000000
 
   wb_intercon #(.data_width (16),
+		/* ROM @ 0x00001000 */
 		.slave_0_mask (32'b1111_1111_1111_1111_1111_0000_0000_0000),
 	        .slave_0_addr (32'b0000_0000_0000_0000_0001_0000_0000_0000),
-		.slave_1_mask (32'b0000_0000_0000_0000_0000_0000_0000_0000),
-	        .slave_1_addr (32'b1111_1111_1111_1111_1111_1111_1111_1111),
-		.slave_2_mask (32'b0000_0000_0000_0000_0000_0000_0000_0000),
-	        .slave_2_addr (32'b1111_1111_1111_1111_1111_1111_1111_1111),
-		.slave_3_mask (32'b0000_0000_0000_0000_0000_0000_0000_0000),
-	        .slave_3_addr (32'b1111_1111_1111_1111_1111_1111_1111_1111),
+		/* 7-Segment Display @ 0xF0000000 */
+		.slave_1_mask (32'b1111_1111_1111_1111_1111_1111_1111_1100),
+	        .slave_1_addr (32'b1111_0000_0000_0000_0000_0000_0000_0000),
+		/* UART @ 0xF00000008 */
+ 		.slave_2_mask (32'b1111_1111_1111_1111_1111_1111_1111_1000),
+	        .slave_2_addr (32'b1111_0000_0000_0000_0000_0000_0000_1000),
+		/* Boot RAM  - 1k @ 0x10000000 */
+		.slave_3_mask (32'b1111_1111_1111_1111_1111_0000_0000_0000),
+	        .slave_3_addr (32'b0001_0000_0000_0000_0000_0000_0000_0000),
 		.slave_4_mask (32'b0000_0000_0000_0000_0000_0000_0000_0000),
 	        .slave_4_addr (32'b1111_1111_1111_1111_1111_1111_1111_1111),
 		.slave_5_mask (32'b0000_0000_0000_0000_0000_0000_0000_0000),
@@ -117,19 +142,62 @@ module muskoka (/*AUTOARG*/
 		 .wbs_0_stb_o (wb2br_stb),
 		 .wbs_0_ack_i (br2wb_ack),
 		 
-		 .wbs_1_dat_o (),
-		 .wbs_1_dat_i (ua2wb_dat),
-		 .wbs_1_adr_o (wb2ua_adr),
-		 .wbs_1_sel_o (wb2ua_sel),
-		 .wbs_1_we_o (wb2ua_we),
-		 .wbs_1_cyc_o (wb2ua_cyc),
-		 .wbs_1_stb_o (wb2ua_stb),
-		 .wbs_1_ack_i (ua2wb_ack),
+ 		.wbs_1_dat_o (wb2dp_dat),
+		.wbs_1_dat_i (),
+		.wbs_1_adr_o (wb2dp_adr),
+		.wbs_1_sel_o (wb2dp_sel),
+		.wbs_1_we_o (wb2dp_we),
+		.wbs_1_cyc_o (wb2dp_cyc),
+		.wbs_1_stb_o (wb2dp_stb),
+		.wbs_1_ack_i (dp2wb_ack),
+		
+		 .wbs_2_dat_o (),
+		 .wbs_2_dat_i (ua2wb_dat),
+		 .wbs_2_adr_o (wb2ua_adr),
+		 .wbs_2_sel_o (wb2ua_sel),
+		 .wbs_2_we_o (wb2ua_we),
+		 .wbs_2_cyc_o (wb2ua_cyc),
+		 .wbs_2_stb_o (wb2ua_stb),
+		 .wbs_2_ack_i (ua2wb_ack),
 		 
-		 .wbs_2_ack_i (zero),
-		 .wbs_3_ack_i (zero));
+		.wbs_3_dat_o (wb2rm_dat),
+		.wbs_3_dat_i (rm2wb_dat),
+		.wbs_3_adr_o (wb2rm_adr),
+		.wbs_3_sel_o (wb2rm_sel),
+		.wbs_3_we_o (wb2rm_we),
+		.wbs_3_cyc_o (wb2rm_cyc),
+		.wbs_3_stb_o (wb2rm_stb),
+		 .wbs_3_ack_i (rm2wb_ack),
 
-  uart_wb uart (.rst_i (rst_i),
+		 .wbs_4_dat_o (),
+		 .wbs_4_dat_i (),
+		 .wbs_4_adr_o (),
+		 .wbs_4_sel_o (),
+		 .wbs_4_we_o (),
+		 .wbs_4_cyc_o (),
+		 .wbs_4_stb_o (),
+		 .wbs_4_ack_i (),
+
+		 .wbs_5_dat_o (),
+		 .wbs_5_dat_i (),
+		 .wbs_5_adr_o (),
+		 .wbs_5_sel_o (),
+		 .wbs_5_we_o (),
+		 .wbs_5_cyc_o (),
+		 .wbs_5_stb_o (),
+		 .wbs_5_ack_i (),
+
+		 .wbs_6_dat_o (),
+		 .wbs_6_dat_i (),
+		 .wbs_6_adr_o (),
+		 .wbs_6_sel_o (),
+		 .wbs_6_we_o (),
+		 .wbs_6_cyc_o (),
+		 .wbs_6_stb_o (),
+		 .wbs_6_ack_i ()
+);
+
+    uart_wb uart (.rst_i (rst_i),
 		.clk_i (clk_i),
 		.wb_adr_i (wb2ua_adr),
 		.wb_dat_i (wb2ua_dat),
@@ -158,18 +226,34 @@ module muskoka (/*AUTOARG*/
 	      .wb_dat_i (wb2mx_dat),
 	      .wb_dat_o (mx2wb_dat),
 	      .wb_adr_o (mx2wb_adr),
-	      .wb_sel_i (mx2wb_sel),
+	      .wb_sel_o (mx2wb_sel),
 	      .wb_we_o (mx2wb_we),
 	      .wb_cyc_o (mx2wb_cyc),
 	      .wb_stb_o (mx2wb_stb),
 	      .wb_ack_i (wb2mx_ack));
-   
-   hex_display hex16 (.num (mx2wb_adr[19:4]),
-		      .en  (1'b1),
-	      
-		      .hex0 (hex0_),
-		      .hex1 (hex1_),
-		      .hex2 (hex2_),
-		      .hex3 (hex3_));
+
+  ram16bit_wb ram (.clk_i (clk_cpu),
+		   .rst_i (rst_i),
+		   .wb_dat_i (wb2rm_dat),
+		   .wb_dat_o (rm2wb_dat),
+		   .wb_adr_i (wb2rm_adr),
+		   .wb_sel_i (wb2rm_sel),
+		   .wb_we_i (wb2rm_we),
+		   .wb_cyc_i (wb2rm_cyc),
+		   .wb_stb_i (wb2rm_stb),
+		   .wb_ack_o (rm2wb_ack));
+
+  hex_display_wb disp (.rst_i (rst_i),
+		       .clk_i (clk_i),
+		       .wb_dat_i (wb2dp_dat),
+		       .wb_sel_i (wb2dp_sel),
+		       .wb_we_i (wb2dp_we),
+		       .wb_cyc_i (wb2dp_cyc),
+		       .wb_stb_i (wb2dp_stb),
+		       .wb_ack_o (dp2wb_ack),
+		       .hex0_o (hex0_o),
+		       .hex1_o (hex1_o),
+		       .hex2_o (hex2_o),
+		       .hex3_o (hex3_o));
 
 endmodule // muskoka

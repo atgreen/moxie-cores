@@ -1,6 +1,6 @@
 // wb_intercon.v - Wishbone Shared Bus Interconnect 
 //
-// Copyright (c) 2010, 2011, 2012, 2013, 2015 Anthony Green.  All Rights
+// Copyright (c) 2010, 2011, 2012, 2013, 2015, 2017 Anthony Green.  All Rights
 // Reserved.  DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -133,13 +133,13 @@ module wb_intercon #(
   input         wbs_6_ack_i;
 
   // Slave select wires.
-  wire 		slave_0_sel;
-  wire 		slave_1_sel;
-  wire 		slave_2_sel;
-  wire 		slave_3_sel;
-  wire 		slave_4_sel;
-  wire 		slave_5_sel;
-  wire 		slave_6_sel;
+  wire 		slave_0_sel /*verilator public*/;
+  wire 		slave_1_sel /*verilator public*/;
+  wire 		slave_2_sel /*verilator public*/;
+  wire 		slave_3_sel /*verilator public*/;
+  wire 		slave_4_sel /*verilator public*/;
+  wire 		slave_5_sel /*verilator public*/;
+  wire 		slave_6_sel /*verilator public*/;
 
   assign slave_0_sel = ((wbm_adr_i & slave_0_mask) == slave_0_addr);
   assign slave_1_sel = ((wbm_adr_i & slave_1_mask) == slave_1_addr);

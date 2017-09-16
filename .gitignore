@@ -1,5 +1,9 @@
 *~
 #*
+*.o
+*.so
+*.a
+*.elf
 a.out
 *.vcd
 bootrom.x
@@ -90,3 +94,4 @@ tools/src
 /soc/marin/boards/nexys3/ram4k16bit
 /soc/marin/boards/nexys3/xst
 /soc/marin/boards/nexys3/tmp
+obj_dir

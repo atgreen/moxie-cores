@@ -75,11 +75,11 @@ module icache (/*AUTOARG*/
    wire [18:0]	     tag;
    assign tag[18:0]  = adr_i[31:13];
 
-   wire 	     is_at_least_28 = (adr_i[4:2] == 3'b111) ? 8'd1 : 8'd0;
+   wire 	     is_at_least_28 = (adr_i[4:2] == 3'b111) ? 1'd1 : 1'd0;
    wire 	     is_at_least_30 = is_at_least_28 & adr_i[1];
    wire [7:0] 	     set0 = adr_i[12:5];
-   wire [7:0] 	     set1 = adr_i[12:5] + is_at_least_30;
-   wire [7:0] 	     set2 = adr_i[12:5] + is_at_least_28;
+   wire [7:0] 	     set1 = adr_i[12:5] + { 7'b0, is_at_least_28 };
+   wire [7:0] 	     set2 = adr_i[12:5] + { 7'b0, is_at_least_30 };
 
    reg [7:0] 	     hold_set0;
    reg [7:0] 	     hold_set1;
@@ -93,17 +93,9 @@ module icache (/*AUTOARG*/
    assign hit2 = valid[set2] & (tags[set2] == tag);
    assign hit_o = (!rst_i) & (hit0 & hit1 & hit2);
 
-  //   initial $readmemh("valid-init.txt", valid);
-
-   wire [31:0] 	     a;
-   reg [31:0] 	     b;
-   wire [31:0] 	     c;
-   wire [31:0] 	     d;
-   assign a = (set0 * 16) + adr_i[4:1];
-
-   assign inst_o = line[(set0 * 16) + adr_i[4:1]];
-   assign data_o[31:16] = line[(set0 * 16) + adr_i[4:1] + 1];
-   assign data_o[15:0] = line[(set0 * 16) + adr_i[4:1] + 2];
+   assign inst_o = line[(set0 * 16) + {12'b0,adr_i[4:1]}];
+   assign data_o[31:16] = line[(set1 * 16) + {12'b0,adr_i[4:1]} + 1];
+   assign data_o[15:0] = line[(set2 * 16) + {12'b0,adr_i[4:1]} + 2];
 
    // --- State machine states -----------------------------------------
    parameter ICACHE_IDLE = 4'd0;
@@ -114,7 +106,7 @@ module icache (/*AUTOARG*/
    parameter ICACHE_FILL1_WAIT = 4'd4;
    parameter ICACHE_FILL2_WAIT = 4'd6;
 
-   reg [2:0] state = ICACHE_IDLE;
+   reg [3:0] state = ICACHE_IDLE;
    reg [3:0] count = 0;
 
    integer    i;
@@ -124,7 +116,7 @@ module icache (/*AUTOARG*/
 	   state <= ICACHE_IDLE;
 	   count <= 0;
 	   wb_stb_o <= 0;
-           for (i=0; i<256; i=i+1) valid[i] <= 1'b0;
+           for (i=0; i<256; i=i+1) valid[i] = 1'b0;
 	end
       else
 	begin
@@ -152,8 +144,7 @@ module icache (/*AUTOARG*/
 	       begin
 		  if (wb_ack_i)
 		    begin
-		       line[(hold_set0 * 16) + count] <= wb_dat_i;
-		       b <= (hold_set0 * 16) + count;
+		       line[(hold_set0 * 16) + {4'b0, count}] <= wb_dat_i;
 		       wb_adr_o <= wb_adr_o + 2;
 		       count <= count + 1;
 		       if (count == 15)
@@ -177,7 +168,7 @@ module icache (/*AUTOARG*/
 	       begin
 		  if (wb_ack_i)
 		    begin
-		       line[(hold_set1 * 16) + count] <= wb_dat_i;
+		       line[(hold_set1 * 16) + {4'b0, count}] <= wb_dat_i;
 		       wb_adr_o <= wb_adr_o + 2;
 		       count <= count + 1;
 		       if (count == 15)
@@ -204,7 +195,7 @@ module icache (/*AUTOARG*/
 	       begin
 		  if (wb_ack_i)
 		    begin
-		       line[(hold_set2 * 16) + count] <= wb_dat_i;
+		       line[(hold_set2 * 16) + {4'b0, count}] <= wb_dat_i;
 		       wb_adr_o <= wb_adr_o + 2;
 		       count <= count + 1;
 		       if (count == 15)

@@ -1,6 +1,6 @@
 // cpu_decode.v - The instruction decode unit
 //
-// Copyright (c) 2010, 2011, 2012 Anthony Green.
+// Copyright (c) 2010, 2011, 2012, 2017 Anthony Green.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -226,6 +226,7 @@ module cpu_decode (/*AUTOARG*/
 	   8'b00011011:
 	     begin
 	       op_o <= `OP_LDI_B;
+	       operand_o <= operand_i;
 	     end
 	   8'b00011100:
 	     begin
@@ -246,6 +247,7 @@ module cpu_decode (/*AUTOARG*/
 	   8'b00100000:
 	     begin
 	       op_o <= `OP_LDI_S;
+	       operand_o <= operand_i;
 	     end
 	   8'b00100001:
 	     begin

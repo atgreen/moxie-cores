@@ -21,12 +21,13 @@
 
 module cpu_execute (/*AUTOARG*/
   // Outputs
+  dmem_address_o, dmem_data_o, dmem_stb_o, dmem_sel_o, dmem_cyc_o,
   register_wea_o, register_web_o, register0_write_index_o,
   register1_write_index_o, pipeline_control_bits_o, memory_address_o,
-  reg0_result_o, reg1_result_o, mem_result_o, riA_o, riB_o, PC_o,
-  flush_o, branch_flag_o, branch_target_o,
+  reg0_result_o, reg1_result_o, mem_result_o, PC_o, flush_o,
+  branch_flag_o, branch_target_o,
   // Inputs
-  rst_i, clk_i, flush_i, riA_i, riB_i, regA_i, regB_i,
+  rst_i, clk_i, dmem_data_i, dmem_ack_i, flush_i, regA_i, regB_i,
   pipeline_control_bits_i, register0_write_index_i,
   register1_write_index_i, operand_i, op_i, sp_i, fp_i, PC_i,
   pcrel_offset_i
@@ -39,12 +40,19 @@ module cpu_execute (/*AUTOARG*/
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
 
+  // --- Data memory ----------------------------------------------
+  output reg [31:0] dmem_address_o;
+  input  [15:0] dmem_data_i;
+  output reg [15:0] dmem_data_o;
+  output reg	dmem_stb_o;
+  output [1:0]	dmem_sel_o;
+  output reg	dmem_cyc_o;
+  input 	dmem_ack_i;
+
   // --- Pipeline interlocking ------------------------------------
   input  flush_i;
     
   // --- Inputs ---------------------------------------------------
-  input [3:0] riA_i;
-  input [3:0] riB_i;
   input [31:0] regA_i;
   input [31:0] regB_i;
   input [`PCB_WIDTH-1:0] pipeline_control_bits_i;
@@ -54,7 +62,7 @@ module cpu_execute (/*AUTOARG*/
   input [6:0]  op_i;
   input [31:0] sp_i;
   input [31:0] fp_i;
-  input [31:0] PC_i;
+  input [31:0] PC_i /*verilator public*/; 
   input [9:0]  pcrel_offset_i;
   
   // --- Outputs --------------------------------------------------
@@ -67,8 +75,6 @@ module cpu_execute (/*AUTOARG*/
   output [31:0] reg0_result_o;
   output [31:0] reg1_result_o;
   output [31:0] mem_result_o;
-  output [3:0] riA_o;
-  output [3:0] riB_o;
   output [31:0] PC_o;
       
 
@@ -95,9 +101,6 @@ module cpu_execute (/*AUTOARG*/
 
   reg [1:0] 	current_state, next_state;
   
-  assign riA_o = riA_i;
-  assign riB_o = riB_i;
-
    reg  	register_wea_o;
    reg  	register_web_o;
 
@@ -151,7 +154,7 @@ module cpu_execute (/*AUTOARG*/
    
   always @(posedge rst_i or posedge clk_i)
     if (rst_i) begin
-      pipeline_control_bits_o <= 5'b00000;
+      pipeline_control_bits_o <= 6'b0;
       branch_flag_o <= 0;
       current_state <= STATE_READY;
       next_state <= STATE_READY;
@@ -161,7 +164,7 @@ module cpu_execute (/*AUTOARG*/
        if (branch_flag_o | flush_i)
          begin
 	    /* We've just branched, so ignore any incoming instruction.  */
-	    pipeline_control_bits_o <= 5'b00000;
+	    pipeline_control_bits_o <= 6'b00000;
  	    next_state <= STATE_READY; 
 	 end
        else begin
@@ -260,7 +263,7 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_DEC:
 		  begin
-		    reg0_result_o <= regA_i - incdec_value;
+		    reg0_result_o <= regA_i - { 24'b0, incdec_value };
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		  end
@@ -274,7 +277,7 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_INC:
 		  begin
-		    reg0_result_o <= regA_i + incdec_value;
+		    reg0_result_o <= regA_i + { 24'b0, incdec_value };
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		  end
@@ -455,13 +458,13 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_ZEX_B:
 		  begin
-		    reg0_result_o <= { 7'b0, regB_i[7:0] };
+		    reg0_result_o <= { 24'b0, regB_i[7:0] };
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		  end
-		`OP_SEX_S:
+		`OP_ZEX_S:
 		  begin
-		    reg0_result_o <= { 15'b0, regB_i[15:0] };
+		    reg0_result_o <= { 16'b0, regB_i[15:0] };
 		    register0_write_index_o <= register0_write_index_i;
 		    next_state <= STATE_READY;
 		  end
@@ -476,8 +479,10 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_STA_L:
 		  begin
-		    mem_result_o <= regA_i;
-		    memory_address_o <= operand_i;
+		    dmem_data_o <= regA_i;
+		    dmem_address_o <= operand_i;
+		    dmem_stb_o <= 1;
+		    dmem_cyc_o <= 1;
 		    next_state <= STATE_READY;
 		  end
 		`OP_STA_S:
@@ -547,7 +552,7 @@ module cpu_execute (/*AUTOARG*/
 	      // Increment $sp by 4 bytes.
 	      reg0_result_o <= sp_i + 4;
 	      memory_address_o <= sp_i + 4;
-	       pipeline_control_bits_o <= 5'b10000;
+	      pipeline_control_bits_o <= 6'b010000;
 	      // This is all wrong
 	      register0_write_index_o <= 1; // $sp
 	      branch_target_o <= operand_i;

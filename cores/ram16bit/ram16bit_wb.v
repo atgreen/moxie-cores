@@ -29,6 +29,37 @@ module ram16bit_wb (input         rst_i,
 		 .douta (wb_dat_o));
 `else
 
+  reg [15:0] 				  dat;
+  reg 				  ack;
+  
+  assign wb_ack_o = ack;
+  assign wb_dat_o = dat;
+   
+  always @(posedge clk_i)
+    begin
+       ack <= wb_stb_i & wb_cyc_i;
+    end
+
+  // 4k boot RAM
+  reg  [7:0] ram[0:4095];
+  wire [11:0] index;
+
+  // We're just looking at the least significant 4k address bits
+  assign index = wb_adr_i[11:0];
+
+  always @(posedge clk_i)
+    begin
+      dat <= {ram[index], ram[index+1]};
+      ack <= wb_stb_i & wb_cyc_i;
+      if (wb_we_i)
+	begin
+	  ram[index] = wb_dat_i[15:8];
+	  ram[index+1] = wb_dat_i[7:0];
+	end
+    end
+
+
+ `ifdef ASDFASD
  
    lpm_ram_dq ram (.data(wb_dat_i), 
 		   .address(wb_adr_i[12:1]), 
@@ -42,6 +73,7 @@ module ram16bit_wb (input         rst_i,
    defparam ram.lpm_indata = "REGISTERED";
    defparam ram.lpm_outdata = "REGISTERED";
 
+ `endif
 `endif
 
 endmodule // ram16bit_wb

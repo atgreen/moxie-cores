@@ -12,11 +12,14 @@ module uart_wb (input         rst_i,
 		output 	      tx_o);
 
   wire 			      uart_received;
-  wire 			      uart_is_transmitting;
+  wire 			      uart_is_transmitting /*verilator public*/;
   wire [7:0] 		      tx_uart_byte;
   wire [7:0] 		      rx_uart_byte;
   wire [7:0] 		      rx_fifo_dout;
- 		      
+
+  wire 			      wtf /* verilator public */;
+  assign wtf = (wb_stb_i & wb_cyc_i & ~wb_we_i);
+  
    always @(posedge clk_i)
      begin
 	if (rst_i)
