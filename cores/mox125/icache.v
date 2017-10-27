@@ -29,11 +29,12 @@
 // Does not latch output from cache!
 
 module icache (/*AUTOARG*/
-   // Outputs
-   hit_o, inst_o, data_o, wb_adr_o, wb_sel_o, wb_cyc_o, wb_stb_o,
-   // Inputs
-   rst_i, clk_i, adr_i, stb_i, wb_dat_i, wb_ack_i
-   );
+  // Outputs
+  hit_o, inst_o, data_o, wb_adr_o, wb_sel_o, wb_cyc_o, wb_stb_o,
+  state_o,
+  // Inputs
+  rst_i, clk_i, adr_i, stb_i, wb_dat_i, wb_ack_i
+  );
 
    input         rst_i,     clk_i;
 
@@ -49,12 +50,13 @@ module icache (/*AUTOARG*/
    // Interface to external memory.
    output reg [31:0] wb_adr_o;
    input [15:0]      wb_dat_i;
-   output reg [1:0]  wb_sel_o;
+   output [1:0]      wb_sel_o;
    output      wb_cyc_o;
    output reg	     wb_stb_o;
    input  	     wb_ack_i;
 
    assign wb_cyc_o = wb_stb_o;
+   assign wb_sel_o = 2'b11;
    
    // We have an 8k instruction cache with cache lines that are 32
    // bytes long.  
@@ -75,11 +77,19 @@ module icache (/*AUTOARG*/
    wire [18:0]	     tag;
    assign tag[18:0]  = adr_i[31:13];
 
+   // The 48-bit cache read may possibly be split across two cachelines.
+   // set0 represents the cacheline for the first 16-bits.
+   // The next 16 bits from from cacheline set1.
+   // set1 is the same as set0 if we're indexed less than 30 bytes
+   //   into the cacheline, otherwise it is set0+1.
+   // set2 is the same as set0 if we're indexed less than 28 bytes
+   //   into the cacheline, otherwise it is set0+1.
+
    wire 	     is_at_least_28 = (adr_i[4:2] == 3'b111) ? 1'd1 : 1'd0;
    wire 	     is_at_least_30 = is_at_least_28 & adr_i[1];
    wire [7:0] 	     set0 = adr_i[12:5];
-   wire [7:0] 	     set1 = adr_i[12:5] + { 7'b0, is_at_least_28 };
-   wire [7:0] 	     set2 = adr_i[12:5] + { 7'b0, is_at_least_30 };
+   wire [7:0] 	     set1 = adr_i[12:5] + { 7'b0, is_at_least_30 };
+   wire [7:0] 	     set2 = adr_i[12:5] + { 7'b0, is_at_least_28 };
 
    reg [7:0] 	     hold_set0;
    reg [7:0] 	     hold_set1;
@@ -94,8 +104,10 @@ module icache (/*AUTOARG*/
    assign hit_o = (!rst_i) & (hit0 & hit1 & hit2);
 
    assign inst_o = line[(set0 * 16) + {12'b0,adr_i[4:1]}];
-   assign data_o[31:16] = line[(set1 * 16) + {12'b0,adr_i[4:1]} + 1];
-   assign data_o[15:0] = line[(set2 * 16) + {12'b0,adr_i[4:1]} + 2];
+//   assign data_o[31:16] = line[(set1 * 16) + {12'b0,adr_i[4:1]} + 1];
+   assign data_o[15:0] = line[(set1 * 16) + {12'b0,adr_i[4:1]} + 2];
+  assign data_o[31:16] = 16'd0;
+//  assign data_o[15:0] = 16'd1234;
 
    // --- State machine states -----------------------------------------
    parameter ICACHE_IDLE = 4'd0;
@@ -108,6 +120,9 @@ module icache (/*AUTOARG*/
 
    reg [3:0] state = ICACHE_IDLE;
    reg [3:0] count = 0;
+
+  output [3:0] state_o;
+  assign state_o = state;
 
    integer    i;
    always @(posedge clk_i) begin
@@ -147,21 +162,22 @@ module icache (/*AUTOARG*/
 		       line[(hold_set0 * 16) + {4'b0, count}] <= wb_dat_i;
 		       wb_adr_o <= wb_adr_o + 2;
 		       count <= count + 1;
-		       if (count == 15)
-			 begin
+		        if (count == 15)
+			  begin
 			    tags[hold_set0] <= hold_tag;
 			    valid[hold_set0] <= 1;
 			    count <= 0;
-			    state <= (hold_set0 == hold_set1) | (hit1 & hit2) ? ICACHE_IDLE : ICACHE_FILL1_WAIT;
-			 end
-		       else
-			 state <= ICACHE_FILL0_WAIT;
+//			    state <= (hold_set0 == hold_set1) | (hit1 & hit2) ? ICACHE_IDLE : ICACHE_FILL1_WAIT;
+			    state <= ICACHE_IDLE;			    
+			  end
+			else
+			  state <= ICACHE_FILL0_WAIT;
 		    end // if (wb_ack_i)
 	       end // case: ICACHE_FILL0
 
 	     ICACHE_FILL0_WAIT:
 	       begin
-		  state <= ICACHE_FILL0;
+		 state <= ICACHE_FILL0;
 	       end
 	     
 	     ICACHE_FILL1:
