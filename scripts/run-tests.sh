@@ -14,5 +14,7 @@ echo "************************************************************************"
 echo Building moxie core with iverilog
 echo "************************************************************************"
 cd /root/moxie-cores/soc/muskoka/iverilog
+make clean
 make
+
 
