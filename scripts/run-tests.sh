@@ -13,6 +13,6 @@ sbcl --load test.lisp
 echo "************************************************************************"
 echo Building moxie core with iverilog
 echo "************************************************************************"
-cd /root/muskoka/iverilog
+cd /root/moxie-cores/soc/muskoka/iverilog
 make
 
