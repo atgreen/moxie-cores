@@ -1,11 +1,11 @@
-VSRC = ../cores/mox125/moxie.v 
+VSRC = ../cores/mox125/icache.v 
 
-all: obj_dir/libmoxie.so
+all: obj_dir/libicache.so
 
-obj_dir/libmoxie.so: $(VSRC)
-	verilator -Wno-fatal --cc -I../cores/mox125 --top-module moxie $(VSRC)
-	wrapilator moxie
-	(cd obj_dir; M32=-fpic make -f Vmoxie.mk)
+obj_dir/libicache.so: $(VSRC)
+	verilator -Wno-fatal --cc -I../cores/mox125 --top-module icache $(VSRC)
+	wrapilator icache
+	(cd obj_dir; M32=-fpic make -f Vicache.mk)
 	(cd obj_dir; make -f Makefile.wrap)
 
 clean:
