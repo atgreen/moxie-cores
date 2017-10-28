@@ -1,0 +1,16 @@
+---
+sudo: required
+
+language: c
+
+services:
+- docker
+
+before_install:
+- docker pull atgreen/moxie-cores-test
+
+script:
+- docker run -v $TRAVIS_BUILD_DIR:/root/moxie-cores -w /root/moxie-cores atgreen/moxie-cores-test /bin/bash -c scripts/run-tests.sh
+
+
+

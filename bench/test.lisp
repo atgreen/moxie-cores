@@ -17,8 +17,13 @@
 ;;; instruction cache module, wrapped in a thin lisp veneer by
 ;;; wrapilator.
 
+(ql:quickload :FiveAM)
 (load "obj_dir/verilated-icache.lisp")
 (use-package :verilated-icache)
+(use-package :it.bese.FiveAM)
+
+(setq *test-dribble* t)
+(setq *print-names* t)
 
 ;;; Create a new icache
 (defvar *ic* (icache-new))
@@ -40,6 +45,37 @@
        (tick-up)
        (tick-down))
   (icache-set-rst-i *ic* 0))
+
+(defun random-from-range (start end)
+  (logand (+ start (random (+ 1 (- end start))))
+	  (lognot 1)))
+
+(defun test-random-read (start-address stop-address count)
+  (loop for i from 0 to count do
+
+       (let ((address (random-from-range start-address stop-address)))
+	 (icache-set-adr-i *ic* address) 
+	 (icache-set-stb-i *ic* 1)
+       
+	 (loop
+	    do (tick-up)
+	      
+	    ;; simulate wishbone main memory
+	      (let ((check-mem (and (icache-get-wb-stb-o *ic*)
+				    (icache-get-wb-cyc-o *ic*)))
+		    (wb-fetch-address (icache-get-wb-adr-o *ic*)))
+	  
+		(icache-set-wb-ack-i *ic* check-mem)
+		(if (eq 1 check-mem)
+		    (icache-set-wb-dat-i *ic* wb-fetch-address))
+	  
+		(tick-down)
+	  
+		;; check for a cache hit
+		(if (eq 1 (icache-get-hit-o *ic*))
+		    (let ((memory-value (icache-get-inst-o *ic*)))
+		      (is (eq address memory-value))
+		      (return))))))))
 
 (defun test-sequential-read (start-address stop-address step)
 
@@ -66,25 +102,24 @@
 	  ;; check for a cache hit
 	  (if (eq 1 (icache-get-hit-o *ic*))
 	      (let ((memory-value (icache-get-inst-o *ic*)))
-		(format t "HIT @ 0x~A = 0x~A ~%" address memory-value)
-		(if (not (eq address memory-value))
-		    (format t "ERROR: CACHE FAILURE *********************~%"))
-		(return))
-	    (format t "fill 0x~A~%" wb-fetch-address))))))
+		(is (eq address memory-value))
+		(return)))))))
 
-(defun runtest ()
-  
-  ;; Zero all inputs and hold reset for a few cycles
-  (icache-set-stb-i *ic* 0)
-  (icache-set-wb-ack-i *ic* 0)
-  (icache-set-wb-dat-i *ic* 0)
-  (icache-set-adr-i *ic* 0)
-  (reset-cycles 10)
-  
-  (loop for i from 0 to 3 do
-       (reset-cycles 10)
-       (loop for j from 0 to 3 do
-	    (test-sequential-read #x1000 #x1110 2))))
+(icache-set-stb-i *ic* 0)
+(icache-set-wb-ack-i *ic* 0)
+(icache-set-wb-dat-i *ic* 0)
+(icache-set-adr-i *ic* 0)
 
-(runtest)
+(test sequential-read
+      (loop for i from 0 to 3 do
+	   (reset-cycles 10)
+	   (loop for j from 0 to 3 do
+		(test-sequential-read 1000 10000 4))))
+
+(test random-read
+      (test-random-read 4128 50128 50000))
+
+(explain! (run 'random-read))
+(run! 'sequential-read)
+
 (exit)
