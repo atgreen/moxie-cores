@@ -31,7 +31,6 @@
 module icache (/*AUTOARG*/
   // Outputs
   hit_o, inst_o, data_o, wb_adr_o, wb_sel_o, wb_cyc_o, wb_stb_o,
-  state_o,
   // Inputs
   rst_i, clk_i, adr_i, stb_i, wb_dat_i, wb_ack_i
   );
@@ -120,9 +119,6 @@ module icache (/*AUTOARG*/
 
    reg [3:0] state = ICACHE_IDLE;
    reg [3:0] count = 0;
-
-  output [3:0] state_o;
-  assign state_o = state;
 
    integer    i;
    always @(posedge clk_i) begin
