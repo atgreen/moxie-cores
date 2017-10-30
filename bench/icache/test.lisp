@@ -74,7 +74,7 @@
 		;; check for a cache hit
 		(if (eq 1 (icache-get-hit-o *ic*))
 		    (let ((memory-value (icache-get-inst-o *ic*)))
-		      (is (eq address memory-value))
+		      (is (= address memory-value))
 		      (return))))))))
 
 (defun test-sequential-read (start-address stop-address step)
@@ -102,7 +102,7 @@
 	  ;; check for a cache hit
 	  (if (eq 1 (icache-get-hit-o *ic*))
 	      (let ((memory-value (icache-get-inst-o *ic*)))
-		(is (eq address memory-value))
+		(is (= address memory-value))
 		(return)))))))
 
 (icache-set-stb-i *ic* 0)
