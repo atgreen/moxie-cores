@@ -11,6 +11,7 @@ echo "************************************************************************"
 echo Running icache testsuite
 echo "************************************************************************"
 cd /root/moxie-cores/bench/icache
+make clean
 make
 sbcl --load test.lisp
 
@@ -20,5 +21,6 @@ echo "************************************************************************"
 cd /root/moxie-cores/soc/muskoka/iverilog
 make clean
 make
+sbcl --load test.lisp
 
 
