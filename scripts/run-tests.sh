@@ -6,7 +6,7 @@ export PATH=/opt/moxielogic/bin:$PATH
 echo "************************************************************************"
 echo Running icache testsuite
 echo "************************************************************************"
-cd /root/moxie-cores/bench
+cd /root/moxie-cores/bench/icache
 make
 sbcl --load test.lisp
 
