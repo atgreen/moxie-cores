@@ -8,9 +8,17 @@
 export PATH=/opt/moxielogic/bin:$PATH
 
 echo "************************************************************************"
-echo Running icache testsuite
+echo Running verilated icache testsuite
 echo "************************************************************************"
 cd /root/moxie-cores/bench/icache
+make clean
+make
+sbcl --load test.lisp
+
+echo "************************************************************************"
+echo Running verilated mox125 testsuite
+echo "************************************************************************"
+cd /root/moxie-cores/bench/mox125
 make clean
 make
 sbcl --load test.lisp
@@ -21,6 +29,6 @@ echo "************************************************************************"
 cd /root/moxie-cores/soc/muskoka/iverilog
 make clean
 make
-sbcl --load test.lisp
+
 
 
