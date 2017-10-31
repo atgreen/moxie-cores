@@ -13,9 +13,8 @@
 ;;; Copyright (C) 2017  Anthony Green <green@moxielogic.com>
 ;;; Distributed under the terms of the GPL v3 or later.
 
-;;; This test program uses a verilator simulator of the moxie
-;;; instruction cache module, wrapped in a thin lisp veneer by
-;;; wrapilator.
+;;; This test program uses a verilator simulator of the mox125 moxie
+;;; core, wrapped in a thin lisp veneer by wrapilator.
 
 (ql:quickload :FiveAM)
 (ql:quickload :elf)
