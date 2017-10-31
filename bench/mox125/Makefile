@@ -1,6 +1,6 @@
 VSRC = ../../cores/mox125/moxie.v 
 
-all: obj_dir/libmoxie.so microcode.bin
+all: obj_dir/libmoxie.so microcode.bin bootrom.x
 
 obj_dir/libmoxie.so: $(VSRC)
 	verilator -Wno-fatal --cc -I../../cores/mox125 --top-module moxie $(VSRC)
@@ -11,6 +11,10 @@ obj_dir/libmoxie.so: $(VSRC)
 microcode.bin: ../../cores/mox125/microcode.bin
 	ln -s ../../cores/mox125/microcode.bin .
 
+bootrom.x: ../../firmware/bootrom/tinystart.S \
+		../../firmware/bootrom/tinystub.c \
+                ../../firmware/bootrom/handler.S
+	moxie-elf-gcc -mno-crt0 -O2 -g -o bootrom.x -T../../soc/marin/moxie-marin-onchip.ld -Wl,-verbose $^
+
 clean:
 	-rm -rf obj_dir *~ microcode.bin
-
