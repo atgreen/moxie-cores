@@ -94,7 +94,7 @@
 		    (tick-down))
 		finally (is (= (moxie-get-wb-adr-o *cpu*) 8192))))))
 
-(defvar *elf* (elf:read-elf "bootrom.x"))
+; (defvar *elf* (elf:read-elf "bootrom.x"))
 
 (run! 'boot)
 (run! 'run-nop-sequence)
