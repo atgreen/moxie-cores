@@ -51,11 +51,11 @@
        (tick-down))
   (moxie-set-rst-i *cpu* 0))
 
-(moxie-set-wb-ack-i *cpu* 0)
-(moxie-set-wb-dat-i *cpu* 0)
-
+;;; ---------------------------------------------------------------------------
 ;;; After reset, the core should start reading from 0x1000
+;;; ---------------------------------------------------------------------------
 (test boot
+      (moxie-set-wb-ack-i *cpu* 0)
       (reset-cycles 10)
       (loop until (and (eq (moxie-get-wb-stb-o *cpu*) 1)
 		       (eq (moxie-get-wb-cyc-o *cpu*) 1))
@@ -64,9 +64,11 @@
 	      (tick-down)))
       (is (= (moxie-get-wb-adr-o *cpu*) 4096)))
 
-;; Execute a fixed number of cycles, feeding NOP instructions to the
-;; core, and make sure we end up at the expected $PC.  Test with a
-;; range of memory wait states.
+;;; ---------------------------------------------------------------------------
+;;; Execute 4k of NOP instructions, making sure we end up at the expceted $PC.
+;;; Don't execute more than a large number of instructions.
+;;; Run test multiple times, with increasing numbers of memory wait states.
+;;; ---------------------------------------------------------------------------
 (test run-nop-sequence
       (loop for memory-wait-cycles from 0 to 120
 	 do
@@ -92,6 +94,7 @@
 		    (moxie-set-wb-dat-i *cpu* 15)
 		    (moxie-set-wb-ack-i *cpu* 1)
 		    (tick-down))
+		;; Did we end up at the righ $PC?
 		finally (is (= (moxie-get-wb-adr-o *cpu*) 8192))))))
 
 ; (defvar *elf* (elf:read-elf "bootrom.x"))
