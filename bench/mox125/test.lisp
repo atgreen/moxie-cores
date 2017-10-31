@@ -18,6 +18,11 @@
 ;;; wrapilator.
 
 (ql:quickload :FiveAM)
+(ql:quickload :elf)
+
+;; this should really be inferred by :elf when it reads the elf binary
+(setq elf:*endian* :big)
+
 (load "obj_dir/verilated-moxie.lisp")
 (use-package :verilated-moxie)
 (use-package :it.bese.FiveAM)
@@ -49,7 +54,7 @@
 (moxie-set-wb-ack-i *cpu* 0)
 (moxie-set-wb-dat-i *cpu* 0)
 
-;;; after reset, the core should start reading from 0x1000
+;;; After reset, the core should start reading from 0x1000
 (test boot
       (reset-cycles 10)
       (loop until (and (eq (moxie-get-wb-stb-o *cpu*) 1)
@@ -59,6 +64,39 @@
 	      (tick-down)))
       (is (= (moxie-get-wb-adr-o *cpu*) 4096)))
 
+;; Execute a fixed number of cycles, feeding NOP instructions to the
+;; core, and make sure we end up at the expected $PC.  Test with a
+;; range of memory wait states.
+(test run-nop-sequence
+      (loop for memory-wait-cycles from 0 to 120
+	 do
+	   (progn
+	     (moxie-set-wb-ack-i *cpu* 0)
+	     (reset-cycles 10)
+	     (loop for count from 1 to 99999
+		until (>= (moxie-get-wb-adr-o *cpu*) 8192)
+		do
+		  (progn
+		    ;; Wait until there is a bus request...
+		    (tick-up)
+		    (loop until (and (eq (moxie-get-wb-stb-o *cpu*) 1)
+				     (eq (moxie-get-wb-cyc-o *cpu*) 1))
+		       do (progn (moxie-set-wb-ack-i *cpu* 0) (tick-down) (tick-up)))
+		    ;; Have we waited too long?
+		    (if (> count 10000) (finish-loop))
+		    ;; Insert some number of wait cycles to fetch from memory...
+		    (loop for wait from 1 to memory-wait-cycles
+		       initially (moxie-set-wb-ack-i *cpu* 0)
+		       do (progn (tick-down) (tick-up)))
+		    ;; Return NOP instruction...
+		    (moxie-set-wb-dat-i *cpu* 15)
+		    (moxie-set-wb-ack-i *cpu* 1)
+		    (tick-down))
+		finally (is (= (moxie-get-wb-adr-o *cpu*) 8192))))))
+
+(defvar *elf* (elf:read-elf "bootrom.x"))
+
 (run! 'boot)
+(run! 'run-nop-sequence)
 
 (exit)
