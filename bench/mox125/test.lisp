@@ -54,7 +54,7 @@
 ;;; ---------------------------------------------------------------------------
 ;;; After reset, the core should start reading from 0x1000
 ;;; ---------------------------------------------------------------------------
-(test boot
+(test check-boot-address
       (moxie-set-wb-ack-i *cpu* 0)
       (reset-cycles 10)
       (loop until (and (eq (moxie-get-wb-stb-o *cpu*) 1)
@@ -66,7 +66,7 @@
 
 ;;; ---------------------------------------------------------------------------
 ;;; Execute 4k of NOP instructions, making sure we end up at the expceted $PC.
-;;; Don't execute more than a large number of instructions.
+;;; Don't execute more than a fixed large number of instructions.
 ;;; Run test multiple times, with increasing numbers of memory wait states.
 ;;; ---------------------------------------------------------------------------
 (test run-nop-sequence
@@ -99,7 +99,7 @@
 
 (defvar *elf* (elf:read-elf "bootrom.x"))
 
-(run! 'boot)
+(run! 'check-boot-address)
 (run! 'run-nop-sequence)
 
 (exit)
