@@ -103,10 +103,8 @@ module icache (/*AUTOARG*/
    assign hit_o = (!rst_i) & (hit0 & hit1 & hit2);
 
    assign inst_o = line[(set0 * 16) + {12'b0,adr_i[4:1]}];
-//   assign data_o[31:16] = line[(set1 * 16) + {12'b0,adr_i[4:1]} + 1];
+   assign data_o[31:16] = line[(set1 * 16) + {12'b0,adr_i[4:1]} + 1];
    assign data_o[15:0] = line[(set1 * 16) + {12'b0,adr_i[4:1]} + 2];
-  assign data_o[31:16] = 16'd0;
-//  assign data_o[15:0] = 16'd1234;
 
    // --- State machine states -----------------------------------------
    parameter ICACHE_IDLE = 4'd0;
