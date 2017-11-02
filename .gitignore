@@ -95,3 +95,5 @@ tools/src
 /soc/marin/boards/nexys3/xst
 /soc/marin/boards/nexys3/tmp
 obj_dir
+results.lisp
+
