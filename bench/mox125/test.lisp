@@ -18,6 +18,7 @@
 
 (ql:quickload :FiveAM)
 (ql:quickload :elf)
+(ql:quickload :com.gigamonkeys.pathnames)
 
 ;; this should really be inferred by :elf when it reads the elf binary
 (setq elf:*endian* :big)
@@ -64,7 +65,7 @@
       (is (= (moxie-get-wb-adr-o *cpu*) 4096)))
 
 ;;; ---------------------------------------------------------------------------
-;;; Execute 4k of NOP instructions, making sure we end up at the expceted $PC.
+;;; Execute 4k of NOP instructions, making sure we end up at the expected $PC.
 ;;; Don't execute more than a fixed large number of instructions.
 ;;; Run test multiple times, with increasing numbers of memory wait states.
 ;;; ---------------------------------------------------------------------------
@@ -82,7 +83,8 @@
 		    (tick-up)
 		    (loop until (and (eq (moxie-get-wb-stb-o *cpu*) 1)
 				     (eq (moxie-get-wb-cyc-o *cpu*) 1))
-		       do (progn (moxie-set-wb-ack-i *cpu* 0) (tick-down) (tick-up)))
+		       initially (moxie-set-wb-ack-i *cpu* 0)
+		       do (progn (tick-down) (tick-up)))
 		    ;; Have we waited too long?
 		    (if (> count 10000) (finish-loop))
 		    ;; Insert some number of wait cycles to fetch from memory...
@@ -93,12 +95,94 @@
 		    (moxie-set-wb-dat-i *cpu* 15)
 		    (moxie-set-wb-ack-i *cpu* 1)
 		    (tick-down))
-		;; Did we end up at the righ $PC?
+		;; Did we end up at the right $PC?
 		finally (is (= (moxie-get-wb-adr-o *cpu*) 8192))))))
 
-(defvar *elf* (elf:read-elf "bootrom.x"))
+;;; ---------------------------------------------------------------------------
+;;; Load an ELF executable and run it.
+;;; ---------------------------------------------------------------------------
+(defun sim-read-byte (mem adr)
+  (let ((page (gethash (logand adr #xFFFFF000) mem)))
+    (if page
+	(elt page (logand adr #x00000FFF))
+	0)))
 
-(run! 'check-boot-address)
-(run! 'run-nop-sequence)
+(defun sim-write-byte (mem adr val)
+  (let ((page (gethash (logand adr #xFFFFF000) mem))
+	(offset (logand adr #x00000FFF)))
+    (if page
+	(setf (elt page offset) val)
+	(let ((page (make-array #x1000 :initial-element 0)))
+	  (setf (elt page offset) val)
+	  (setf (gethash (logand adr #xFFFFF000) mem) page)))))
+
+;;; Is this something we read from the ELF file and insert in memory?
+(defun elf-section-allocatable-p (sec)
+  (eq (logand (elf:flags (elf:sh sec)) 2) 2))
+
+(defun load-elf-executable (mem filename)
+  (let ((exe (elf:read-elf filename)))
+    (mapc (lambda (sec)
+	    (if (elf-section-allocatable-p sec)
+		(if (eq (elf:type sec) :PROGBITS)
+		    (let ((adr (elf:address (elf:sh sec))))
+		      (loop for byte being the elements of (elf:data sec)
+			 do (progn
+			      (sim-write-byte mem adr byte)
+			      (setq adr (+ adr 1))))))))
+	  (elf:sections exe))))
+
+(defun load-and-run (filename)
+      (let ((mem (make-hash-table)))
+	(load-elf-executable mem filename)
+	(reset-cycles 10)
+	(loop for count from 1 to 99999
+	   do
+	     (progn
+	       ;; Wait until there is a bus request...
+	       (tick-up)
+	       (loop until (and (eq (moxie-get-wb-stb-o *cpu*) 1)
+				(eq (moxie-get-wb-cyc-o *cpu*) 1))
+		  initially (moxie-set-wb-ack-i *cpu* 0)
+		  do (progn (tick-down) (format t ".") (tick-up)))
+	       ;; Read or write...
+	       (let ((adr (moxie-get-wb-adr-o *cpu*))
+		     (sel (moxie-get-wb-sel-o *cpu*)))
+		 (format t "** ~A **~%" (moxie-get-wb-we-o *cpu*))
+		 (if (eq (moxie-get-wb-we-o *cpu*) 1)
+		     ;; We are writing.  Test for our magic exit code
+		     ;; to end the simulation.
+		     (let ((value (moxie-get-wb-dat-o *cpu*)))
+		       (format t "W@~X[~A]: ~X~%" adr (moxie-get-wb-sel-o *cpu*) value)
+		       (cond
+			 ((eq sel 1)
+			  (sim-write-byte mem adr value))	
+			 ((eq sel 3)
+			  (sim-write-byte mem adr (logand #xf value))))
+		       (if (eq adr #x00C0FFEE)
+			   (return)))
+		     ;; We are reading
+		     (let* ((low-byte (sim-read-byte mem adr))
+			    (high-byte (sim-read-byte mem (+ adr 1))))
+		       (format t "R: @~X~%" adr)
+		       (moxie-set-wb-dat-i *cpu* (+ (* low-byte 256) high-byte)))))
+	       (moxie-set-wb-ack-i *cpu* 1)
+	       (tick-down)))
+	;; Did we end up at the right $PC?
+	(format t "C0FFEE: ~X ~X ~X ~X~%"
+		(sim-read-byte mem #x00c0ffee)
+		(sim-read-byte mem #x00c0ffef)
+		(sim-read-byte mem #x00c0fff0)
+		(sim-read-byte mem #x00c0fff1))
+	(is (= (sim-read-byte mem #x00c0ffee) #xf) (namestring filename))))
+
+(test run-executable-tests
+      (let ((test-binaries (com.gigamonkeys.pathnames:list-directory "bin")))
+	(mapc #'load-and-run test-binaries)))
+
+; (run! 'check-boot-address)
+; (run! 'run-nop-sequence)
+(run! 'run-executable-tests)
+
 
 (exit)

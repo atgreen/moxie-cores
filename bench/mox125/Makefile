@@ -1,6 +1,14 @@
-VSRC = ../../cores/mox125/moxie.v 
+VSRC = ../../cores/mox125/*.v 
 
-all: obj_dir/libmoxie.so microcode.bin bootrom.x
+bin/%.x: asm/%.S
+	moxie-elf-as -o test.o $<
+	moxie-elf-ld -o $@ test.o
+	-rm test.o
+
+ASM_FILES := $(wildcard asm/*.S)
+BIN_FILES := $(patsubst asm/%.S,bin/%.x,$(ASM_FILES))
+
+all: obj_dir/libmoxie.so microcode.bin bootrom.x $(BIN_FILES)
 
 obj_dir/libmoxie.so: $(VSRC)
 	verilator -Wno-fatal --cc -I../../cores/mox125 --top-module moxie $(VSRC)
@@ -17,4 +25,7 @@ bootrom.x: ../../firmware/bootrom/tinystart.S \
 	moxie-elf-gcc -mno-crt0 -O2 -g -o bootrom.x -T../../soc/marin/moxie-marin-onchip.ld -Wl,-verbose $^
 
 clean:
-	-rm -rf obj_dir *~ microcode.bin
+	-rm -rf obj_dir *~ microcode.bin *.x *.o typescript bin/*
+
+check: all
+	sbcl --load test.lisp
