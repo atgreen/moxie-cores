@@ -70,6 +70,7 @@ module cpu_registerfile (/*AUTOARG*/
   wire [31:0]	     r4  /*verilator public*/;
   wire [31:0]	     r5  /*verilator public*/;
   wire [31:0]	     r6  /*verilator public*/;
+  wire [31:0]	     r7  /*verilator public*/;
 
   assign r0 = mem[2];
   assign r1 = mem[3];

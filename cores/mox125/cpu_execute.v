@@ -22,7 +22,7 @@
 module cpu_execute (/*AUTOARG*/
   // Outputs
   dmem_address_o, dmem_data_o, dmem_stb_o, dmem_sel_o, dmem_cyc_o,
-  register_wea_o, register_web_o, register0_write_index_o,
+  dmem_we_o, register_wea_o, register_web_o, register0_write_index_o,
   register1_write_index_o, pipeline_control_bits_o, memory_address_o,
   reg0_result_o, reg1_result_o, mem_result_o, PC_o, flush_o,
   branch_flag_o, branch_target_o,
@@ -45,8 +45,9 @@ module cpu_execute (/*AUTOARG*/
   input  [15:0] dmem_data_i;
   output reg [15:0] dmem_data_o;
   output reg	dmem_stb_o;
-  output [1:0]	dmem_sel_o;
+  output [3:0]	dmem_sel_o;
   output reg	dmem_cyc_o;
+  output reg    dmem_we_o;
   input 	dmem_ack_i;
 
   // --- Pipeline interlocking ------------------------------------
@@ -481,12 +482,20 @@ module cpu_execute (/*AUTOARG*/
 		  begin
 		    dmem_data_o <= regA_i;
 		    dmem_address_o <= operand_i;
+		    dmem_sel_o <= 4'b1111;
 		    dmem_stb_o <= 1;
 		    dmem_cyc_o <= 1;
+		    dmem_we_o <= 1;
 		    next_state <= STATE_READY;
 		  end
 		`OP_STA_S:
 		  begin
+		    dmem_data_o <= regA_i;
+		    dmem_address_o <= operand_i;
+		    dmem_sel_o <= 4'b0011;
+		    dmem_stb_o <= 1;
+		    dmem_cyc_o <= 1;
+		    dmem_we_o <= 1;
 		    next_state <= STATE_READY;
 		  end
 		`OP_ST_B:
@@ -503,6 +512,11 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_STO_L:
 		  begin
+		    dmem_data_o <= regB_i;
+		    dmem_address_o <= operand_i + regA_i;
+		    dmem_stb_o <= 1;
+		    dmem_cyc_o <= 1;
+		    dmem_we_o <= 1;
 		    next_state <= STATE_READY;
 		  end
 		`OP_STO_S:

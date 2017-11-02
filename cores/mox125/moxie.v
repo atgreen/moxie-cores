@@ -34,7 +34,7 @@ module moxie (/*AUTOARG*/
   input [15:0]  wb_dat_i;
   output [15:0] wb_dat_o;
   output [31:0] wb_adr_o;
-  output [1:0]   wb_sel_o;
+  output [3:0]   wb_sel_o;
   output        wb_we_o;
   output        wb_cyc_o;
   output        wb_stb_o;
@@ -44,7 +44,7 @@ module moxie (/*AUTOARG*/
   wire [15:0]  wb_I_dat_i;
   wire [15:0]  wb_I_dat_o;
   wire [31:0]  wb_I_adr_o;
-  wire [1:0]   wb_I_sel_o;
+  wire [3:0]   wb_I_sel_o;
   wire         wb_I_we_o;
   wire         wb_I_cyc_o;
   wire         wb_I_stb_o;
@@ -54,7 +54,7 @@ module moxie (/*AUTOARG*/
   wire [15:0]  wb_D_dat_i;
   wire [15:0]  wb_D_dat_o;
   wire [31:0]  wb_D_adr_o;
-  wire [1:0]   wb_D_sel_o;
+  wire [3:0]   wb_D_sel_o;
   wire         wb_D_we_o;
   wire         wb_D_cyc_o;
   wire         wb_D_stb_o;
@@ -65,7 +65,7 @@ module moxie (/*AUTOARG*/
   assign wb_D_dat_i = wb_dat_i;
   assign wb_dat_o = wb_D_dat_o;
   assign wb_adr_o = wb_I_cyc_o ? wb_I_adr_o : wb_D_adr_o;
-  assign wb_sel_o = wb_I_cyc_o ? 2'b11 : wb_D_sel_o;
+  assign wb_sel_o = wb_I_cyc_o ? 4'b1111 : wb_D_sel_o;
   assign wb_we_o = wb_I_cyc_o ? 1'b0 : wb_D_we_o;
   assign wb_cyc_o = wb_I_cyc_o | wb_D_cyc_o;
   assign wb_stb_o = wb_I_cyc_o ? wb_I_stb_o : wb_D_stb_o;
@@ -208,10 +208,11 @@ module moxie (/*AUTOARG*/
 			     .dmem_address_o (wb_D_adr_o[31:0]),
 			     .dmem_stb_o     (wb_D_stb_o),
 			     .dmem_cyc_o     (wb_D_cyc_o),
-			     .dmem_sel_o     (),
+			     .dmem_sel_o     (wb_D_sel_o),
 			     .dmem_ack_i     (wb_D_ack_i),
 			     .dmem_data_i    (wb_D_dat_i[15:0]),
-			     .dmem_data_o    (wb_I_dat_o[15:0]),
+			     .dmem_data_o    (wb_D_dat_o[15:0]),
+			     .dmem_we_o      (wb_D_we_o),
 			     .pcrel_offset_i (dx_pcrel_offset),
 			     .operand_i		(dx_operand[31:0]),
 			     .regA_i (forward_0 ? xr_reg0_result : rx_reg_value1),
