@@ -18,7 +18,6 @@
 
 (ql:quickload :FiveAM)
 (ql:quickload :elf)
-(ql:quickload :com.gigamonkeys.pathnames)
 
 ;; this should really be inferred by :elf when it reads the elf binary
 (setq elf:*endian* :big)
@@ -177,7 +176,7 @@
 	(is (= (sim-read-byte mem #x00c0ffee) #xf) (namestring filename))))
 
 (test run-executable-tests
-      (let ((test-binaries (com.gigamonkeys.pathnames:list-directory "bin")))
+      (let ((test-binaries (directory "bin/*.x")))
 	(mapc #'load-and-run test-binaries)))
 
 ; (run! 'check-boot-address)
