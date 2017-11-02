@@ -45,7 +45,7 @@ module cpu_execute (/*AUTOARG*/
   input  [15:0] dmem_data_i;
   output reg [15:0] dmem_data_o;
   output reg	dmem_stb_o;
-  output [3:0]	dmem_sel_o;
+  output reg [3:0]	dmem_sel_o;
   output reg	dmem_cyc_o;
   output reg    dmem_we_o;
   input 	dmem_ack_i;
