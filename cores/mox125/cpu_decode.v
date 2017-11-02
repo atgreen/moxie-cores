@@ -244,7 +244,7 @@ module cpu_decode (/*AUTOARG*/
 	   8'b00011111:
 	     begin
 	       op_o <= `OP_STA_B;
-	       operand_o <= operand_o;
+	       operand_o <= operand_i;	
 	     end
 	   8'b00100000:
 	     begin

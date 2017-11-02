@@ -475,7 +475,12 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_STA_B:
 		  begin
-		    mem_result_o <= regA_i;
+		    dmem_data_o <= regA_i;
+		    dmem_address_o <= operand_i;
+		    dmem_sel_o <= 4'b0001;
+		    dmem_stb_o <= 1;
+		    dmem_cyc_o <= 1;
+		    dmem_we_o <= 1;
 		    next_state <= STATE_READY;
 		  end
 		`OP_STA_L:
