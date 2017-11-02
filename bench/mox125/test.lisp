@@ -155,9 +155,17 @@
 		       (format t "W@~X[~A]: ~X~%" adr (moxie-get-wb-sel-o *cpu*) value)
 		       (cond
 			 ((eq sel 1)
-			  (sim-write-byte mem adr value))	
+			  (sim-write-byte mem adr (ldb (byte 8 0) value)))	
 			 ((eq sel 3)
-			  (sim-write-byte mem adr (logand #xf value))))
+			  (sim-write-byte mem adr (ldb (byte 8 8) value))
+			  (sim-write-byte mem (+ adr 1) (ldb (byte 8 0) value)))
+			 ((eq sel 15)
+			  (sim-write-byte mem adr (ldb (byte 8 24) value))
+			  (sim-write-byte mem (+ adr 1) (ldb (byte 8 16) value))
+			  (sim-write-byte mem (+ adr 2) (ldb (byte 8 8) value))
+			  (sim-write-byte mem (+ adr 3) (ldb (byte 8 0) value)))
+			 (t
+			  (format t "ERROR: INVALID sel~%")))
 		       (if (eq adr #x00C0FFEE)
 			   (return)))
 		     ;; We are reading
