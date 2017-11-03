@@ -34,7 +34,7 @@ module moxie (/*AUTOARG*/
   input [15:0]  wb_dat_i;
   output [15:0] wb_dat_o;
   output [31:0] wb_adr_o;
-  output [3:0]   wb_sel_o;
+  output [1:0]   wb_sel_o;
   output        wb_we_o;
   output        wb_cyc_o;
   output        wb_stb_o;
@@ -44,7 +44,7 @@ module moxie (/*AUTOARG*/
   wire [15:0]  wb_I_dat_i;
   wire [15:0]  wb_I_dat_o;
   wire [31:0]  wb_I_adr_o;
-  wire [3:0]   wb_I_sel_o;
+  wire [1:0]   wb_I_sel_o;
   wire         wb_I_we_o;
   wire         wb_I_cyc_o;
   wire         wb_I_stb_o;
@@ -54,7 +54,7 @@ module moxie (/*AUTOARG*/
   wire [15:0]  wb_D_dat_i;
   wire [15:0]  wb_D_dat_o;
   wire [31:0]  wb_D_adr_o;
-  wire [3:0]   wb_D_sel_o;
+  wire [1:0]   wb_D_sel_o;
   wire         wb_D_we_o;
   wire         wb_D_cyc_o;
   wire         wb_D_stb_o;
@@ -65,7 +65,7 @@ module moxie (/*AUTOARG*/
   assign wb_D_dat_i = wb_dat_i;
   assign wb_dat_o = wb_D_dat_o;
   assign wb_adr_o = wb_I_cyc_o ? wb_I_adr_o : wb_D_adr_o;
-  assign wb_sel_o = wb_I_cyc_o ? 4'b1111 : wb_D_sel_o;
+  assign wb_sel_o = wb_I_cyc_o ? 4'b11 : wb_D_sel_o;
   assign wb_we_o = wb_I_cyc_o ? 1'b0 : wb_D_we_o;
   assign wb_cyc_o = wb_I_cyc_o | wb_D_cyc_o;
   assign wb_stb_o = wb_I_cyc_o ? wb_I_stb_o : wb_D_stb_o;
@@ -174,7 +174,7 @@ module moxie (/*AUTOARG*/
 			 .clk_i			(clk_i),
 			 .branch_flag_i         (xf_branch_flag),
 			 .branch_target_i       (xf_branch_target),
-			 .stall_i               (1'b0),
+			 .stall_i               (current_state == STATE_MEMWAIT),
 			 .imem_data_i           (wb_I_dat_i[15:0]));
     
   cpu_decode stage_decode (// Inputs
@@ -185,7 +185,7 @@ module moxie (/*AUTOARG*/
 			   .PC_i                (fd_PC[31:0]),
 			   .valid_i		(fd_valid),
 			   .flush_i             (flush_x),
-			   .stall_i             (1'b0),
+			   .stall_i             (current_state == STATE_MEMWAIT),
 			   // Outputs
 			   .pipeline_control_bits_o (dx_pipeline_control_bits),
 			   .register0_write_index_o (dx_register0_write_index),
@@ -252,6 +252,29 @@ module moxie (/*AUTOARG*/
 			 & (dx_register0_write_index == dr_reg_index1);
       maybe_forward_1 <= xr_register0_write_enable
 			 & (dx_register0_write_index == dr_reg_index2);
+    end
+
+  parameter STATE_READY = 1'b0,
+    STATE_MEMWAIT = 1'b1;
+
+  reg current_state, next_state;
+
+  always @(posedge rst_i or posedge clk_i)
+    if (rst_i) begin
+      current_state <= STATE_READY;
+      next_state <= STATE_READY;
+    end else begin
+      current_state <= next_state;
+      case (current_state)
+	STATE_READY:
+	  begin
+	    next_state <= wb_we_o ? STATE_MEMWAIT : STATE_READY;
+	  end
+	STATE_MEMWAIT:
+	  begin
+	    next_state <= wb_ack_i ? STATE_READY : STATE_MEMWAIT;
+	  end
+      endcase // case (current_state)
     end
 
 endmodule // moxie

@@ -35,7 +35,8 @@ module cpu_execute (/*AUTOARG*/
 
   parameter [1:0] STATE_READY = 2'b00,
     STATE_JSR1 = 2'b01,
-    STATE_RET1 = 2'b10;
+    STATE_RET1 = 2'b10,
+    STATE_STA_L1 = 2'b11;
 
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
@@ -45,7 +46,7 @@ module cpu_execute (/*AUTOARG*/
   input  [15:0] dmem_data_i;
   output reg [15:0] dmem_data_o;
   output reg	dmem_stb_o;
-  output reg [3:0]	dmem_sel_o;
+  output reg [1:0]	dmem_sel_o;
   output reg	dmem_cyc_o;
   output reg    dmem_we_o;
   input 	dmem_ack_i;
@@ -477,7 +478,7 @@ module cpu_execute (/*AUTOARG*/
 		  begin
 		    dmem_data_o <= regA_i;
 		    dmem_address_o <= operand_i;
-		    dmem_sel_o <= 4'b0001;
+		    dmem_sel_o <= 4'b01;
 		    dmem_stb_o <= 1;
 		    dmem_cyc_o <= 1;
 		    dmem_we_o <= 1;
@@ -485,19 +486,19 @@ module cpu_execute (/*AUTOARG*/
 		  end
 		`OP_STA_L:
 		  begin
-		    dmem_data_o <= regA_i;
+		    dmem_data_o <= regA_i[31:16];
 		    dmem_address_o <= operand_i;
-		    dmem_sel_o <= 4'b1111;
+		    dmem_sel_o <= 4'b11;
 		    dmem_stb_o <= 1;
 		    dmem_cyc_o <= 1;
 		    dmem_we_o <= 1;
-		    next_state <= STATE_READY;
+		    next_state <= STATE_STA_L1;
 		  end
 		`OP_STA_S:
 		  begin
 		    dmem_data_o <= regA_i;
 		    dmem_address_o <= operand_i;
-		    dmem_sel_o <= 4'b0011;
+		    dmem_sel_o <= 4'b11;
 		    dmem_stb_o <= 1;
 		    dmem_cyc_o <= 1;
 		    dmem_we_o <= 1;
@@ -575,6 +576,16 @@ module cpu_execute (/*AUTOARG*/
 	      // This is all wrong
 	      register0_write_index_o <= 1; // $sp
 	      branch_target_o <= operand_i;
+	      next_state <= STATE_READY;
+	    end
+	  STATE_STA_L1:
+	    begin
+	      dmem_data_o <= regA_i[15:0];
+	      dmem_address_o <= operand_i+2;
+	      dmem_sel_o <= 4'b11;
+	      dmem_stb_o <= 1;
+	      dmem_cyc_o <= 1;
+	      dmem_we_o <= 1;
 	      next_state <= STATE_READY;
 	    end
 	endcase
