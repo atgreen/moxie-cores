@@ -27,6 +27,8 @@
 // from RAM.
 //
 // Does not latch output from cache!
+//
+// Note, also.. rst_i does not clear the cache!
 
 module icache (/*AUTOARG*/
   // Outputs
