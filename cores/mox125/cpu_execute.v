@@ -459,6 +459,11 @@ module cpu_execute (/*AUTOARG*/
 		     end
 		   `OP_ST_B:
 		     begin
+		       dmem_data_o <= regB_i[7:0];
+		       dmem_address_o <= regA_i;
+		       dmem_sel_o <= 4'b01;
+		       dmem_stb_o <= 1;
+		       dmem_cyc_o <= 1;
 		     end
 		   `OP_ST_L:
 		     begin
