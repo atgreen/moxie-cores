@@ -28,7 +28,9 @@ clean:
 	-rm -rf obj_dir *~ microcode.bin *.x *.o typescript bin/*
 
 expected-results.lisp: collect-expected.sh $(ASM_FILES)
+	./collect-expected.sh
 	./collect-expected.sh > expected-results.lisp
 
 check: all expected-results.lisp
+	cat expected-results.lisp
 	sbcl --load test.lisp
