@@ -32,5 +32,7 @@ expected-results.lisp: collect-expected.sh $(ASM_FILES)
 	./collect-expected.sh > expected-results.lisp
 
 check: all expected-results.lisp
+	./collect-expected.sh
+	./collect-expected.sh > expected-results.lisp
 	cat expected-results.lisp
 	sbcl --load test.lisp
