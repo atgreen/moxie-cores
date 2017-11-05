@@ -164,7 +164,8 @@ module cpu_execute (/*AUTOARG*/
 		       ((op_i == `OP_RET) ? STATE_RET1 :
 		       ((op_i == `OP_STA_L) ? STATE_STA_L1 : 
 		       ((op_i == `OP_ST_L) ? STATE_STA_L1 : 
-			STATE_READY)))));
+		       ((op_i == `OP_STO_L) ? STATE_STA_L1 : 
+			STATE_READY))))));
 
   always @(posedge rst_i or posedge clk_i)
     current_state <= next_state;
@@ -482,10 +483,13 @@ module cpu_execute (/*AUTOARG*/
 		     end
 		   `OP_STO_L:
 		     begin
-		       dmem_data_o <= regB_i;
+		       dmem_data_o <= regB_i[31:16];
 		       dmem_address_o <= operand_i + regA_i;
+		       dmem_sel_o <= 4'b11;
 		       dmem_stb_o <= 1;
 		       dmem_cyc_o <= 1;
+		       next_data <= regB_i[15:0];
+		       next_address <= operand_i + regA_i + 2;
 		     end
 		   `OP_STO_S:
 		     begin

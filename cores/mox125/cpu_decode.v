@@ -169,7 +169,7 @@ module cpu_decode (/*AUTOARG*/
 	   8'b00001101:
 	     begin
 	       op_o <= `OP_STO_L;
-	       operand_o <= operand_o;
+	       operand_o <= {16'b0,operand_i[31:16]};
 	     end
 	   8'b00001110:
 	     begin
