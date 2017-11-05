@@ -20,8 +20,7 @@ echo Running verilated mox125 testsuite
 echo "************************************************************************"
 cd /root/moxie-cores/bench/mox125
 make clean
-make
-sbcl --load test.lisp
+make check
 
 echo "************************************************************************"
 echo Building moxie core with iverilog
