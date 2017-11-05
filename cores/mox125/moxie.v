@@ -158,7 +158,30 @@ module moxie (/*AUTOARG*/
   reg maybe_forward_1;
   wire forward_0 = maybe_forward_0 & dx_pipeline_control_bits[`PCB_RA];
   wire forward_1 = maybe_forward_1 & dx_pipeline_control_bits[`PCB_RB];
-  
+
+  // Memory stall logic.
+  reg current_state, next_state;
+  parameter STATE_READY = 1'b0,
+    STATE_MEMWAIT = 1'b1;
+
+  always @(posedge rst_i or posedge clk_i)
+    if (rst_i) begin
+      current_state <= STATE_READY;
+      next_state <= STATE_READY;
+    end else begin
+      current_state <= next_state;
+      case (current_state)
+	STATE_READY:
+	  begin
+	    next_state <= wb_we_o ? STATE_MEMWAIT : STATE_READY;
+	  end
+	STATE_MEMWAIT:
+	  begin
+	    next_state <= wb_ack_i ? STATE_READY : STATE_MEMWAIT;
+	  end
+      endcase // case (current_state)
+    end
+
   cpu_fetch stage_fetch (// Outputs
 			 .opcode		(fd_opcode[15:0]),
 			 .valid		        (fd_valid),
@@ -252,29 +275,6 @@ module moxie (/*AUTOARG*/
 			 & (dx_register0_write_index == dr_reg_index1);
       maybe_forward_1 <= xr_register0_write_enable
 			 & (dx_register0_write_index == dr_reg_index2);
-    end
-
-  parameter STATE_READY = 1'b0,
-    STATE_MEMWAIT = 1'b1;
-
-  reg current_state, next_state;
-
-  always @(posedge rst_i or posedge clk_i)
-    if (rst_i) begin
-      current_state <= STATE_READY;
-      next_state <= STATE_READY;
-    end else begin
-      current_state <= next_state;
-      case (current_state)
-	STATE_READY:
-	  begin
-	    next_state <= wb_we_o ? STATE_MEMWAIT : STATE_READY;
-	  end
-	STATE_MEMWAIT:
-	  begin
-	    next_state <= wb_ack_i ? STATE_READY : STATE_MEMWAIT;
-	  end
-      endcase // case (current_state)
     end
 
 endmodule // moxie

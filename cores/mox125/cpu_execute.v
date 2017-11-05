@@ -33,10 +33,10 @@ module cpu_execute (/*AUTOARG*/
   pcrel_offset_i
   );
 
-  parameter [1:0] STATE_READY = 2'b00,
-    STATE_JSR1 = 2'b01,
-    STATE_RET1 = 2'b10,
-    STATE_STA_L1 = 2'b11;
+  parameter [2:0] STATE_READY = 3'b000,
+    STATE_JSR1 = 3'b001,
+    STATE_RET1 = 3'b010,
+    STATE_STA_L1 = 3'b011;
 
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
@@ -101,7 +101,11 @@ module cpu_execute (/*AUTOARG*/
 
   reg [31:0] 	PC_o;
 
-  reg [1:0] 	current_state, next_state;
+  reg [2:0] 	current_state;
+  wire [2:0]    next_state;
+
+  reg [31:0] 	next_address;
+  reg [15:0] 	next_data;
   
    reg  	register_wea_o;
    reg  	register_web_o;
@@ -154,441 +158,376 @@ module cpu_execute (/*AUTOARG*/
 		    | (current_state == STATE_JSR1);
      end
    
+  assign next_state = (rst_i | branch_condition | branch_flag_o | flush_i ) ? STATE_READY :
+		       ((op_i == `OP_JSR) ? STATE_JSR1 :
+		       ((op_i == `OP_JSRA) ? STATE_JSR1 :
+		       ((op_i == `OP_RET) ? STATE_RET1 :
+		       ((op_i == `OP_STA_L) ? STATE_STA_L1 : STATE_READY))));
+
+  always @(posedge rst_i or posedge clk_i)
+    current_state <= next_state;
+
   always @(posedge rst_i or posedge clk_i)
     if (rst_i) begin
       pipeline_control_bits_o <= 6'b0;
       branch_flag_o <= 0;
-      current_state <= STATE_READY;
-      next_state <= STATE_READY;
     end else begin
        branch_flag_o <= branch_condition | (op_i == `OP_JMPA) | (current_state == STATE_JSR1);
-       current_state <= branch_condition ? STATE_READY : next_state;
        if (branch_flag_o | flush_i)
          begin
 	    /* We've just branched, so ignore any incoming instruction.  */
 	    pipeline_control_bits_o <= 6'b00000;
- 	    next_state <= STATE_READY; 
 	 end
        else begin
 	  pipeline_control_bits_o <= pipeline_control_bits_i;
 	  PC_o <= PC_i;
+	  dmem_we_o <= pipeline_control_bits_i[`PCB_WM];
 	  case (current_state)
 	    STATE_READY:
 	      begin
 		 case (op_i)
 		   `OP_ADD_L:
-		  begin
-		    reg0_result_o <= regA_i + regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_AND:
-		  begin
-		    reg0_result_o <= regA_i & regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_ASHL:
-		  begin
-		     reg0_result_o <= regA_i <<< regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_ASHR:
-		  begin
-		     reg0_result_o <= regA_i >>> regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_BAD:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_BEQ:
-		  begin
-		    branch_target_o <= pcrel_branch_target;
-		    next_state <= STATE_READY;
-		  end
-		`OP_BGE:
-		  begin
-		    branch_target_o <= pcrel_branch_target;
-		    next_state <= STATE_READY;
-		  end
-		`OP_BGEU:
-		  begin
-		    branch_target_o <= pcrel_branch_target;
-		    next_state <= STATE_READY;
-		  end
-		`OP_BGT:
-		  begin
-		    branch_target_o <= pcrel_branch_target;
-		    next_state <= STATE_READY;
-		  end
-		`OP_BGTU:
-		  begin
-		    branch_target_o <= pcrel_branch_target;
-		    next_state <= STATE_READY;
-		  end
-		`OP_BLE:
-		  begin
-		    branch_target_o <= pcrel_branch_target;
-		    next_state <= STATE_READY;
-		  end
-		`OP_BLEU:
-		  begin
-		    branch_target_o <= pcrel_branch_target;
-		    next_state <= STATE_READY;
-		  end
-		`OP_BLT:
-		  begin
-		    branch_target_o <= pcrel_branch_target;
-		    next_state <= STATE_READY;
-		  end
-		`OP_BLTU:
-		  begin
-		    branch_target_o <= pcrel_branch_target;
-		    next_state <= STATE_READY;
-		  end
-		`OP_BNE:
-		  begin
-		    branch_target_o <= pcrel_branch_target;
-		    next_state <= STATE_READY;
-		  end
-		`OP_BRK:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_CMP:
-		  begin
-		    CC_result <= {cc_eq, cc_lt, cc_gt, cc_ltu, cc_gtu};
-		    next_state <= STATE_READY;
-		  end
-		`OP_DEC:
-		  begin
-		    reg0_result_o <= regA_i - { 24'b0, incdec_value };
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_DIV_L:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_GSR:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_INC:
-		  begin
-		    reg0_result_o <= regA_i + { 24'b0, incdec_value };
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_JMP:
-		  begin
-		    branch_target_o <= regA_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_JMPA:
-		  begin
-		    branch_target_o <= operand_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_JSR:
-		  begin
-		    // Decrement $sp by 8 bytes and store the return address.
-		    reg0_result_o <= sp_i - 8;
-		    memory_address_o <= sp_i - 8;
-		    mem_result_o <= PC_i+2;
-		    register0_write_index_o <= 1; // $sp
-		    branch_target_o <= regA_i;
-		    next_state <= STATE_JSR1;
-		  end
-		`OP_JSRA:
-		  begin
-		    // Decrement $sp by 8 bytes and store the return address.
-		    reg0_result_o <= sp_i - 8;
-		    memory_address_o <= sp_i - 8;
-		    mem_result_o <= PC_i+6;
-		    register0_write_index_o <= 1; // $sp
-		    branch_target_o <= operand_i;
-		    next_state <= STATE_JSR1;
-		  end
-		`OP_LDA_B:
-		  begin
-		    memory_address_o <= operand_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LDA_L: 
-		  begin
-		    memory_address_o <= operand_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LDA_S:
-		  begin
-		    memory_address_o <= operand_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LD_B:
-		  begin
-		    memory_address_o <= regB_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LDI_B:
-		  begin
-		    reg0_result_o <= operand_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LDI_L:
-		  begin
-		    reg0_result_o <= operand_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LDI_S:
-		  begin
-		    reg0_result_o <= operand_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LD_L:
-		  begin
-		    memory_address_o <= regB_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LDO_B:
-		  begin
-		    memory_address_o <= operand_i + regB_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LDO_L:
-		  begin
-		    memory_address_o <= operand_i + regB_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LDO_S:
-		  begin
-		    memory_address_o <= operand_i + regB_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LD_S:
-		  begin
-		    memory_address_o <= regB_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_LSHR:
-		  begin
-		    reg0_result_o <= regA_i >> regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_MOD_L:
-		  begin
-		    // FIXME reg0_result_o <= regA_i % regB_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_MOV:
-		  begin
-		    reg0_result_o <= regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_MUL_L:
-		  begin
-		    reg0_result_o <= regA_i * regB_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_NEG:
-		  begin
-		    reg0_result_o <= -regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_NOP:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_NOT:
-		  begin
-		    reg0_result_o <= ~regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_OR:
-		  begin
-		    reg0_result_o <= regA_i | regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_POP:
-		  begin
-		    // Decrement pointer register by 4 bytes.
-		    memory_address_o <= regA_i;
-		    reg1_result_o <= regA_i - 4;
-		    register0_write_index_o <= register1_write_index_i;
-		    register1_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_PUSH:
-		  begin
-		    // Decrement pointer register by 4 bytes.
-		    reg0_result_o <= regA_i - 4;
-		    memory_address_o <= regA_i - 4;
-		    mem_result_o <= regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_RET:
-		  begin
-		    // Increment $sp by 8
-		    memory_address_o <= sp_i;
-		    reg0_result_o <= sp_i + 8;
-		    register0_write_index_o <= 1; // $sp
-		    next_state <= STATE_RET1;
-		  end
-		`OP_SEX_B:
-		  begin
-		    reg0_result_o <= { {24{regB_i[7]}}, regB_i[7:0] };
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_SEX_S:
-		  begin
-		    reg0_result_o <= { {16{regB_i[15]}}, regB_i[15:0] };
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_ZEX_B:
-		  begin
-		    reg0_result_o <= { 24'b0, regB_i[7:0] };
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_ZEX_S:
-		  begin
-		    reg0_result_o <= { 16'b0, regB_i[15:0] };
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_SSR:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_STA_B:
-		  begin
-		    dmem_data_o <= regA_i;
-		    dmem_address_o <= operand_i;
-		    dmem_sel_o <= 4'b01;
-		    dmem_stb_o <= 1;
-		    dmem_cyc_o <= 1;
-		    dmem_we_o <= 1;
-		    next_state <= STATE_READY;
-		  end
-		`OP_STA_L:
-		  begin
-		    dmem_data_o <= regA_i[31:16];
-		    dmem_address_o <= operand_i;
-		    dmem_sel_o <= 4'b11;
-		    dmem_stb_o <= 1;
-		    dmem_cyc_o <= 1;
-		    dmem_we_o <= 1;
-		    next_state <= STATE_STA_L1;
-		  end
-		`OP_STA_S:
-		  begin
-		    dmem_data_o <= regA_i;
-		    dmem_address_o <= operand_i;
-		    dmem_sel_o <= 4'b11;
-		    dmem_stb_o <= 1;
-		    dmem_cyc_o <= 1;
-		    dmem_we_o <= 1;
-		    next_state <= STATE_READY;
-		  end
-		`OP_ST_B:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_ST_L:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_STO_B:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_STO_L:
-		  begin
-		    dmem_data_o <= regB_i;
-		    dmem_address_o <= operand_i + regA_i;
-		    dmem_stb_o <= 1;
-		    dmem_cyc_o <= 1;
-		    dmem_we_o <= 1;
-		    next_state <= STATE_READY;
-		  end
-		`OP_STO_S:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_ST_S:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_SUB_L:
-		  begin
-		    reg0_result_o <= regA_i - regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		    next_state <= STATE_READY;
-		  end
-		`OP_SWI:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_UDIV_L:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_UMOD_L:
-		  begin
-		    next_state <= STATE_READY;
-		  end
-		`OP_XOR:
-		  begin
-		    reg0_result_o <= regA_i ^ regB_i;
-		    register0_write_index_o <= register0_write_index_i;
-		  end
-	      endcase // case (op_i)
-	    end // case: STATE_READY
-	  STATE_JSR1:
-	    begin
-	      // Decrement $sp by 4 bytes.
-	      reg0_result_o <= sp_i - 4;
-	      memory_address_o <= sp_i - 4;
-	      mem_result_o <= fp_i;
-	      register0_write_index_o <= 1; // $sp
-	      next_state <= STATE_READY;
-	    end
-	  STATE_RET1:
-	    begin
-	      // Increment $sp by 4 bytes.
-	      reg0_result_o <= sp_i + 4;
-	      memory_address_o <= sp_i + 4;
-	      pipeline_control_bits_o <= 6'b010000;
-	      // This is all wrong
-	      register0_write_index_o <= 1; // $sp
-	      branch_target_o <= operand_i;
-	      next_state <= STATE_READY;
-	    end
-	  STATE_STA_L1:
-	    begin
-	      dmem_data_o <= regA_i[15:0];
-	      dmem_address_o <= operand_i+2;
-	      dmem_sel_o <= 4'b11;
-	      dmem_stb_o <= 1;
-	      dmem_cyc_o <= 1;
-	      dmem_we_o <= 1;
-	      next_state <= STATE_READY;
-	    end
-	endcase
+		     begin
+		       reg0_result_o <= regA_i + regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_AND:
+		     begin
+		       reg0_result_o <= regA_i & regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_ASHL:
+		     begin
+		       reg0_result_o <= regA_i <<< regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_ASHR:
+		     begin
+		       reg0_result_o <= regA_i >>> regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_BAD:
+		     begin
+		     end
+		   `OP_BEQ:
+		     begin
+		       branch_target_o <= pcrel_branch_target;
+		     end
+		   `OP_BGE:
+		     begin
+		       branch_target_o <= pcrel_branch_target;
+		     end
+		   `OP_BGEU:
+		     begin
+		       branch_target_o <= pcrel_branch_target;
+		     end
+		   `OP_BGT:
+		     begin
+		       branch_target_o <= pcrel_branch_target;
+		     end
+		   `OP_BGTU:
+		     begin
+		       branch_target_o <= pcrel_branch_target;
+		     end
+		   `OP_BLE:
+		     begin
+		       branch_target_o <= pcrel_branch_target;
+		     end
+		   `OP_BLEU:
+		     begin
+		       branch_target_o <= pcrel_branch_target;
+		     end
+		   `OP_BLT:
+		     begin
+		       branch_target_o <= pcrel_branch_target;
+		     end
+		   `OP_BLTU:
+		     begin
+		       branch_target_o <= pcrel_branch_target;
+		     end
+		   `OP_BNE:
+		     begin
+		       branch_target_o <= pcrel_branch_target;
+		     end
+		   `OP_BRK:
+		     begin
+		     end
+		   `OP_CMP:
+		     begin
+		       CC_result <= {cc_eq, cc_lt, cc_gt, cc_ltu, cc_gtu};
+		     end
+		   `OP_DEC:
+		     begin
+		       reg0_result_o <= regA_i - { 24'b0, incdec_value };
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_DIV_L:
+		     begin
+		     end
+		   `OP_GSR:
+		     begin
+		     end
+		   `OP_INC:
+		     begin
+		       reg0_result_o <= regA_i + { 24'b0, incdec_value };
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_JMP:
+		     begin
+		       branch_target_o <= regA_i;
+		     end
+		   `OP_JMPA:
+		     begin
+		       branch_target_o <= operand_i;
+		     end
+		   `OP_JSR:
+		     begin
+		       // Decrement $sp by 8 bytes and store the return address.
+		       reg0_result_o <= sp_i - 8;
+		       memory_address_o <= sp_i - 8;
+		       mem_result_o <= PC_i+2;
+		       register0_write_index_o <= 1; // $sp
+		       branch_target_o <= regA_i;
+		     end
+		   `OP_JSRA:
+		     begin
+		       // Decrement $sp by 8 bytes and store the return address.
+		       reg0_result_o <= sp_i - 8;
+		       memory_address_o <= sp_i - 8;
+		       mem_result_o <= PC_i+6;
+		       register0_write_index_o <= 1; // $sp
+		       branch_target_o <= operand_i;
+		     end
+		   `OP_LDA_B:
+		     begin
+		       memory_address_o <= operand_i;
+		     end
+		   `OP_LDA_L: 
+		     begin
+		       memory_address_o <= operand_i;
+		     end
+		   `OP_LDA_S:
+		     begin
+		       memory_address_o <= operand_i;
+		     end
+		   `OP_LD_B:
+		     begin
+		       memory_address_o <= regB_i;
+		     end
+		   `OP_LDI_B:
+		     begin
+		       reg0_result_o <= operand_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_LDI_L:
+		     begin
+		       reg0_result_o <= operand_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_LDI_S:
+		     begin
+		       reg0_result_o <= operand_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_LD_L:
+		     begin
+		       memory_address_o <= regB_i;
+		     end
+		   `OP_LDO_B:
+		     begin
+		       memory_address_o <= operand_i + regB_i;
+		     end
+		   `OP_LDO_L:
+		     begin
+		       memory_address_o <= operand_i + regB_i;
+		     end
+		   `OP_LDO_S:
+		     begin
+		       memory_address_o <= operand_i + regB_i;
+		     end
+		   `OP_LD_S:
+		     begin
+		       memory_address_o <= regB_i;
+		     end
+		   `OP_LSHR:
+		     begin
+		       reg0_result_o <= regA_i >> regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_MOD_L:
+		     begin
+		       // FIXME reg0_result_o <= regA_i % regB_i;
+		     end
+		   `OP_MOV:
+		     begin
+		       reg0_result_o <= regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_MUL_L:
+		     begin
+		       reg0_result_o <= regA_i * regB_i;
+		     end
+		   `OP_NEG:
+		     begin
+		       reg0_result_o <= -regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_NOP:
+		     begin
+		     end
+		   `OP_NOT:
+		     begin
+		       reg0_result_o <= ~regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_OR:
+		     begin
+		       reg0_result_o <= regA_i | regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_POP:
+		     begin
+		       // Decrement pointer register by 4 bytes.
+		       memory_address_o <= regA_i;
+		       reg1_result_o <= regA_i - 4;
+		       register0_write_index_o <= register1_write_index_i;
+		       register1_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_PUSH:
+		     begin
+		       // Decrement pointer register by 4 bytes.
+		       reg0_result_o <= regA_i - 4;
+		       memory_address_o <= regA_i - 4;
+		       mem_result_o <= regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_RET:
+		     begin
+		       // Increment $sp by 8
+		       memory_address_o <= sp_i;
+		       reg0_result_o <= sp_i + 8;
+		       register0_write_index_o <= 1; // $sp
+		     end
+		   `OP_SEX_B:
+		     begin
+		       reg0_result_o <= { {24{regB_i[7]}}, regB_i[7:0] };
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_SEX_S:
+		     begin
+		       reg0_result_o <= { {16{regB_i[15]}}, regB_i[15:0] };
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_ZEX_B:
+		     begin
+		       reg0_result_o <= { 24'b0, regB_i[7:0] };
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_ZEX_S:
+		     begin
+		       reg0_result_o <= { 16'b0, regB_i[15:0] };
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_SSR:
+		     begin
+		     end
+		   `OP_STA_B:
+		     begin
+		       dmem_data_o <= regA_i[7:0];
+		       dmem_address_o <= operand_i;
+		       dmem_sel_o <= 4'b01;
+		       dmem_stb_o <= 1;
+		       dmem_cyc_o <= 1;
+		     end
+		   `OP_STA_L:
+		     begin
+		       dmem_data_o <= regA_i[31:16];
+		       dmem_address_o <= operand_i;
+		       dmem_sel_o <= 4'b11;
+		       dmem_stb_o <= 1;
+		       dmem_cyc_o <= 1;
+		       next_data <= regA_i[15:0];
+		       next_address <= operand_i+2;
+		     end
+		   `OP_STA_S:
+		     begin
+		       dmem_data_o <= regA_i[15:0];
+		       dmem_address_o <= operand_i;
+		       dmem_sel_o <= 4'b11;
+		       dmem_stb_o <= 1;
+		       dmem_cyc_o <= 1;
+		     end
+		   `OP_ST_B:
+		     begin
+		     end
+		   `OP_ST_L:
+		     begin
+		     end
+		   `OP_STO_B:
+		     begin
+		     end
+		   `OP_STO_L:
+		     begin
+		       dmem_data_o <= regB_i;
+		       dmem_address_o <= operand_i + regA_i;
+		       dmem_stb_o <= 1;
+		       dmem_cyc_o <= 1;
+		     end
+		   `OP_STO_S:
+		     begin
+		     end
+		   `OP_ST_S:
+		     begin
+		     end
+		   `OP_SUB_L:
+		     begin
+		       reg0_result_o <= regA_i - regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		   `OP_SWI:
+		     begin
+		     end
+		   `OP_UDIV_L:
+		     begin
+		     end
+		   `OP_UMOD_L:
+		     begin
+		     end
+		   `OP_XOR:
+		     begin
+		       reg0_result_o <= regA_i ^ regB_i;
+		       register0_write_index_o <= register0_write_index_i;
+		     end
+		 endcase // case (op_i)
+	      end // case: STATE_READY
+	    STATE_JSR1:
+	      begin
+		// Decrement $sp by 4 bytes.
+		reg0_result_o <= sp_i - 4;
+		memory_address_o <= sp_i - 4;
+		mem_result_o <= fp_i;
+		register0_write_index_o <= 1; // $sp
+	      end
+	    STATE_RET1:
+	      begin
+		// Increment $sp by 4 bytes.
+		reg0_result_o <= sp_i + 4;
+		memory_address_o <= sp_i + 4;
+		pipeline_control_bits_o <= 6'b010000;
+		// This is all wrong
+		register0_write_index_o <= 1; // $sp
+		branch_target_o <= operand_i;
+	      end
+	    STATE_STA_L1:
+	      begin
+		dmem_data_o <= next_data;
+		dmem_address_o <= next_address;
+		dmem_sel_o <= 4'b11;
+		dmem_stb_o <= 1;
+		dmem_cyc_o <= 1;
+		pipeline_control_bits_o <= 6'b010000;
+	      end
+	  endcase
        end
     end
 endmodule // cpu_execute;
