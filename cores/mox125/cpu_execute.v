@@ -27,8 +27,8 @@ module cpu_execute (/*AUTOARG*/
   reg0_result_o, reg1_result_o, mem_result_o, PC_o, flush_o,
   branch_flag_o, branch_target_o,
   // Inputs
-  rst_i, clk_i, dmem_data_i, dmem_ack_i, flush_i, regA_i, regB_i,
-  pipeline_control_bits_i, register0_write_index_i,
+  rst_i, clk_i, dmem_data_i, dmem_ack_i, stall_i, flush_i, regA_i,
+  regB_i, pipeline_control_bits_i, register0_write_index_i,
   register1_write_index_i, operand_i, op_i, sp_i, fp_i, PC_i,
   pcrel_offset_i
   );
@@ -52,6 +52,7 @@ module cpu_execute (/*AUTOARG*/
   input 	dmem_ack_i;
 
   // --- Pipeline interlocking ------------------------------------
+  input  stall_i;
   input  flush_i;
     
   // --- Inputs ---------------------------------------------------
@@ -174,25 +175,31 @@ module cpu_execute (/*AUTOARG*/
     if (rst_i) begin
       pipeline_control_bits_o <= 6'b0;
       branch_flag_o <= 0;
+      dmem_we_o <= 0;
+      dmem_sel_o <= 2'b0;
+      dmem_stb_o <= 0;
+      dmem_cyc_o <= 0;
     end else begin
-       branch_flag_o <= branch_condition | (op_i == `OP_JMPA) | (current_state == STATE_JSR1);
-       if (branch_flag_o | flush_i)
+	branch_flag_o <= branch_condition | (op_i == `OP_JMPA) | (current_state == STATE_JSR1);
+	if (branch_flag_o | flush_i)
          begin
 	    /* We've just branched, so ignore any incoming instruction.  */
 	    pipeline_control_bits_o <= 6'b00000;
 	 end
-       else begin
-	  pipeline_control_bits_o <= pipeline_control_bits_i;
-	  PC_o <= PC_i;
-	  dmem_we_o <= pipeline_control_bits_i[`PCB_WM];
+	else begin
 	  case (current_state)
 	    STATE_READY:
 	      begin
+		PC_o <= PC_i;
+		pipeline_control_bits_o <= pipeline_control_bits_i;
+		dmem_we_o <= pipeline_control_bits_i[`PCB_WM];
+		dmem_stb_o <= pipeline_control_bits_i[`PCB_WM] | pipeline_control_bits_i[`PCB_RM];
 		 case (op_i)
 		   `OP_ADD_L:
 		     begin
 		       reg0_result_o <= regA_i + regB_i;
 		       register0_write_index_o <= register0_write_index_i;
+		       dmem_cyc_o <= 0;
 		     end
 		   `OP_AND:
 		     begin
@@ -282,6 +289,7 @@ module cpu_execute (/*AUTOARG*/
 		   `OP_JMPA:
 		     begin
 		       branch_target_o <= operand_i;
+		       dmem_cyc_o <= 0;
 		     end
 		   `OP_JSR:
 		     begin
@@ -326,6 +334,7 @@ module cpu_execute (/*AUTOARG*/
 		     begin
 		       reg0_result_o <= operand_i;
 		       register0_write_index_o <= register0_write_index_i;
+		       dmem_cyc_o <= 0;
 		     end
 		   `OP_LDI_S:
 		     begin
@@ -436,18 +445,16 @@ module cpu_execute (/*AUTOARG*/
 		     end
 		   `OP_STA_B:
 		     begin
-		       dmem_data_o <= regA_i[7:0];
+		       dmem_data_o <= {8'b0, regA_i[7:0]};
 		       dmem_address_o <= operand_i;
-		       dmem_sel_o <= 4'b01;
-		       dmem_stb_o <= 1;
+		       dmem_sel_o <= 2'b01;
 		       dmem_cyc_o <= 1;
 		     end
 		   `OP_STA_L:
 		     begin
 		       dmem_data_o <= regA_i[31:16];
 		       dmem_address_o <= operand_i;
-		       dmem_sel_o <= 4'b11;
-		       dmem_stb_o <= 1;
+		       dmem_sel_o <= 2'b11;
 		       dmem_cyc_o <= 1;
 		       next_data <= regA_i[15:0];
 		       next_address <= operand_i+2;
@@ -456,24 +463,21 @@ module cpu_execute (/*AUTOARG*/
 		     begin
 		       dmem_data_o <= regA_i[15:0];
 		       dmem_address_o <= operand_i;
-		       dmem_sel_o <= 4'b11;
-		       dmem_stb_o <= 1;
+		       dmem_sel_o <= 2'b11;
 		       dmem_cyc_o <= 1;
 		     end
 		   `OP_ST_B:
 		     begin
 		       dmem_data_o <= regB_i[7:0];
 		       dmem_address_o <= regA_i;
-		       dmem_sel_o <= 4'b01;
-		       dmem_stb_o <= 1;
+		       dmem_sel_o <= 2'b01;
 		       dmem_cyc_o <= 1;
 		     end
 		   `OP_ST_L:
 		     begin
 		       dmem_data_o <= regB_i[31:16];
 		       dmem_address_o <= regA_i;
-		       dmem_sel_o <= 4'b11;
-		       dmem_stb_o <= 1;
+		       dmem_sel_o <= 2'b11;
 		       dmem_cyc_o <= 1;
 		       next_data <= regB_i[15:0];
 		       next_address <= regA_i+2;
@@ -482,16 +486,14 @@ module cpu_execute (/*AUTOARG*/
 		     begin
 		       dmem_data_o <= {24'b0, regB_i[7:0]};
 		       dmem_address_o <= operand_i + regA_i;
-		       dmem_sel_o <= 4'b01;
-		       dmem_stb_o <= 1;
+		       dmem_sel_o <= 2'b01;
 		       dmem_cyc_o <= 1;
 		     end
 		   `OP_STO_L:
 		     begin
 		       dmem_data_o <= regB_i[31:16];
 		       dmem_address_o <= operand_i + regA_i;
-		       dmem_sel_o <= 4'b11;
-		       dmem_stb_o <= 1;
+		       dmem_sel_o <= 2'b11;
 		       dmem_cyc_o <= 1;
 		       next_data <= regB_i[15:0];
 		       next_address <= operand_i + regA_i + 2;
@@ -500,16 +502,14 @@ module cpu_execute (/*AUTOARG*/
 		     begin
 		       dmem_data_o <= {16'b0, regB_i[15:0]};
 		       dmem_address_o <= operand_i + regA_i;
-		       dmem_sel_o <= 4'b11;
-		       dmem_stb_o <= 1;
+		       dmem_sel_o <= 2'b11;
 		       dmem_cyc_o <= 1;
 		     end
 		   `OP_ST_S:
 		     begin
 		       dmem_data_o <= regB_i[15:0];
 		       dmem_address_o <= regA_i;
-		       dmem_sel_o <= 4'b11;
-		       dmem_stb_o <= 1;
+		       dmem_sel_o <= 2'b11;
 		       dmem_cyc_o <= 1;
 		     end
 		   `OP_SUB_L:
@@ -555,12 +555,11 @@ module cpu_execute (/*AUTOARG*/
 	      begin
 		dmem_data_o <= next_data;
 		dmem_address_o <= next_address;
-		dmem_sel_o <= 4'b11;
-		dmem_stb_o <= 1;
+		dmem_sel_o <= 2'b11;
 		dmem_cyc_o <= 1;
 		pipeline_control_bits_o <= 6'b010000;
 	      end
-	  endcase
-       end
+	  endcase // case (current_state)
+	end // else: !if(branch_flag_o | flush_i)
     end
 endmodule // cpu_execute;

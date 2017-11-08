@@ -160,26 +160,25 @@ module moxie (/*AUTOARG*/
   wire forward_1 = maybe_forward_1 & dx_pipeline_control_bits[`PCB_RB];
 
   // Memory stall logic.
-  reg current_state, next_state;
+  reg  memory_wait_state;
+
   parameter STATE_READY = 1'b0,
     STATE_MEMWAIT = 1'b1;
-
+  
   always @(posedge rst_i or posedge clk_i)
     if (rst_i) begin
-      current_state <= STATE_READY;
-      next_state <= STATE_READY;
+      memory_wait_state <= STATE_READY;
     end else begin
-      current_state <= next_state;
-      case (current_state)
+      case (memory_wait_state)
 	STATE_READY:
 	  begin
-	    next_state <= wb_we_o ? STATE_MEMWAIT : STATE_READY;
+	    memory_wait_state <= wb_we_o ? STATE_MEMWAIT : STATE_READY;
 	  end
 	STATE_MEMWAIT:
 	  begin
-	    next_state <= wb_ack_i ? STATE_READY : STATE_MEMWAIT;
+	    memory_wait_state <= wb_ack_i ? STATE_READY : STATE_MEMWAIT;
 	  end
-      endcase // case (current_state)
+      endcase // case (memory_wait_state)
     end
 
   cpu_fetch stage_fetch (// Outputs
@@ -197,7 +196,7 @@ module moxie (/*AUTOARG*/
 			 .clk_i			(clk_i),
 			 .branch_flag_i         (xf_branch_flag),
 			 .branch_target_i       (xf_branch_target),
-			 .stall_i               (current_state == STATE_MEMWAIT),
+			 .stall_i               ((wb_we_o == 1) | (memory_wait_state == STATE_MEMWAIT)),
 			 .imem_data_i           (wb_I_dat_i[15:0]));
     
   cpu_decode stage_decode (// Inputs
@@ -208,7 +207,7 @@ module moxie (/*AUTOARG*/
 			   .PC_i                (fd_PC[31:0]),
 			   .valid_i		(fd_valid),
 			   .flush_i             (flush_x),
-			   .stall_i             (current_state == STATE_MEMWAIT),
+			   .stall_i             ((wb_we_o == 1) | (memory_wait_state == STATE_MEMWAIT)),
 			   // Outputs
 			   .pipeline_control_bits_o (dx_pipeline_control_bits),
 			   .register0_write_index_o (dx_register0_write_index),
@@ -225,6 +224,7 @@ module moxie (/*AUTOARG*/
 			     .clk_i	     (clk_i),
 			     .flush_i        (1'b0),
 			     .flush_o        (flush_x),
+			     .stall_i        ((wb_we_o == 1) | (memory_wait_state == STATE_MEMWAIT)),
 			     .op_i           (dx_op),
 			     .PC_i           (dx_PC),
 			     .PC_o           (xw_PC),
