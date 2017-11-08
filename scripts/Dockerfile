@@ -11,7 +11,7 @@ RUN dnf update -y \
            make moxielogic-moxie-elf-gcc wget \
 	   iverilog \
     && dnf clean all \
-    && wget https://github.com/atgreen/wrapilator/releases/download/v1.0.0/wrapilator \
+    && wget https://github.com/atgreen/wrapilator/releases/download/v1.1.0/wrapilator \
     && mv wrapilator /usr/bin/ \
     && chmod +x /usr/bin/wrapilator \
     && wget http://beta.quicklisp.org/quicklisp.lisp \
