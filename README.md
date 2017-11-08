@@ -1,6 +1,8 @@
 moxie-cores - a repository of Moxie-compatible cores
 =====================================================
 
+[![Build Status](https://travis-ci.org/atgreen/moxie-cores.svg?branch=master)](https://travis-ci.org/atgreen/moxie-cores)
+
 Cores
 ------
 
