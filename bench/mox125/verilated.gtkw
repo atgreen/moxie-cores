@@ -1,0 +1,55 @@
+[*]
+[*] GTKWave Analyzer v3.3.81 (w)1999-2017 BSI
+[*] Tue Nov  7 18:25:39 2017
+[*]
+[dumpfile] "/home/green/git/moxie-cores/bench/mox125/bin/test002.x.vcd"
+[dumpfile_mtime] "Tue Nov  7 17:58:40 2017"
+[dumpfile_size] 2608241
+[savefile] "/home/green/git/moxie-cores/bench/mox125/verilated.gtkw"
+[timestart] 77
+[size] 1374 715
+[pos] 218 -7
+*-2.000000 90 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] TOP.
+[treeopen] TOP.moxie.
+[sst_width] 229
+[signals_width] 190
+[sst_expanded] 1
+[sst_vpaned_height] 272
+@28
+TOP.moxie.clk_i
+TOP.moxie.rst
+TOP.moxie.stage_execute.stall_i
+@200
+-
+-DECODE
+-
+@4023
+^>1 /home/green/git/moxie-cores/soc/muskoka/gtkwave/gtkwave-opcodes.lisp
+TOP.moxie.stage_decode.opcode_i[15:0]
+@28
+TOP.moxie.stage_decode.valid_i
+TOP.moxie.stage_decode.stall_i
+@2022
+^1 /home/green/git/moxie-cores/soc/muskoka/gtkwave/gtkwave-ops.txt
+TOP.moxie.stage_decode.op_o[6:0]
+@200
+-
+-EXECUTE
+@22
+TOP.moxie.stage_execute.PC_i[31:0]
+@2022
+^1 /home/green/git/moxie-cores/soc/muskoka/gtkwave/gtkwave-ops.txt
+TOP.moxie.stage_execute.op_i[6:0]
+@22
+TOP.moxie.stage_execute.operand_i[31:0]
+@28
+TOP.moxie.stage_execute.dmem_ack_i
+TOP.moxie.stage_execute.dmem_we_o
+@22
+TOP.moxie.stage_execute.dmem_address_o[31:0]
+TOP.moxie.stage_execute.dmem_data_o[15:0]
+@28
+TOP.moxie.stage_execute.current_state[2:0]
+[pattern_trace] 1
+[pattern_trace] 0
