@@ -26,25 +26,32 @@
 (use-package :verilated-moxie)
 (use-package :it.bese.FiveAM)
 
+(load "expected-results.lisp")
+
 (setq *test-dribble* t)
 (setq *print-names* t)
+(defvar *time* 0)
 
 ;;; Clock up and eval
-(defun tick-up (cpu)
+(defun tick-up (cpu trace)
   (moxie-set-clk-i cpu 1)
-  (moxie-eval cpu))
+  (moxie-eval cpu)
+  (VerilatedVcdC-dump trace *time*)
+  (incf *time*))
 
 ;;; Clock down and eval
-(defun tick-down (cpu)
+(defun tick-down (cpu trace)
   (moxie-set-clk-i cpu 0)
-  (moxie-eval cpu))
+  (moxie-eval cpu)
+  (VerilatedVcdC-dump trace *time*)
+  (incf *time*))
 
 ;;; Hold reset high for CYCLES
-(defun reset-cycles (cpu cycles)
+(defun reset-cycles (cpu trace cycles)
   (moxie-set-rst-i cpu 1)
   (loop for i from 1 to cycles do
-       (tick-up cpu)
-       (tick-down cpu))
+       (tick-up cpu trace)
+       (tick-down cpu trace))
   (moxie-set-rst-i cpu 0))
 
 ;;; ---------------------------------------------------------------------------
@@ -53,12 +60,12 @@
 (test check-boot-address
       (let ((cpu (moxie-new)))
 	(moxie-set-wb-ack-i cpu 0)
-	(reset-cycles cpu 10)
+	(reset-cycles cpu trace 10)
 	(loop until (and (eq (moxie-get-wb-stb-o cpu) 1)
 			 (eq (moxie-get-wb-cyc-o cpu) 1))
 	   do (progn
-		(tick-up cpu)
-		(tick-down cpu)))
+		(tick-up cpu trace)
+		(tick-down cpu trace)))
 	(is (= (moxie-get-wb-adr-o cpu) 4096))))
 
 ;;; ---------------------------------------------------------------------------
@@ -72,27 +79,27 @@
 	   do
 	     (progn
 	       (moxie-set-wb-ack-i cpu 0)
-	       (reset-cycles cpu 10)
+	       (reset-cycles cpu trace 10)
 	       (loop for count from 1 to 99999
 		  until (>= (moxie-get-wb-adr-o cpu) 8192)
 		  do
 		    (progn
 		      ;; Wait until there is a bus request...
-		      (tick-up cpu)
+		      (tick-up cpu trace)
 		      (loop until (and (eq (moxie-get-wb-stb-o cpu) 1)
 				       (eq (moxie-get-wb-cyc-o cpu) 1))
 			 initially (moxie-set-wb-ack-i cpu 0)
-			 do (progn (tick-down cpu) (tick-up cpu)))
+			 do (progn (tick-down cpu trace) (tick-up cpu trace)))
 		      ;; Have we waited too long?
 		      (if (> count 10000) (finish-loop))
 		      ;; Insert some number of wait cycles to fetch from memory...
 		      (loop for wait from 1 to memory-wait-cycles
 			 initially (moxie-set-wb-ack-i cpu 0)
-			 do (progn (tick-down cpu) (tick-up cpu)))
+			 do (progn (tick-down cpu trace) (tick-up cpu trace)))
 		      ;; Return NOP instruction...
 		      (moxie-set-wb-dat-i cpu 15)
 		      (moxie-set-wb-ack-i cpu 1)
-		      (tick-down cpu))
+		      (tick-down cpu trace))
 		  ;; Did we end up at the right $PC?
 		  finally (is (= (moxie-get-wb-adr-o cpu) 8192)))))))
 
@@ -131,26 +138,31 @@
 	  (elf:sections exe))))
 
 (defun load-and-run (filename)
+  (traceEverOn 1)
+  (setq *time* 0)
   (let ((mem (make-hash-table))
+	(trace (VerilatedVcdC-new))
 	(cpu (moxie-new)))
+    (moxie-trace cpu trace 99)
+    (VerilatedVcdC-open trace (format nil "~A.vcd" filename))
     (load-elf-executable mem filename)
-    (reset-cycles cpu 10)
+    (reset-cycles cpu trace 10)
     (loop for count from 1 to 99999
        do
 	 (progn
 	   ;; Wait until there is a bus request...
-	   (tick-up cpu)
+	   (tick-up cpu trace)
 	   (loop until (and (eq (moxie-get-wb-stb-o cpu) 1)
 			    (eq (moxie-get-wb-cyc-o cpu) 1))
 	      initially (moxie-set-wb-ack-i cpu 0)
-	      do (progn (tick-down cpu) (format t ".") (tick-up cpu)))
+	      do (progn (tick-down cpu trace) (format t "+") (tick-up cpu trace)))
 	   ;; Read or write...
 	   (let ((adr (moxie-get-wb-adr-o cpu))
 		 (sel (moxie-get-wb-sel-o cpu)))
 	     (if (eq (moxie-get-wb-we-o cpu) 1)
 		 ;; We are writing.
 		 (let ((value (moxie-get-wb-dat-o cpu)))
-		   (format t "W[~X]@~X: ~X~%" sel adr value)
+		   ; (format t "W[~X]@~X: ~X~%" sel adr value)
 		   (cond
 		     ((eq sel 1)
 		      (sim-write-byte mem adr (ldb (byte 8 0) value)))	
@@ -160,13 +172,17 @@
 		     (t
 		      (format t "ERROR: INVALID sel~%")))
 		   (if (eq adr #xDEAD)
-		       (return)))
+		       (progn
+			 ; (format t "EXITING~%")
+			 (return))))
 		 ;; We are reading
 		 (let* ((low-byte (sim-read-byte mem adr))
 			(high-byte (sim-read-byte mem (+ adr 1))))
+		   ; (format t "R@~X~%" adr)
 		   (moxie-set-wb-dat-i cpu (+ (* low-byte 256) high-byte)))))
 	   (moxie-set-wb-ack-i cpu 1)
-	   (tick-down cpu)))
+	   (tick-down cpu trace))
+	 finally (format t "COUNT = ~A~%" count))
     ;; Compare the result stored at 0xC0FFEE0
     (let ((result (+ (ash (sim-read-byte mem #x00c0ffee0) 24)
 		     (ash (sim-read-byte mem #x00c0ffee1) 16)
@@ -174,9 +190,8 @@
 		     (sim-read-byte mem #x00c0ffee3)))
 	  (expected (parse-integer (cdr (assoc (file-namestring filename) *expected-results* :test #'string=)) :radix 16)))
       (format t "~A: expecting ~X, got ~X~%" filename expected result)
+      (VerilatedVcdC-close trace)
       (is (= result expected) (file-namestring filename)))))
-
-(load "expected-results.lisp")
 
 (test run-executable-tests
       (let ((test-binaries (directory "bin/*.x")))
