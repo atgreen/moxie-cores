@@ -181,7 +181,7 @@ module cpu_execute (/*AUTOARG*/
       dmem_cyc_o <= 0;
     end else begin
 	branch_flag_o <= branch_condition | (op_i == `OP_JMPA) | (current_state == STATE_JSR1);
-	if (branch_flag_o | flush_i)
+	if ((branch_flag_o | flush_i) & ! stall_i)
          begin
 	    /* We've just branched, so ignore any incoming instruction.  */
 	    pipeline_control_bits_o <= 6'b00000;
