@@ -6,4 +6,5 @@ _start:
 	jmpa    L1
 L2:	sta.b   0xdead, $r0
 L1:	sta.l   0x00c0ffee0, $r0
+	nop
 	jmpa    L2

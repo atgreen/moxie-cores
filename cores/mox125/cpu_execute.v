@@ -154,9 +154,9 @@ module cpu_execute (/*AUTOARG*/
      begin
        flush_o <= rst_i ? 1'b0 
 		  : flush_i 
-		    | branch_condition 
-		    | (op_i == `OP_JMPA) 
-		    | (current_state == STATE_JSR1);
+		  | branch_condition 
+		  | (op_i == `OP_JMPA) 
+		  | (op_i == `OP_JSRA);
      end
    
   assign next_state = (rst_i | branch_condition | branch_flag_o | flush_i ) ? STATE_READY :
@@ -180,7 +180,7 @@ module cpu_execute (/*AUTOARG*/
       dmem_stb_o <= 0;
       dmem_cyc_o <= 0;
     end else begin
-	branch_flag_o <= branch_condition | (op_i == `OP_JMPA) | (current_state == STATE_JSR1);
+        branch_flag_o <= branch_condition | (op_i == `OP_JMPA) | (op_i == `OP_JSRA);
 	if ((branch_flag_o | flush_i) & ! stall_i)
          begin
 	    /* We've just branched, so ignore any incoming instruction.  */
