@@ -165,8 +165,9 @@ module cpu_execute (/*AUTOARG*/
 		       ((op_i == `OP_RET) ? STATE_RET1 :
 		       ((op_i == `OP_STA_L) ? STATE_STA_L1 : 
 		       ((op_i == `OP_ST_L) ? STATE_STA_L1 : 
+		       ((op_i == `OP_PUSH) ? STATE_STA_L1 : 
 		       ((op_i == `OP_STO_L) ? STATE_STA_L1 : 
-			STATE_READY))))));
+			STATE_READY)))))));
 
   always @(posedge rst_i or posedge clk_i)
     current_state <= next_state;
@@ -409,9 +410,14 @@ module cpu_execute (/*AUTOARG*/
 		     begin
 		       // Decrement pointer register by 4 bytes.
 		       reg0_result_o <= regA_i - 4;
-		       memory_address_o <= regA_i - 4;
-		       mem_result_o <= regB_i;
 		       register0_write_index_o <= register0_write_index_i;
+		       // Write to memory
+		       dmem_data_o <= regB_i[31:16];
+		       dmem_address_o <= regA_i - 4;
+		       dmem_sel_o <= 2'b11;
+		       dmem_cyc_o <= 1;
+		       next_data <= regB_i[15:0];
+		       next_address <= regA_i - 2;
 		     end
 		   `OP_RET:
 		     begin
