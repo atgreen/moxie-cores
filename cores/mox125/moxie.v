@@ -213,6 +213,7 @@ module moxie (/*AUTOARG*/
 			   .PC_i                (fd_PC[31:0]),
 			   .valid_i		(fd_valid),
 			   .flush_i             (flush_x),
+			   .branch_flag_i       (xf_branch_flag),
 			   .stall_i             ((wb_we_o == 1) | (memory_wait_state == STATE_MEMWAIT)),
 			   // Outputs
 			   .pipeline_control_bits_o (dx_pipeline_control_bits),
@@ -248,8 +249,8 @@ module moxie (/*AUTOARG*/
 			     .dmem_we_o      (wb_D_we_o),
 			     .pcrel_offset_i (dx_pcrel_offset),
 			     .operand_i		(dx_operand[31:0]),
-			     .regA_i (forward_1_to_1 ? xr_reg1_result : (forward_2_to_1 ? xr_reg2_result : (maybe_forward_1_to_1 ? maybe_reg1 : rx_reg_value1))),
-			     .regB_i (forward_2_to_2 ? xr_reg2_result : (forward_1_to_2 ? xr_reg1_result : rx_reg_value2)),
+			     .regA_i (xf_branch_flag ? rx_reg_value1 : (forward_1_to_1 ? xr_reg1_result : (forward_2_to_1 ? xr_reg2_result : (maybe_forward_1_to_1 ? maybe_reg1 : rx_reg_value1)))),
+			     .regB_i (xf_branch_flag ? rx_reg_value2 : (forward_2_to_2 ? xr_reg2_result : (forward_1_to_2 ? xr_reg1_result : rx_reg_value2))),
 			     .branch_flag_o (xf_branch_flag),
 			     .branch_target_o (xf_branch_target),
 			     .pipeline_control_bits_i (dx_pipeline_control_bits),

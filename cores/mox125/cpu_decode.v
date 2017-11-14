@@ -26,7 +26,8 @@ module cpu_decode (/*AUTOARG*/
   op_o, PC_o, forward_1_to_1_o, forward_1_to_2_o, forward_2_to_1_o,
   forward_2_to_2_o,
   // Inputs
-  rst_i, clk_i, stall_i, flush_i, opcode_i, operand_i, valid_i, PC_i
+  rst_i, clk_i, stall_i, flush_i, branch_flag_i, opcode_i, operand_i,
+  valid_i, PC_i
   );
 
    // --- Clock and Reset ------------------------------------------
@@ -35,7 +36,8 @@ module cpu_decode (/*AUTOARG*/
    // --- Pipeline interlock and flush -----------------------------
    input  stall_i;
    input  flush_i;
-
+  input   branch_flag_i;
+  
    // --- Instructions ---------------------------------------------
    input [15:0] opcode_i;	
    input [31:0] operand_i;	
@@ -75,13 +77,14 @@ module cpu_decode (/*AUTOARG*/
   output reg 			   forward_2_to_2_o;
 
  always @(posedge clk_i)
-   begin
-     forward_1_to_1_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riA_o;
-     forward_1_to_2_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riB_o;
-     forward_2_to_1_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riA_o;
-     forward_2_to_2_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riB_o;
-   end
-  
+   if (! branch_flag_i)
+     begin
+       forward_1_to_1_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riA_o;
+       forward_1_to_2_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riB_o;
+       forward_2_to_1_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riA_o;
+       forward_2_to_2_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riB_o;
+     end
+
    // assign forward_1_to_1_o = pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riA_o;
    // assign forward_2_to_1_o = pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riB_o;
    // assign forward_1_to_2_o = pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riA_o;

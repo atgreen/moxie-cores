@@ -95,10 +95,12 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
 		    | (op == 8'h39)); // sto.s
   endfunction
 
-   
+  wire [15:0] 	cache_op;
+  assign opcode[15:0] = (valid & !stall_i) ? cache_op : 8'b00001111;
+    
   icache cache (
 		// Outputs
-		.inst_o (opcode[15:0]),
+		.inst_o (cache_op),
 		.data_o (operand[31:0]),
 		.hit_o (valid),
 		.wb_adr_o (imem_address_o),
