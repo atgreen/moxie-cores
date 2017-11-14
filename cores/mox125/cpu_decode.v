@@ -20,13 +20,14 @@
 `include "defines.h"
 
 module cpu_decode (/*AUTOARG*/
-   // Outputs
-   pipeline_control_bits_o, register0_write_index_o,
-   register1_write_index_o, operand_o, pcrel_offset_o, riA_o, riB_o,
-   op_o, PC_o,
-   // Inputs
-   rst_i, clk_i, stall_i, flush_i, opcode_i, operand_i, valid_i, PC_i
-   );
+  // Outputs
+  pipeline_control_bits_o, register1_write_index_o,
+  register2_write_index_o, operand_o, pcrel_offset_o, riA_o, riB_o,
+  op_o, PC_o, forward_1_to_1_o, forward_1_to_2_o, forward_2_to_1_o,
+  forward_2_to_2_o,
+  // Inputs
+  rst_i, clk_i, stall_i, flush_i, opcode_i, operand_i, valid_i, PC_i
+  );
 
    // --- Clock and Reset ------------------------------------------
    input  rst_i, clk_i;
@@ -43,8 +44,8 @@ module cpu_decode (/*AUTOARG*/
    
    // --- Outputs --------------------------------------------------
    output [`PCB_WIDTH-1:0] pipeline_control_bits_o;
-   output [3:0] 	   register0_write_index_o;
    output [3:0] 	   register1_write_index_o;
+   output [3:0] 	   register2_write_index_o;
    output [31:0] 	   operand_o;
    output [9:0] 	   pcrel_offset_o;
    output [3:0] 	   riA_o;
@@ -59,14 +60,32 @@ module cpu_decode (/*AUTOARG*/
    reg [31:0] 		   operand_o;
    reg [31:0] 		   PC_o;
    reg [`PCB_WIDTH-1:0]    pipeline_control_bits_o;
-   reg [3:0] 		   register0_write_index_o;
    reg [3:0] 		   register1_write_index_o;
+   reg [3:0] 		   register2_write_index_o;
 
    wire 		   foo = !opcode_i[15:15];
    wire [3:0] 		   b1 = opcode_i[3:0];
    wire [3:0] 		   b2 = opcode_i[7:4];
    wire [3:0] 		   b3 = opcode_i[11:8];
    wire [3:0] 		   b4 = opcode_i[15:12];
+
+  output reg  			   forward_1_to_1_o;
+  output reg 			   forward_1_to_2_o;
+  output reg 			   forward_2_to_1_o;
+  output reg 			   forward_2_to_2_o;
+
+ always @(posedge clk_i)
+   begin
+     forward_1_to_1_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riA_o;
+     forward_1_to_2_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riB_o;
+     forward_2_to_1_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riA_o;
+     forward_2_to_2_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riB_o;
+   end
+  
+   // assign forward_1_to_1_o = pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riA_o;
+   // assign forward_2_to_1_o = pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riB_o;
+   // assign forward_1_to_2_o = pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riA_o;
+   // assign forward_2_to_2_o = pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riB_o;
 
    wire [`PCB_WIDTH-1:0]   control;
 
@@ -85,30 +104,35 @@ module cpu_decode (/*AUTOARG*/
 
   always @(posedge clk_i)
     if (! stall_i) begin
-      pcrel_offset_o <= opcode_i[9:0];
-      if (opcode_i[15] == 0)
-	pipeline_control_bits_o <= control;
+      if (! valid_i)
+	pipeline_control_bits_o <= 6'b000000;
       else
-	casex (opcode_i[14:11])
-	  4'b1000: // INC
-	    begin
-	      pipeline_control_bits_o <= 6'b101000;
-	    end
-	  4'b1001: // DEC
-	    begin
-	      pipeline_control_bits_o <= 6'b101000;
-	    end
-	endcase
+	begin
+	  pcrel_offset_o <= opcode_i[9:0];
+	  if (opcode_i[15] == 0)
+	    pipeline_control_bits_o <= control;
+	  else
+	    casex (opcode_i[14:11])
+	      4'b1000: // INC
+		begin
+		  pipeline_control_bits_o <= 6'b101000;
+		end
+	      4'b1001: // DEC
+		begin
+		  pipeline_control_bits_o <= 6'b101000;
+		end
+	    endcase // casex (opcode_i[14:11])
+	end
     end
    
    always @(posedge clk_i)
      begin
-       if (!stall_i)
-	 if (!valid_i)
+       if (! stall_i)
+	 if (! valid_i)
 	   op_o <= `OP_NOP;
 	 else begin
-	   register0_write_index_o <= riA_o;
-	   register1_write_index_o <= riB_o;
+	   register1_write_index_o <= riA_o;
+	   register2_write_index_o <= riB_o;
 	   casex (opcode_i[15:8])
 	     8'b00000000:
 	       begin

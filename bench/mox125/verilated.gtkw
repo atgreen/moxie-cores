@@ -1,30 +1,48 @@
 [*]
 [*] GTKWave Analyzer v3.3.81 (w)1999-2017 BSI
-[*] Tue Nov  7 18:25:39 2017
+[*] Mon Nov 13 19:15:27 2017
 [*]
-[dumpfile] "/home/green/git/moxie-cores/bench/mox125/bin/test002.x.vcd"
-[dumpfile_mtime] "Tue Nov  7 17:58:40 2017"
-[dumpfile_size] 2608241
+[dumpfile] "/home/green/git/moxie-cores/bench/mox125/bin/test017.x.vcd"
+[dumpfile_mtime] "Mon Nov 13 19:14:39 2017"
+[dumpfile_size] 46164
 [savefile] "/home/green/git/moxie-cores/bench/mox125/verilated.gtkw"
-[timestart] 77
-[size] 1374 715
-[pos] 218 -7
-*-2.000000 90 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[timestart] 71
+[size] 1782 966
+[pos] -1 -1
+*-2.923844 72 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] TOP.
 [treeopen] TOP.moxie.
-[sst_width] 229
-[signals_width] 190
+[treeopen] TOP.moxie.stage_decode.
+[sst_width] 273
+[signals_width] 349
 [sst_expanded] 1
-[sst_vpaned_height] 272
+[sst_vpaned_height] 343
 @28
 TOP.moxie.clk_i
 TOP.moxie.rst
 TOP.moxie.stage_execute.stall_i
+@22
+TOP.moxie.dx_register1_write_index[3:0]
+TOP.moxie.dx_register2_write_index[3:0]
+TOP.moxie.dr_reg_index1[3:0]
+TOP.moxie.dr_reg_index2[3:0]
+@28
+TOP.moxie.forward_1_to_1
+TOP.moxie.forward_1_to_2
+TOP.moxie.forward_2_to_1
+TOP.moxie.forward_2_to_2
+TOP.moxie.xr_register1_write_enable[0]
+@22
+TOP.moxie.xr_register1_write_index[3:0]
+TOP.moxie.xr_reg1_result[31:0]
+TOP.moxie.xr_reg2_result[31:0]
 @200
 -
 -DECODE
 -
-@4023
+@22
+TOP.moxie.stage_decode.PC_i[31:0]
+@4022
 ^>1 /home/green/git/moxie-cores/soc/muskoka/gtkwave/gtkwave-opcodes.lisp
 TOP.moxie.stage_decode.opcode_i[15:0]
 @28
@@ -33,15 +51,29 @@ TOP.moxie.stage_decode.stall_i
 @2022
 ^1 /home/green/git/moxie-cores/soc/muskoka/gtkwave/gtkwave-ops.txt
 TOP.moxie.stage_decode.op_o[6:0]
+@22
+TOP.moxie.stage_decode.register1_write_index_o[3:0]
+TOP.moxie.stage_decode.register2_write_index_o[3:0]
+TOP.moxie.stage_decode.riA_o[3:0]
+TOP.moxie.stage_decode.riB_o[3:0]
+@28
+TOP.moxie.stage_decode.forward_1_to_1_o
+TOP.moxie.stage_decode.forward_1_to_2_o
+TOP.moxie.stage_decode.forward_2_to_1_o
+TOP.moxie.stage_decode.forward_2_to_2_o
 @200
 -
 -EXECUTE
 @22
 TOP.moxie.stage_execute.PC_i[31:0]
+@29
+TOP.moxie.stage_execute.branch_flag_o
 @2022
 ^1 /home/green/git/moxie-cores/soc/muskoka/gtkwave/gtkwave-ops.txt
 TOP.moxie.stage_execute.op_i[6:0]
 @22
+TOP.moxie.stage_execute.regA_i[31:0]
+TOP.moxie.stage_execute.regB_i[31:0]
 TOP.moxie.stage_execute.operand_i[31:0]
 @28
 TOP.moxie.stage_execute.dmem_ack_i
@@ -51,5 +83,24 @@ TOP.moxie.stage_execute.dmem_address_o[31:0]
 TOP.moxie.stage_execute.dmem_data_o[15:0]
 @28
 TOP.moxie.stage_execute.current_state[2:0]
+@22
+TOP.moxie.stage_execute.reg1_result_o[31:0]
+TOP.moxie.stage_execute.register1_write_index_i[3:0]
+TOP.moxie.stage_execute.register1_write_index_o[3:0]
+TOP.moxie.stage_execute.register2_write_index_i[3:0]
+TOP.moxie.stage_execute.register2_write_index_o[3:0]
+@28
+TOP.moxie.stage_execute.register_wea_o
+TOP.moxie.stage_execute.register_web_o
+@200
+-
+-REGS
+@22
+TOP.moxie.regs.mem(0)[31:0]
+TOP.moxie.regs.mem(1)[31:0]
+TOP.moxie.regs.mem(2)[31:0]
+TOP.moxie.regs.mem(3)[31:0]
+@200
+-
 [pattern_trace] 1
 [pattern_trace] 0

@@ -152,7 +152,7 @@
     (with-verilated-trace cpu trace (format nil "~A.vcd" filename)
        (load-elf-executable mem filename)
        (reset-cycles cpu trace 10)
-       (loop for count from 1 to 99999
+       (loop for count from 1 to 200
 	  do
 	    (progn
 	      ;; Wait until there is a bus request...
@@ -160,14 +160,18 @@
 	      (loop until (and (eq (moxie-get-wb-stb-o cpu) 1)
 			       (eq (moxie-get-wb-cyc-o cpu) 1))
 		 initially (moxie-set-wb-ack-i cpu 0)
-		 do (progn (tick-down cpu trace) (format t "+") (tick-up cpu trace)))
+		 do (progn (tick-down cpu trace)
+			   (if (> count 200) (return))
+			   (format t "+")
+			   (tick-up cpu trace)))
+	      (if (> count 1000) (return))
 	      ;; Read or write...
 	      (let ((adr (moxie-get-wb-adr-o cpu))
 		    (sel (moxie-get-wb-sel-o cpu)))
 		(if (eq (moxie-get-wb-we-o cpu) 1)
 		    ;; We are writing.
 		    (let ((value (moxie-get-wb-dat-o cpu)))
-					; (format t "W[~X]@~X: ~X~%" sel adr value)
+		      (format t "W[~X]@~X: ~X~%" sel adr value)
 		      (cond
 			((eq sel 1)
 			 (sim-write-byte mem adr (ldb (byte 8 0) value)))	

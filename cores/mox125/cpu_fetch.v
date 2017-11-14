@@ -1,6 +1,6 @@
 // cpu_fetch.v - The instruction fetch unit
 //
-// Copyright (c) 2010, 2011, 2012 Anthony Green.
+// Copyright (c) 2010, 2011, 2012, 2017 Anthony Green.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -82,7 +82,7 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
 		    | (op == 8'h22) // lda.s
 		    | (op == 8'h24) // sta.s
 		    | (op == 8'h25) // jmp
-		     | (op == 8'h30)); // swi
+		    | (op == 8'h30)); // swi
   endfunction
 
    function [0:0] is_32bit_insn;

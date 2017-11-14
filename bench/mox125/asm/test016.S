@@ -3,9 +3,9 @@
 	.global	_start
 _start:	
 	ldi.l   $r0, 0x11112222
-	jsra    L1
+	jsra    fn
 	nop
 	ldi.l   $r0, 0xffffffff
 
-fn:	L1:	sta.l   0x00c0ffee0, $r0
+fn:	sta.l   0x00c0ffee0, $r0
 	sta.b   0xdead, $r0

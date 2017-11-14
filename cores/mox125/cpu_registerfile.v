@@ -29,9 +29,9 @@ module cpu_registerfile (/*AUTOARG*/
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
 
-   output reg [31:0] value0_o, value1_o;
-   output [31:0] sp_o /*verilator public*/;
-   output [31:0] fp_o /*verilator public*/;
+  output reg [31:0] value0_o, value1_o;
+  output [31:0] sp_o /*verilator public*/;
+  output [31:0] fp_o /*verilator public*/;
 
   input 	 write_enable0_i /*verilator public*/;
   input write_enable1_i /*verilator public*/;
