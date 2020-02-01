@@ -1,8 +1,8 @@
-LIBRARY ieee;
-USE ieee.std_logic_1164.ALL;
-USE ieee.numeric_std.ALL;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
-PACKAGE moxielite_package IS
+package moxielite_package is
 
 -- ALU operations
 type aluop_type is 
@@ -27,10 +27,10 @@ type aluop_type is
 	aluop_not,	
 	aluop_neg,
 	aluop_mov,
-        aluop_sexb,
-        aluop_sexs,
-        aluop_zexb,
-        aluop_zexs,
+	aluop_sexb,
+	aluop_sexs,
+	aluop_zexb,
+	aluop_zexs,
 
 	-- Sequential Operations
 	-- (implemented by secondary ALU)
@@ -89,19 +89,19 @@ type state_type is
 	state_execute_alu2_wait,
 	state_execute_swi,
 	state_execute_brk,
-        state_execute_cas,
+	state_execute_cas,
 
 	state_execute_bad,
 
 	state_execute_gsr,
 	state_execute_ssr,
 
-        state_debug,
-        state_debug_dump_reg_high,
-        state_debug_dump_reg_low,
-        state_debug_dump_PC_high,
-        state_debug_dump_PC_low,
-        
+	state_debug,
+	state_debug_dump_reg_high,
+	state_debug_dump_reg_low,
+	state_debug_dump_PC_high,
+	state_debug_dump_PC_low,
+		
 	-- Auxillary states
 	state_error
 );

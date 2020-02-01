@@ -1,25 +1,25 @@
 -- Implementation of moxielite
-LIBRARY ieee;
-USE ieee.std_logic_1164.ALL;
-USE ieee.std_logic_unsigned.all;
-USE ieee.numeric_std.ALL;
-USE work.moxielite_package.ALL;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.moxielite_package.all;
  
-ENTITY moxielite_alu2 IS
-	PORT
-	(
-		clock : in std_logic;
-		reset : in std_logic;
-		Load : in std_logic;						-- Set to 1 to start operation
-		A : in std_logic_vector(31 downto 0);		-- first arg
-		B : in std_logic_vector(31 downto 0);		-- second arg
-		AluOp : in aluop_type;						-- operation kind
-		R : out std_logic_vector(63 downto 0);		-- result
-		Ready : out std_logic						-- Indicates when result is ready
-	);
-END moxielite_alu2;
+entity moxielite_alu2 is
+port
+(
+	clock : in std_logic;
+	clken : in std_logic;
+	reset : in std_logic;
+	Load : in std_logic;						-- Set to 1 to start operation
+	A : in std_logic_vector(31 downto 0);		-- first arg
+	B : in std_logic_vector(31 downto 0);		-- second arg
+	AluOp : in aluop_type;						-- operation kind
+	R : out std_logic_vector(63 downto 0);		-- result
+	Ready : out std_logic						-- Indicates when result is ready
+);
+end moxielite_alu2;
  
-ARCHITECTURE behavior OF moxielite_alu2 IS 
+architecture behavior of moxielite_alu2 is 
 
 	type state_type is
 	(
@@ -48,11 +48,11 @@ ARCHITECTURE behavior OF moxielite_alu2 IS
 	-- Helper to take the absolute value of an operand
 	function abs_helper(
 			val : in std_logic_vector(31 downto 0);
-			signed : in  std_logic
+			is_signed : in  std_logic
 			) return std_logic_vector is 
 	begin
-		if (val(31) and signed)='1' then 
-			return not(val) + '1';
+		if (val(31) and is_signed)='1' then 
+			return std_logic_vector(unsigned(not(val)) + 1);
 		else 
 			return val;
 		end if;
@@ -81,6 +81,7 @@ BEGIN
 		PORT MAP
 		(
 			clock => clock,
+			clken => clken,
 			A => A_abs,
 			B => B_abs,
 			R => multiplier_R
@@ -88,102 +89,105 @@ BEGIN
 
 	-- The divider
 	moxielite_divider : entity work.moxielite_divider
-		PORT MAP
-		(
-			Clock => clock,
-			Reset => reset,
-			Load => divider_load,
-			Numerator => A_abs,
-			Denominator => B_abs,
-			Ready => divider_ready,
-			Quotient => divider_quotient,
-			Remainder => divider_remainder
-		);
+	PORT MAP
+	(
+		Clock => clock,
+		ClkEn => clken,
+		Reset => reset,
+		Load => divider_load,
+		Numerator => A_abs,
+		Denominator => B_abs,
+		Ready => divider_ready,
+		Quotient => divider_quotient,
+		Remainder => divider_remainder
+	);
 
 
-
-
-	process (clock, reset)
+	process (clock)
 	begin
 
-		if reset='1' then
+		if rising_edge(clock) then
 
-			state <= state_idle;
-			divider_load <= '0';
+			if reset='1' then
 
-		elsif rising_edge(clock) then
+				state <= state_idle;
+				divider_load <= '0';
 
-			case state is
+			elsif clken = '1' then
 
-				when state_idle =>
+				case state is
 
-					if Load='1' then
+					when state_idle =>
 
-						if AluOp=aluop_mul or AluOp=aluop_umul then
-							state <= state_mul_1;
-						elsif AluOp=aluop_div or AluOp=aluop_udiv then
-							state <= state_div_1;
-							divider_load <= '1';
-						else
-							state <= state_mod_1;
-							divider_load <= '1';
+						if Load='1' then
+
+							if AluOp=aluop_mul or AluOp=aluop_umul then
+								state <= state_mul_1;
+							elsif AluOp=aluop_div or AluOp=aluop_udiv then
+								state <= state_div_1;
+								divider_load <= '1';
+							else
+								state <= state_mod_1;
+								divider_load <= '1';
+							end if;
+
 						end if;
 
-					end if;
+					when state_mul_1 =>
 
-				when state_mul_1 =>
+						state <= state_mul_2;
 
-					state <= state_mul_2;
+					when state_mul_2 =>
 
-				when state_mul_2 =>
-
-					if negative='1' then
-						R <= NOT(multiplier_R) + '1';
-					else
-						R <= multiplier_R;
-					end if;
-
-					state <= state_idle;
-
-				when state_div_1 =>
-
-					state <= state_div_2;
-					divider_load <= '0';
-
-				when state_div_2 =>
-
-					if divider_ready = '1' then
-
-						R(63 downto 32) <= (others=>'0');
 						if negative='1' then
-							R(31 downto 0) <= NOT(divider_quotient) + '1';
+							R <= std_logic_vector(unsigned(NOT multiplier_R) + 1);
 						else
-							R(31 downto 0) <= divider_quotient;
+							R <= multiplier_R;
 						end if;
 
 						state <= state_idle;
-					end if;
 
-				when state_mod_1 =>
+					when state_div_1 =>
 
-					state <= state_mod_2;
-					divider_load <= '0';
+						state <= state_div_2;
+						divider_load <= '0';
 
-				when state_mod_2 =>
+					when state_div_2 =>
 
-					if divider_ready = '1' then
+						if divider_ready = '1' then
 
-						R(63 downto 32) <= (others=>'0');
-						if (A(31) and signed)='1' then
-							R(31 downto 0) <= NOT(divider_remainder) + '1';
-						else
-							R(31 downto 0) <= divider_remainder;
+							R(63 downto 32) <= (others=>'0');
+							if negative='1' then
+								R(31 downto 0) <= std_logic_vector((unsigned(NOT(divider_quotient)) + 1));
+							else
+								R(31 downto 0) <= divider_quotient;
+							end if;
+
+							state <= state_idle;
 						end if;
 
-						state <= state_idle;
-					end if;
+					when state_mod_1 =>
 
-			end case;
+						state <= state_mod_2;
+						divider_load <= '0';
+
+					when state_mod_2 =>
+
+						if divider_ready = '1' then
+
+							R(63 downto 32) <= (others=>'0');
+							if (A(31) and signed)='1' then
+								R(31 downto 0) <= std_logic_vector(unsigned(NOT divider_remainder) + 1);
+							else
+								R(31 downto 0) <= divider_remainder;
+							end if;
+
+							state <= state_idle;
+						end if;
+
+				end case;
+
+			end if;
 
 		end if;
 
