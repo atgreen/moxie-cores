@@ -1,26 +1,26 @@
 -- Implementation of moxielite
-LIBRARY ieee;
-USE ieee.std_logic_1164.ALL;
-USE ieee.numeric_std.ALL;
-USE work.moxielite_package.ALL;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.moxielite_package.all;
  
-ENTITY moxielite_alu IS
-	PORT
-	(
-		A : in std_logic_vector(31 downto 0);		-- first arg
-		B : in std_logic_vector(31 downto 0);		-- second arg
-		C : in std_logic;							-- carry flag in
-		Op : in aluop_type;							-- operation (aluop_*)
+entity moxielite_alu is
+port
+(
+	A : in std_logic_vector(31 downto 0);		-- first arg
+	B : in std_logic_vector(31 downto 0);		-- second arg
+	C : in std_logic;							-- carry flag in
+	Op : in aluop_type;							-- operation (aluop_*)
 
-		R : out std_logic_vector(31 downto 0);		-- result
-		ZFlag : out std_logic;						-- zero flag out
-		CFlag : out std_logic;						-- carry flag out
-		OFlag : out std_logic;						-- overflow flag 
-		SFlag : out std_logic						-- sign flag
-	);
-END moxielite_alu;
+	R : out std_logic_vector(31 downto 0);		-- result
+	ZFlag : out std_logic;						-- zero flag out
+	CFlag : out std_logic;						-- carry flag out
+	OFlag : out std_logic;						-- overflow flag 
+	SFlag : out std_logic						-- sign flag
+);
+end moxielite_alu;
  
-ARCHITECTURE behavior OF moxielite_alu IS 
+architecture behavior of moxielite_alu is 
  
  	signal R_int : std_logic_vector(31 downto 0);
 
@@ -248,4 +248,4 @@ BEGIN
 	CFlag <= CFlag_int;
 	R <= R_int;
 
-END;
+end;

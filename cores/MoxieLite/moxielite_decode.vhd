@@ -1,24 +1,24 @@
 -- Implementation of moxielite
-LIBRARY ieee;
-USE ieee.std_logic_1164.ALL;
-USE ieee.numeric_std.ALL;
-USE work.moxielite_package.ALL;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.moxielite_package.all;
 
-ENTITY moxielite_decode IS
-	PORT
-	(
-		Instruction : in std_logic_vector(15 downto 0);
-		ExecuteState : out state_type;
-		Condition : out condition_type;
-		AddrMode : out addrmode_type;
-		AluOp : out aluop_type;
-		InstructionForm : out instruction_form_type;
-		PtrSize : out std_logic_vector(2 downto 0)
-	);
-END moxielite_decode;
+entity moxielite_decode is
+port
+(
+	Instruction : in std_logic_vector(15 downto 0);
+	ExecuteState : out state_type;
+	Condition : out condition_type;
+	AddrMode : out addrmode_type;
+	AluOp : out aluop_type;
+	InstructionForm : out instruction_form_type;
+	PtrSize : out std_logic_vector(2 downto 0)
+);
+end moxielite_decode;
 
-ARCHITECTURE behavior OF moxielite_decode IS
-BEGIN
+architecture behavior of moxielite_decode is
+begin
 
 	decode_instruction : process(Instruction)
 	begin
@@ -464,4 +464,4 @@ BEGIN
 
 	end process decode_instruction;
 
-END;
+end;
