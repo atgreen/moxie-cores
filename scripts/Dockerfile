@@ -6,7 +6,7 @@ ADD install.lisp /tmp/install.lisp
 
 RUN dnf update -y \
     && dnf install -y \
-           http://repos.moxielogic.org:7007/MoxieLogic/noarch/moxielogic-repo-latest.noarch.rpm \
+           https://repos.moxielogic.org:7007/MoxieLogic/noarch/moxielogic-repo-latest.noarch.rpm \
     && dnf install -y verilator sbcl gcc-c++ \
            make moxielogic-moxie-elf-gcc wget \
 	   iverilog \
