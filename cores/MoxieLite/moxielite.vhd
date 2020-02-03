@@ -130,7 +130,7 @@ BEGIN
 	sp_plus_offset <= std_logic_vector(unsigned(regfile(1)) + unsigned(sp_offset));
 
 	-- Generate output signals o_rd, o_wr, wr_h and wr_l
-	output_signals : process (state_resolved, PC, ptr, addr_reg, data_bswap, data_byte_index, data_byte_count)
+	output_signals : process (state_resolved, PC, ptr, addr_reg, data_bswap, data_byte_index, data_byte_count, regfile, reg_dump_index)
 	begin
 
 		o_rd <= '0';
@@ -535,7 +535,7 @@ BEGIN
 	end process resolve_has_imm;
 
 	-- Resolve pseudo states into an actual state
-	resolve_state : process(state, execute_state, has_imm32, have_imm32, deref_ptr, have_deref)
+	resolve_state : process(state, execute_state, has_imm32, has_imm16, have_imm32, deref_ptr, have_deref)
 	begin
 		case state is
 
