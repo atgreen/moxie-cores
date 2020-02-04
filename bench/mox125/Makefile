@@ -22,7 +22,7 @@ microcode.bin: ../../cores/mox125/microcode.bin
 bootrom.x: ../../firmware/bootrom/tinystart.S \
 		../../firmware/bootrom/tinystub.c \
                 ../../firmware/bootrom/handler.S
-	moxie-elf-gcc -mno-crt0 -O2 -g -o bootrom.x -T../../soc/marin/moxie-marin-onchip.ld -Wl,-verbose $^
+	moxie-elf-gcc -mno-crt0 -Os -g -o bootrom.x -T../../soc/marin/moxie-marin-onchip.ld -Wl,-verbose $^
 
 clean:
 	-rm -rf obj_dir *~ microcode.bin *.x *.o typescript bin/*
