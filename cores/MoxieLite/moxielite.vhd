@@ -5,6 +5,22 @@ use ieee.numeric_std.all;
 use work.moxielite_package.all;
 use std.textio.all; --  Imports the standard textio package.
 
+-- Big Endian builds (p_big_endian = '1')
+--
+--  i_din/o_dout(15 downto 8) = the byte at i_addr
+--  i_din/o_dout(7 downto 0) = the byte at i_addr + 1
+--  o_wr_mask(1) = write o_dout(15 downto 8) to i_addr
+--  o_wr_mask(0) = write o_dout(7 downto 0) to i_addr + 1
+--
+-- Little Endian builds (p_big_endian = '0')
+--
+--  i_din/o_dout(7 downto 0) = the byte at i_addr
+--  i_din/o_dout(15 downto 8) = the byte at i_addr + 1
+--  o_wr_mask(0) = write o_dout(7 downto 0) to i_addr
+--  o_wr_mask(1) = write o_dout(15 downto 8) to i_addr + 1
+--
+-- (ie: the o_wr_mask bits always refer to the adjacent bits in o_dout)
+
 
 entity moxielite is
 generic
@@ -23,7 +39,7 @@ port
 	o_dout : out std_logic_vector(15 downto 0);
 	o_rd : out std_logic;
 	o_wr : out std_logic;
-	o_wr_mask : out std_logic_vector(1 downto 0);   	-- (0) = lower byte, (1) = upper byte.  '1' = don't write (ie: masked)
+	o_wr_mask : out std_logic_vector(1 downto 0);   	-- (0) = o_dout(7 downto 0), (1) = o_dout(15 downto 8).  '1' = don't write (ie: masked)
 	o_debug : out std_logic_vector(7 downto 0);
 	i_gdb : in std_logic_vector(1 downto 0);
 	i_irq : in std_logic;
@@ -48,7 +64,6 @@ architecture behavior OF moxielite IS
 	signal addr_reg : std_logic_vector(31 downto 0);
 	signal addr_reg_plus_cycle_bytes : std_logic_vector(31 downto 0);
 	signal data_reg : std_logic_vector(31 downto 0);
-	signal data_bswap : std_logic_vector(31 downto 0);
 	signal data_byte_index : std_logic_vector(2 downto 0);
 	signal data_byte_count : std_logic_vector(2 downto 0);
 	signal data_byte_index_plus_cycle_bytes : std_logic_vector(2 downto 0);
@@ -130,7 +145,7 @@ BEGIN
 	sp_plus_offset <= std_logic_vector(unsigned(regfile(1)) + unsigned(sp_offset));
 
 	-- Generate output signals o_rd, o_wr, wr_h and wr_l
-	output_signals : process (state_resolved, PC, ptr, addr_reg, data_bswap, data_byte_index, data_byte_count, regfile, reg_dump_index)
+	output_signals : process (state_resolved, PC, ptr, addr_reg, data_reg, data_byte_index, data_byte_count, regfile, reg_dump_index)
 	begin
 
 		o_rd <= '0';
@@ -177,65 +192,119 @@ BEGIN
 				o_wr_mask(0) <= '1';
 				o_wr_mask(1) <= '1';
 
-				-- Ugh! Handle unaligned memory reads
-				if data_byte_index(1 downto 0)="00" then
+				-- Ugh! Handle big vs little and aligned vs unaligned memory writes
+				if p_big_endian = '1' then
 
-					if addr_reg(0)='0' then
+					if data_byte_index(1 downto 0)="00" then
 
-						if data_byte_count="001" then
+						if addr_reg(0)='0' then
 
-							-- Aligned only byte
-							o_dout(15 downto 8) <= data_bswap(7 downto 0);
-							o_wr_mask(0) <= '0';
-
+							-- Aligned
+							if data_byte_count="001" then
+								o_dout(15 downto 8) <= data_reg(7 downto 0);			-- Single byte
+								o_wr_mask(1) <= '0';
+							elsif data_byte_count="010" then
+								o_dout(15 downto 0) <= data_reg(15 downto 0);			-- Single word
+								o_wr_mask(1) <= '0';
+								o_wr_mask(0) <= '0';
+							else
+								o_dout(15 downto 0) <= data_reg(31 downto 16);			-- First word of double word
+								o_wr_mask(1) <= '0';
+								o_wr_mask(0) <= '0';
+							end if;
 						else
 
-							-- Aligned first or only word
-							o_dout <= data_bswap(15 downto 0);
-							o_wr_mask(1) <= '0';
-							o_wr_mask(0) <= '0';
+							-- Unaligned
+							if data_byte_count="001" then
+								o_dout(7 downto 0) <= data_reg(7 downto 0);				-- Single byte
+								o_wr_mask(0) <= '0';
+							elsif data_byte_count="010" then
+								o_dout(7 downto 0) <= data_reg(15 downto 8);			-- First byte of word
+								o_wr_mask(0) <= '0';
+							else
+								o_dout(7 downto 0) <= data_reg(31 downto 24);			-- First byte of double word
+								o_wr_mask(0) <= '0';
+							end if;
 
 						end if;
+
+					elsif data_byte_index(1 downto 0)="01" then
+
+						-- Unaligned
+						if data_byte_count="010" then
+							o_dout(15 downto 8) <= data_reg(7 downto 0);				-- Second byte of word
+							o_wr_mask(1) <= '0';
+						else
+							o_dout <= data_reg(23 downto 8);							-- Second and third bytes of unaligned dword
+							o_wr_mask(1) <= '0';
+							o_wr_mask(0) <= '0';
+						end if;
+
+					elsif data_byte_index(1 downto 0)="10" then
+
+						-- Aligned
+						o_dout(15 downto 0) <= data_reg(15 downto 0);					-- Second word of double word
+						o_wr_mask(1) <= '0';
+						o_wr_mask(0) <= '0';
+
 					else
 
-						-- Unaligned first or only byte
-						o_dout(7 downto 0) <= data_bswap(7 downto 0);
+						-- Unaligned
+						o_dout(15 downto 8) <= data_reg(7 downto 0);					-- Final byte of double word
 						o_wr_mask(1) <= '0';
 
 					end if;
 
-				elsif data_byte_index(1 downto 0)="01" then
 
-					-- Must be unaligned to have this index
-
-					if data_byte_count="010" then
-
-						-- Second byte of unaligned word read
-						o_dout(15 downto 8) <= data_bswap(15 downto 8);
-						o_wr_mask(0) <= '0';
-
-					else
-
-						-- Second and third bytes of unaligned dword read
-						o_dout <= data_bswap(23 downto 8);
-						o_wr_mask(1) <= '0';
-						o_wr_mask(0) <= '0';
-
-					end if;
-
-				elsif data_byte_index(1 downto 0)="10" then
-
-					-- Second word of alighed dword read
-					o_dout(15 downto 0) <= data_bswap(31 downto 16);
-					o_wr_mask(1) <= '0';
-					o_wr_mask(0) <= '0';
 
 				else
+					if data_byte_index(1 downto 0)="00" then
 
-					-- Final byte of unaligned dword read
-					o_dout(15 downto 8) <= data_bswap(31 downto 24);
-					o_wr_mask(0) <= '0';
+						if addr_reg(0)='0' then
 
+							-- Aligned
+							if data_byte_count="001" then
+								o_dout(7 downto 0) <= data_reg(7 downto 0);				-- Single byte
+								o_wr_mask(0) <= '0';
+							else
+								o_dout <= data_reg(15 downto 0);						-- First or only word
+								o_wr_mask(1) <= '0';
+								o_wr_mask(0) <= '0';
+							end if;
+						else
+
+							-- Unaligned
+							o_dout(15 downto 8) <= data_reg(7 downto 0);				-- First or only byte
+							o_wr_mask(1) <= '0';
+
+						end if;
+
+					elsif data_byte_index(1 downto 0)="01" then
+
+						-- Unaligned
+						if data_byte_count="010" then
+							o_dout(7 downto 0) <= data_reg(15 downto 8);				-- Second byte of unaligned word
+							o_wr_mask(0) <= '0';
+						else
+							o_dout <= data_reg(23 downto 8);							-- Second and third bytes of unaligned dword
+							o_wr_mask(1) <= '0';
+							o_wr_mask(0) <= '0';
+						end if;
+
+					elsif data_byte_index(1 downto 0)="10" then
+
+						-- Aligned
+						o_dout(15 downto 0) <= data_reg(31 downto 16);					-- Second word of double word
+						o_wr_mask(1) <= '0';
+						o_wr_mask(0) <= '0';
+
+					else
+
+						-- Unaligned
+						o_dout(7 downto 0) <= data_reg(31 downto 24);					-- Final byte of double word
+						o_wr_mask(0) <= '0';
+
+					end if;
 				end if;
 
 
@@ -361,7 +430,7 @@ BEGIN
 	end process operand_A_decoder;
 
 	-- Operand B decoder
-	operand_B_decoder : process(addrmode, reg_A_value, reg_B_value, imm32_reg, data_bswap, instruction)
+	operand_B_decoder : process(addrmode, reg_A_value, reg_B_value, imm32_reg, data_reg, instruction)
 	begin
 		case addrmode is
 
@@ -372,7 +441,7 @@ BEGIN
 				operand_B <= imm32_reg;
 
 			when addrmode_a_immptr | addrmode_a_bptr | addrmode_a_bptro=>
-				operand_B <= data_bswap;
+				operand_B <= data_reg;
 
 			when addrmode_immptr_a =>
 				operand_B <= reg_A_value;
@@ -567,38 +636,6 @@ BEGIN
 
 	end process resolve_state;
 
-	-- Byte swap the data register
-	-- Used to fix up data reads and writes for big endian
-	bswap_data_reg : process(data_reg, data_byte_count)
-	begin
-
-		if p_big_endian='1' then
-
-			case data_byte_count is
-
-				when "001" =>
-					data_bswap <= data_reg;
-
-				when "010" =>
-					data_bswap <= data_reg;
-
-				when "100" =>
-					data_bswap <= data_reg(15 downto 8) & data_reg(7 downto 0) & data_reg(31 downto 24)  & data_reg(23 downto 16);
-
-				when others =>
-					data_bswap <= x"00000000";
-
-			end case;
-
-		else
-
-			data_bswap <= data_reg;
-
-		end if;
-
-	end process bswap_data_reg;
-
-
 	-- Main CPU State Machine
 	cpufsm : process(i_clock)
 		variable l : line;
@@ -724,11 +761,7 @@ BEGIN
 								PC <= PC_plus_2;
 
 								-- AG FIX
-								if p_big_endian='0' then
-									instruction <= i_din(7 downto 0) & i_din(15 downto 8);
-								else
-									instruction <= i_din;
-								end if;
+								instruction <= i_din;
 								state <= state_decode;
 
 							end if;
@@ -766,7 +799,7 @@ BEGIN
 							-- Store it and continue decoding
 							PC <= addr_reg;
 							have_imm32 <= '1';
-							imm32_reg <= data_bswap;
+							imm32_reg <= data_reg;
 							state <= state_decode;
 							o_debug <= "00000110";
 
@@ -807,59 +840,100 @@ BEGIN
 								-- Update the address register
 								addr_reg <= addr_reg_plus_cycle_bytes;
 
-								-- Ugh! Handle unaligned memory reads
-								if data_byte_index(1 downto 0)="00" then
+								-- Ugh! Handle big vs little and aligned vs unaligned memory reads
+								if p_big_endian = '1' then
 
-									if addr_reg(0)='0' then
+									if data_byte_index(1 downto 0)="00" then
 
-										if data_byte_count="001" then
+										if addr_reg(0)='0' then
 
-											-- Aligned only
-											-- byte
-											-- BIG ENDIAN
-											data_reg(7 downto 0) <= i_din(15 downto 8);
+											-- Aligned
+											if data_byte_count="001" then
+												data_reg(7 downto 0) <= i_din(15 downto 8);			-- single byte
+											elsif data_byte_count="010" then
+												data_reg(15 downto 0) <= i_din;						-- single word
+											else
+												data_reg(31 downto 16) <= i_din;					-- first word of double word
+											end if;
 
 										else
 
-											-- Aligned first or only word
-											data_reg(15 downto 0) <= i_din;
+											-- Unaligned
+											if data_byte_count="001" then
+												data_reg(7 downto 0) <= i_din(7 downto 0);			-- single byte
+											elsif data_byte_count="010" then
+												data_reg(15 downto 8) <= i_din(7 downto 0);			-- high byte of single word
+											else
+												data_reg(31 downto 24) <= i_din(7 downto 0);		-- high byte of double word
+											end if;
 
 										end if;
-									else
 
-										-- Unaligned first or only byte
-										-- BIG ENDIAN ONLY
-										data_reg(7 downto 0) <= i_din(7 downto 0);
+									elsif data_byte_index(1 downto 0)="01" then
 
-									end if;
+										-- Unaligned
+										if data_byte_count="010" then
+											data_reg(7 downto 0) <= i_din(15 downto 8);				-- low byte of single word
+										else
+											data_reg(23 downto 8) <= i_din;							-- middle 2 bytes of double word
+										end if;
 
-								elsif data_byte_index(1 downto 0)="01" then
+									elsif data_byte_index(1 downto 0)="10" then
 
-									-- Must be unaligned to have this index
-
-									if data_byte_count="010" then
-
-										-- Second byte of unaligned word read
-										data_reg(15 downto 8) <= i_din(7 downto 0);
+										-- Aligned
+										data_reg(15 downto 0) <= i_din;								-- second word of double word
 
 									else
 
-										-- Second and third bytes of unaligned dword read
-										data_reg(23 downto 8) <= i_din;
+										-- Unaligned
+										data_reg(7 downto 0) <= i_din(15 downto 8);					-- Final byte of unaligned dword read
 
 									end if;
 
-								elsif data_byte_index(1 downto 0)="10" then
-
-									-- Second word of alighed dword read
-									data_reg(31 downto 16) <= i_din;
 
 								else
+									
+									if data_byte_index(1 downto 0)="00" then
 
-									-- Final byte of unaligned dword read
-									data_reg(31 downto 24) <= i_din(7 downto 0);
+										if addr_reg(0)='0' then
+
+											-- Aligned
+											if data_byte_count="001" then
+												data_reg(7 downto 0) <= i_din(7 downto 0);			-- single byte
+											else
+												data_reg(15 downto 0) <= i_din(15 downto 0);		-- first or only word
+											end if;
+
+										else
+
+											-- Unaligned
+											data_reg(7 downto 0) <= i_din(15 downto 8);				-- first or only byte
+
+										end if;
+
+									elsif data_byte_index(1 downto 0)="01" then
+
+										-- Unaligned
+										if data_byte_count="010" then
+											data_reg(15 downto 8) <= i_din(7 downto 0);				-- Second byte of unaligned word
+										else
+											data_reg(23 downto 8) <= i_din;							-- Second and third bytes of unaligned double word
+										end if;
+
+									elsif data_byte_index(1 downto 0)="10" then
+
+										-- Aligned
+										data_reg(31 downto 16) <= i_din;								-- Second word of aligned double word
+
+									else
+
+										-- Unaligned
+										data_reg(31 downto 24) <= i_din(7 downto 0);				-- Final byte of unaligned double word
+
+									end if;
 
 								end if;
+
 
 								-- Read more, or return continue to next state
 								if data_byte_index_plus_cycle_bytes = data_byte_count then
@@ -961,7 +1035,7 @@ BEGIN
 
 						when state_execute_pop_2 =>
 
-							regfile(to_integer(unsigned(reg_B))) <= data_bswap;
+							regfile(to_integer(unsigned(reg_B))) <= data_reg;
 							state <= state_fetch_pre;
 							o_debug <= "00010101";
 
@@ -1036,7 +1110,7 @@ BEGIN
 						when state_execute_ret_2 =>
 
 							-- Store FP
-							regfile(0) <= data_bswap;
+							regfile(0) <= data_reg;
 
 
 							-- Pop PC
@@ -1052,7 +1126,7 @@ BEGIN
 
 						when state_execute_ret_3 =>
 
-							PC <= data_bswap;
+							PC <= data_reg;
 							state <= state_fetch_pre;
 							regfile(1) <= sp_plus_offset;		-- SP+=8
 							o_debug <= "00011101";
