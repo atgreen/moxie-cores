@@ -65,7 +65,7 @@ module moxie (/*AUTOARG*/
   assign wb_D_dat_i = wb_dat_i;
   assign wb_dat_o = wb_D_dat_o;
   assign wb_adr_o = wb_D_cyc_o ? wb_D_adr_o : wb_I_adr_o;
-  assign wb_sel_o = wb_D_cyc_o ? wb_D_sel_o : 4'b11;
+  assign wb_sel_o = wb_D_cyc_o ? wb_D_sel_o : 2'b11;
   assign wb_we_o = wb_D_cyc_o ? wb_D_we_o : 1'b0;
   assign wb_cyc_o = wb_D_cyc_o | wb_I_cyc_o;
   assign wb_stb_o = wb_D_cyc_o ? wb_D_stb_o : wb_I_stb_o;

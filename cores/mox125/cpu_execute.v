@@ -1,6 +1,6 @@
 // cpu_execute.v - The moxie execute stage
 //
-// Copyright (c) 2010, 2011, 2012, 2105, 2017 Anthony Green.
+// Copyright (c) 2010, 2011, 2012, 2105, 2017, 2020 Anthony Green.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
@@ -110,7 +110,7 @@ module cpu_execute (/*AUTOARG*/
   reg 		dmem_wait;
   reg [2:0] 	current_state;
   wire [2:0]    next_state;
-  wire [2:0]    saved_next_state;
+  reg [2:0]    saved_next_state;
 
   reg [31:0] 	next_address;
   reg [15:0] 	next_data;
@@ -346,7 +346,7 @@ module cpu_execute (/*AUTOARG*/
 		    `OP_JSRA:
 		      begin
 			// Decrement $sp by 8 bytes and store the return address.
-			reg1_result_o <= sp_i - 8;
+			reg1_result_o <= sp_i - 12;
 			register1_write_index_o <= 1; // $sp
 			// Write to memory
 			dmem_data_o <= PC_plus_6[31:16];
@@ -434,6 +434,7 @@ module cpu_execute (/*AUTOARG*/
 		      end
 		    `OP_NOP:
 		      begin
+			dmem_cyc_o <= 0;
 		      end
 		    `OP_NOT:
 		      begin
@@ -468,10 +469,13 @@ module cpu_execute (/*AUTOARG*/
 		      end
 		    `OP_RET:
 		      begin
-			// Increment $sp by 8
-			memory_address_o <= sp_i;
 			reg1_result_o <= sp_i + 8;
 			register1_write_index_o <= 1; // $sp
+			// Increment $sp by 8
+			dmem_address_o <= sp_i;
+			dmem_sel_o <= 2'b11;
+			dmem_cyc_o <= 1;
+			next_address <= sp_i + 2;
 		      end
 		    `OP_SEX_B:
 		      begin
@@ -553,7 +557,7 @@ module cpu_execute (/*AUTOARG*/
 		      end
 		    `OP_STO_S:
 		      begin
-			dmem_data_o <= {16'b0, regB_i[15:0]};
+			dmem_data_o <= regB_i[15:0];
 			dmem_address_o <= operand_i + regA_i;
 			dmem_sel_o <= 2'b11;
 			dmem_cyc_o <= 1;
@@ -591,40 +595,31 @@ module cpu_execute (/*AUTOARG*/
 	  begin
 	    if (dmem_ack_i)
 	      begin
-		// Decrement $sp by 4 bytes.
-		reg1_result_o <= sp_i - 4;
-		register1_write_index_o <= 1; // $sp
 		dmem_data_o <= next_data;
 		dmem_address_o <= next_address;
 		dmem_sel_o <= 2'b11;
 		dmem_cyc_o <= 1;
 		dmem_stb_o <= 1;
-		pipeline_control_bits_o <= 6'b010001;
+		pipeline_control_bits_o <= 6'b000001;
 	      end
 	  end
 	STATE_JSR2:
 	  begin
 	    if (dmem_ack_i)
 	      begin
-		// Decrement $sp by 4 bytes.
-		reg1_result_o <= sp_i - 4;
-		register1_write_index_o <= 1; // $sp
-		dmem_address_o <= sp_i - 4;
+		dmem_address_o <= sp_i;
 		dmem_data_o <= fp_i[31:16];
 		dmem_sel_o <= 2'b11;
 		dmem_cyc_o <= 1;
 		dmem_stb_o <= 1;
-		pipeline_control_bits_o <= 6'b010001;
+		pipeline_control_bits_o <= 6'b000001;
 	      end
 	  end
 	STATE_JSR3:
 	  begin
 	    if (dmem_ack_i)
 	      begin
-		// Decrement $sp by 4 bytes.
-		reg1_result_o <= sp_i - 4;
-		register1_write_index_o <= 1; // $sp
-		dmem_address_o <= sp_i - 4;
+		dmem_address_o <= sp_i + 2;
 		dmem_data_o <= fp_i[15:0];
 		dmem_sel_o <= 2'b11;
 		dmem_cyc_o <= 1;
