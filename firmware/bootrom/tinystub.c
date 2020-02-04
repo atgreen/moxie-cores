@@ -1,6 +1,6 @@
 /* tinystub.c - a really tiny gdb remote protocol stub for moxie.
 
-   Copyright (c) 2013, 2014 Anthony Green
+   Copyright (c) 2013, 2014, 2017 Anthony Green
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions
@@ -408,6 +408,10 @@ void *__handle_exception (void *faddr, int exc, int code)
 int main()
 {
   char c;
+
+  port_uart[3] = 'X';
+  port_uart[3] = 'Y';
+  port_uart[3] = 'Z';
 
   /* Set the exception handler.  */
   asm("ssr %0, 1" : : "r" (__moxie_exception_handler));
