@@ -97,3 +97,4 @@ tools/src
 obj_dir
 expected-results.lisp
 
+/bench/mox125/microcode.bin
