@@ -2,7 +2,7 @@ mox125 core tests
 -----------------
 
 Each test performs some computation, and stores the result at
-0x0c0ffee0.  The test ends with we write to 0xdead.
+0x0c0ffee0.  The test ends when we write to 0xdead.
 
 The expected result appears as a hexadecimal value in a comment on the
 first line of the assembly file.
