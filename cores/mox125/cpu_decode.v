@@ -77,18 +77,12 @@ module cpu_decode (/*AUTOARG*/
   output reg 			   forward_2_to_2_o;
 
  always @(posedge clk_i)
-   if (! branch_flag_i)
      begin
-       forward_1_to_1_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riA_o;
-       forward_1_to_2_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riB_o;
-       forward_2_to_1_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riA_o;
-       forward_2_to_2_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riB_o;
+       forward_1_to_1_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riA_o & !branch_flag_i;
+       forward_1_to_2_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riB_o & !branch_flag_i;
+       forward_2_to_1_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riA_o & !branch_flag_i;
+       forward_2_to_2_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riB_o & !branch_flag_i;
      end
-
-   // assign forward_1_to_1_o = pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riA_o;
-   // assign forward_2_to_1_o = pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riB_o;
-   // assign forward_1_to_2_o = pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riA_o;
-   // assign forward_2_to_2_o = pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riB_o;
 
    wire [`PCB_WIDTH-1:0]   control;
 
