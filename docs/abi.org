@@ -89,8 +89,6 @@ Here is a table describing the supported C data types in the Moxie ABI:
 The Moxie CPU is bi-endian, meaning it can operate in either big-endian or little-endian mode. The specific endianness mode is determined at system startup and is reflected in the ABI.
 
 ** Function Call Conventions
-
-** Function Call Conventions
 *** Overview
 The Moxie ABI specifies the conventions for calling functions, which
 includes how function parameters are passed, how return values are
