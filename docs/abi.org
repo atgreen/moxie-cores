@@ -132,6 +132,33 @@ instruction pushes a 32-bit spot reserved for a static chain (nested
 functions), followed by the return address, followed by the callers
 frame pointer.
 
+Note: this is actually wrong.  It's just a place holder for now:
+#+BEGIN_VERBATIM
+|-----------------------| <--- Higher memory addresses
+|  Static Slot          |     (e.g., $fp + 16)
+|-----------------------|
+|  Return Address       |     (e.g., $fp + 12)
+|-----------------------|
+|  Previous $fp         |     (e.g., $fp + 8)
+|-----------------------|
+|  Local Variables      |     (e.g., $fp - N)
+|                       |
+|                       |
+|                       |
+|-----------------------| <--- $fp (Frame Pointer)
+|  Function Parameters  |     (e.g., $fp + 4)
+|-----------------------|
+|  Saved Register $r11  |     (e.g., $fp)
+|-----------------------|
+|  Saved Register $r10  |     (e.g., $fp - 4)
+|-----------------------|
+|  Saved Register $r9   |     (e.g., $fp - 8)
+|-----------------------|
+|  Saved Register $r8   |     (e.g., $fp - 12)
+|-----------------------| <--- Lower memory addresses
+#+END_VERBATIM
+
+
 *** Variadic Functions
 If the function is variadic, additional arguments beyond those
 explicitly passed can be accessed using the stack and an appropriate
