@@ -1,0 +1,169 @@
+THIS IS DRAFT DOCUMENTATION.  A WORK IN PROGRESS.
+
+* Introduction
+** Overview
+The Moxie CPU is a general purpose bi-endian load-store processor,
+with sixteen 32-bit general purpose registers and a comprehensive ISA
+consisting of two-operand variable width instructions.  It is designed
+for implementation in FPGA hardware.
+
+** Purpose
+The purpose of this documentation is to provide a comprehensive and
+detailed specification of the Application Binary Interface (ABI) for
+the Moxie CPU. The ABI defines how software components interact at the
+binary level, ensuring compatibility between different compilers,
+libraries, and operating systems targeting the Moxie architecture.
+
+By adhering to the Moxie ABI, software developers can create
+applications and libraries that can seamlessly interoperate with other
+components, enabling a robust and diverse software ecosystem for the
+Moxie CPU.
+
+** Target Audience
+This documentation is primarily intended for the following audience:
+- Software Developers: Those who write code for the Moxie CPU and need
+  to understand how functions are called, parameters passed, registers
+  used, and stack organized according to the Moxie ABI.
+- Compiler Maintainers: Developers responsible for maintaining
+  compilers targeting the Moxie CPU, ensuring they generate code
+  conforming to the Moxie ABI.
+- System Integrators: Those who integrate software components into
+  complete Moxie-based systems and need to ensure proper
+  interoperability between various software pieces.
+
+The documentation assumes a basic understanding of computer
+architecture, assembly language, and compiler concepts. However, it
+strives to provide clear explanations and examples to aid both novices
+and experienced developers in utilizing the Moxie ABI effectively.
+
+This documentation will evolve over time to reflect any updates or
+improvements made to the Moxie ABI, and it is essential for anyone
+working with the Moxie CPU architecture to refer to the latest version
+of this document for accurate information.
+
+For additional support and clarifications related to the Moxie ABI,
+developers can contact Anthony Green <green@moxielogic.com>.
+
+* ABI Basics
+** Definition and Purpose
+The Application Binary Interface (ABI) for the Moxie CPU defines the
+conventions and rules that govern the interactions between different
+software components at the binary level. It establishes a standardized
+interface for functions, data structures, and system calls, ensuring
+compatibility and interoperability across various compilers,
+libraries, and operating systems targeting the Moxie architecture.
+
+The main purpose of the Moxie ABI is to enable software developers to
+write code that can seamlessly interface with other components,
+facilitating the development of a robust and diverse software
+ecosystem for the Moxie CPU.
+
+** ABI Stability and Compatibility
+The Moxie ABI is designed with stability and compatibility in
+mind. Changes to the ABI are carefully considered to minimize
+disruption to existing software. When updates or extensions are
+introduced to the ABI, backward compatibility with previous versions
+is typically maintained, ensuring that software built with an older
+version of the ABI continues to work correctly with newer versions of
+the ABI.
+
+However, it is essential to note that in some cases, introducing new
+features or enhancements may require breaking compatibility with older
+versions of the ABI. Such changes are thoroughly documented, and
+developers are encouraged to migrate their software to the latest ABI
+version to take advantage of new features and improvements.
+
+** Data Types and Sizes
+Here is a table describing the supported C data types in the Moxie ABI:
+#+CAPTION: Moxie ABI Data Types
+| C Type         | Size (in bits) | Alignment (in bytes) | Notes                                  |
+|----------------|----------------|----------------------|----------------------------------------|
+| char           | 8              | 1                    | Unsigned 8-bit integer                 |
+| short          | 16             | 2                    | Signed 16-bit integer                  |
+| int            | 32             | 4                    | Signed 32-bit integer                  |
+| long           | 32             | 4                    | Signed 32-bit integer                  |
+| long long      | 64             | 8                    | Signed 64-bit integer                  |
+| void*          | 32             | 4                    | Pointer to void (32-bit address)       |
+
+** Endianness
+The Moxie CPU is bi-endian, meaning it can operate in either big-endian or little-endian mode. The specific endianness mode is determined at system startup and is reflected in the ABI.
+
+** Function Call Conventions
+
+** Function Call Conventions
+*** Overview
+The Moxie ABI specifies the conventions for calling functions, which
+includes how function parameters are passed, how return values are
+handled, and how the stack is managed during function calls. Adhering
+to these conventions ensures that functions from different compilation
+units or libraries can interoperate seamlessly.
+
+*** Register Usage
+The Moxie CPU has a set of general-purpose registers (GPRs) that are
+used for parameter passing and return value handling. The available
+registers and their specific roles in the function call conventions
+are as follows:
+
+   - $fp: Frame pointer, used to access local variables and function arguments within the current stack frame.
+   - $sp: Stack pointer, used to manage the stack during function calls and manage local variables and parameters.
+   - $r0-$r5: General-purpose registers used for passing function arguments.
+   - $r6-$r11: General-purpose registers that are preserved across function calls.
+   - $r12-$r13: General-purpose registers with specific roles reserved for the execution environment.
+
+*** Parameter Passing
+Function arguments are passed in the registers $r0-$r5, depending on
+the number and size of the arguments. Additional arguments beyond the
+capacity of these registers are passed on the stack. The first
+argument is passed in $r0, the second in $r1, and so on, up to
+$r5. Arguments that do not fit in registers are placed on the stack in
+right-to-left order, with the last argument at the lowest address.
+
+*** Return Values
+Function return values that are 32 bits or smaller are returned in the
+register $r0. For return values larger than 32 bits and up to 64 bits,
+the most significant bits are returned in $r1, and the least
+significant bits are returned in $r0. Return values larger than 64
+bits are returned on the stack.
+
+*** Stack Usage
+The stack is used to manage the function call hierarchy, including
+storing return addresses, preserving registers, and allocating space
+for local variables. The stack grows downward in memory, with $sp
+pointing to the top of the stack. During a function call, the jsr
+instruction pushes a 32-bit spot reserved for a static chain (nested
+functions), followed by the return address, followed by the callers
+frame pointer.
+
+*** Variadic Functions
+If the function is variadic, additional arguments beyond those
+explicitly passed can be accessed using the stack and an appropriate
+mechanism to determine the number and types of the variable arguments.
+
+* Stack Usage
+** Stack Organization
+** Stack Frame Layout for Function Calls
+** Stack Alignment Requirements
+** Stack Parameters and Local Variables
+
+* Memory Model
+** Addressing Modes and Memory Access
+** Data Alignment and Padding Rules
+** Global and Static Variable Access
+** Dynamic Memory (Heap) Interaction
+
+* Exception Handling
+** Exception Handling Mechanisms
+** Register Preservation during Exception Handling
+
+* Linkage and Symbol Resolution
+** Symbol Resolution and Linking
+** Function, Variable, and Symbol Treatment
+** Naming Conventions
+
+* Known Issues and Limitations (if any)
+
+* Revision History
+
+* Appendix
+
+* References
