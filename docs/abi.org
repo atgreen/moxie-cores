@@ -86,7 +86,9 @@ Here is a table describing the supported C data types in the Moxie ABI:
 | void*          | 32             | 4                    | Pointer to void (32-bit address)       |
 
 ** Endianness
-The Moxie CPU is bi-endian, meaning it can operate in either big-endian or little-endian mode. The specific endianness mode is determined at system startup and is reflected in the ABI.
+The Moxie CPU is bi-endian, meaning it can operate in either
+big-endian or little-endian mode. The specific endianness mode is
+determined at system startup and is reflected in the ABI.
 
 ** Function Call Conventions
 *** Overview
@@ -120,8 +122,14 @@ right-to-left order, with the last argument at the lowest address.
 Function return values that are 32 bits or smaller are returned in the
 register $r0. For return values larger than 32 bits and up to 64 bits,
 the most significant bits are returned in $r1, and the least
-significant bits are returned in $r0. Return values larger than 64
-bits are returned on the stack.
+significant bits are returned in $r0.
+
+Return values larger than 64 bits are returned in memory. The caller
+is responsible for setting up the memory space for the return value,
+which is then passed as a hidden first parameter to the called
+function in the $r0 register. The size and alignment of the memory
+block must match the size and alignment requirements of type of value
+being returned.
 
 *** Stack Usage
 The stack is used to manage the function call hierarchy, including
@@ -129,7 +137,7 @@ storing return addresses, preserving registers, and allocating space
 for local variables. The stack grows downward in memory, with $sp
 pointing to the top of the stack. During a function call, the jsr
 instruction pushes a 32-bit spot reserved for a static chain (nested
-functions), followed by the return address, followed by the callers
+functions), followed by the return address, followed by the caller's
 frame pointer.
 
 Note: this is actually wrong.  It's just a place holder for now:
