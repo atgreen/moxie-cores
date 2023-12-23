@@ -10,14 +10,14 @@
 ;;; 0101010101010101010101010101010101010101010101010101010101010101010101010101010
 ;;; 1010101010101010101010101010101010101010101010101010101010101010101010101010101
 
-;;; Copyright (C) 2017  Anthony Green <green@moxielogic.com>
+;;; Copyright (C) 2017, 2023  Anthony Green <green@moxielogic.com>
 ;;; Distributed under the terms of the GPL v3 or later.
 
 ;;; This test program uses a verilator simulator of the moxie
 ;;; instruction cache module, wrapped in a thin lisp veneer by
 ;;; wrapilator.
 
-(ql:quickload :FiveAM)
+(asdf:load-system :FiveAM)
 (load "obj_dir/verilated-icache.lisp")
 (use-package :verilated-icache)
 (use-package :it.bese.FiveAM)
@@ -51,40 +51,40 @@
 	  (lognot 1)))
 
 (defun test-random-read (start-address stop-address count)
-  (loop for i from 0 to count do
+  (loop for i from 0 to count
+        do (let ((address (random-from-range start-address stop-address)))
+             (icache-set-adr-i *ic* address)
+             (icache-set-stb-i *ic* 1)
 
-       (let ((address (random-from-range start-address stop-address)))
-	 (icache-set-adr-i *ic* address) 
-	 (icache-set-stb-i *ic* 1)
-       
-	 (loop
-	    do (tick-up)
-	      
-	    ;; simulate wishbone main memory
-	      (let ((check-mem (and (icache-get-wb-stb-o *ic*)
-				    (icache-get-wb-cyc-o *ic*)))
-		    (wb-fetch-address (icache-get-wb-adr-o *ic*)))
-	  
-		(icache-set-wb-ack-i *ic* check-mem)
-		(if (eq 1 check-mem)
-		    (icache-set-wb-dat-i *ic* wb-fetch-address))
-	  
-		(tick-down)
-	  
-		;; check for a cache hit
-		(if (eq 1 (icache-get-hit-o *ic*))
-		    (let ((memory-value (icache-get-inst-o *ic*)))
-		      (is (= address memory-value))
-		      (return))))))))
+             (loop
+               do (progn
+                    (tick-up)
+
+                    ;; simulate wishbone main memory
+                    (let ((check-mem (and (icache-get-wb-stb-o *ic*)
+                                          (icache-get-wb-cyc-o *ic*)))
+                          (wb-fetch-address (icache-get-wb-adr-o *ic*)))
+
+                      (icache-set-wb-ack-i *ic* check-mem)
+                      (if (eq 1 check-mem)
+                          (icache-set-wb-dat-i *ic* wb-fetch-address))
+
+                      (tick-down)
+
+                      ;; check for a cache hit
+                      (if (eq 1 (icache-get-hit-o *ic*))
+                          (let ((memory-value (icache-get-inst-o *ic*)))
+                            (is (= address memory-value))
+                            (return)))))))))
 
 (defun test-sequential-read (start-address stop-address step)
 
   (loop for address from start-address to stop-address by step do
-       
+
      ;; set the address we're looking for and strobe the cache
-       (icache-set-adr-i *ic* address) 
+       (icache-set-adr-i *ic* address)
        (icache-set-stb-i *ic* 1)
-       
+
        (loop
 	do (tick-up)
 
@@ -92,13 +92,13 @@
 	(let ((check-mem (and (icache-get-wb-stb-o *ic*)
 			      (icache-get-wb-cyc-o *ic*)))
 	      (wb-fetch-address (icache-get-wb-adr-o *ic*)))
-	  
+
 	  (icache-set-wb-ack-i *ic* check-mem)
 	  (if (eq 1 check-mem)
 	      (icache-set-wb-dat-i *ic* wb-fetch-address))
-	  
+
 	  (tick-down)
-	  
+
 	  ;; check for a cache hit
 	  (if (eq 1 (icache-get-hit-o *ic*))
 	      (let ((memory-value (icache-get-inst-o *ic*)))

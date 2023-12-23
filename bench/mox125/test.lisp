@@ -10,14 +10,14 @@
 ;;; 0101010101010101010101010101010101010101010101010101010101010101010101010101010
 ;;; 1010101010101010101010101010101010101010101010101010101010101010101010101010101
 
-;;; Copyright (C) 2017  Anthony Green <green@moxielogic.com>
+;;; Copyright (C) 2017, 2023  Anthony Green <green@moxielogic.com>
 ;;; Distributed under the terms of the GPL v3 or later.
 
 ;;; This test program uses a verilator simulator of the mox125 moxie
 ;;; core, wrapped in a thin lisp veneer by wrapilator.
 
-(ql:quickload :FiveAM)
-(ql:quickload :elf)
+(asdf:load-system :FiveAM)
+(asdf:load-system :elf)
 
 ;; this should really be inferred by :elf when it reads the elf binary
 (setq elf:*endian* :big)
@@ -148,59 +148,59 @@
   (traceEverOn 1)
   (setq *time* 0)
   (let ((mem (make-hash-table))
-	(cpu (moxie-new)))
+        (cpu (moxie-new)))
     (with-verilated-trace cpu trace (format nil "~A.vcd" filename)
-       (load-elf-executable mem filename)
-       (reset-cycles cpu trace 10)
-       (loop for count from 1 to 200
-	  do
-	    (progn
-	      ;; Wait until there is a bus request...
-	      (tick-up cpu trace)
-	      (loop until (and (eq (moxie-get-wb-stb-o cpu) 1)
-			       (eq (moxie-get-wb-cyc-o cpu) 1))
-		 initially (moxie-set-wb-ack-i cpu 0)
-		 do (progn (tick-down cpu trace)
-			   (if (> count 200) (return))
-			   (format t "+")
-			   (tick-up cpu trace)))
-	      (if (> count 1000) (return))
-	      ;; Read or write...
-	      (let ((adr (moxie-get-wb-adr-o cpu))
-		    (sel (moxie-get-wb-sel-o cpu)))
-		(if (eq (moxie-get-wb-we-o cpu) 1)
-		    ;; We are writing.
-		    (let ((value (moxie-get-wb-dat-o cpu)))
-		      (format t "W[~X]@~X: ~X~%" sel adr value)
-		      (cond
-			((eq sel 1)
-			 (sim-write-byte mem adr (ldb (byte 8 0) value)))	
-			((eq sel 3)
-			 (sim-write-byte mem adr (ldb (byte 8 8) value))
-			 (sim-write-byte mem (+ adr 1) (ldb (byte 8 0) value)))
-			(t
-			 (format t "ERROR: INVALID sel~%")))
-		      (if (eq adr #xDEAD)
-			  (progn
-					; (format t "EXITING~%")
-			    (return))))
-		    ;; We are reading
-		    (let* ((low-byte (sim-read-byte mem adr))
-			   (high-byte (sim-read-byte mem (+ adr 1))))
-					; (format t "R@~X~%" adr)
-		      (moxie-set-wb-dat-i cpu (+ (* low-byte 256) high-byte)))))
-	      (moxie-set-wb-ack-i cpu 1)
-	      (tick-down cpu trace))
-	  finally (format t "COUNT = ~A~%" count)))
-       ;; Compare the result stored at 0xC0FFEE0
+      (load-elf-executable mem filename)
+      (reset-cycles cpu trace 10)
+      (loop for count from 1 to 200
+            do
+               (progn
+                 ;; Wait until there is a bus request...
+                 (tick-up cpu trace)
+                 (loop until (and (eq (moxie-get-wb-stb-o cpu) 1)
+                                  (eq (moxie-get-wb-cyc-o cpu) 1))
+                       initially (moxie-set-wb-ack-i cpu 0)
+                       do (progn (tick-down cpu trace)
+                                 (if (> count 200) (return))
+                                 (format t "+")
+                                 (tick-up cpu trace)))
+                 (if (> count 1000) (return))
+                 ;; Read or write...
+                 (let ((adr (moxie-get-wb-adr-o cpu))
+                       (sel (moxie-get-wb-sel-o cpu)))
+                   (if (eq (moxie-get-wb-we-o cpu) 1)
+                       ;; We are writing.
+                       (let ((value (moxie-get-wb-dat-o cpu)))
+                         (format t "W[~X]@~X: ~X~%" sel adr value)
+                         (cond
+                           ((eq sel 1)
+                            (sim-write-byte mem adr (ldb (byte 8 0) value)))
+                           ((eq sel 3)
+                            (sim-write-byte mem adr (ldb (byte 8 8) value))
+                            (sim-write-byte mem (+ adr 1) (ldb (byte 8 0) value)))
+                           (t
+                            (format t "ERROR: INVALID sel~%")))
+                         (if (eq adr #xDEAD)
+                             (progn
+                                        ; (format t "EXITING~%")
+                               (return))))
+                       ;; We are reading
+                       (let* ((low-byte (sim-read-byte mem adr))
+                              (high-byte (sim-read-byte mem (+ adr 1))))
+                                        ; (format t "R@~X~%" adr)
+                         (moxie-set-wb-dat-i cpu (+ (* low-byte 256) high-byte)))))
+                 (moxie-set-wb-ack-i cpu 1)
+                 (tick-down cpu trace))
+            finally (format t "COUNT = ~A~%" count)))
+    ;; Compare the result stored at 0xC0FFEE0
     (let ((result (+ (ash (sim-read-byte mem #x00c0ffee0) 24)
-		     (ash (sim-read-byte mem #x00c0ffee1) 16)
-		     (ash (sim-read-byte mem #x00c0ffee2) 8)
-		     (sim-read-byte mem #x00c0ffee3)))
-	  (expected (parse-integer (cdr (assoc (file-namestring filename) *expected-results* :test #'string=)) :radix 16)))
+                     (ash (sim-read-byte mem #x00c0ffee1) 16)
+                     (ash (sim-read-byte mem #x00c0ffee2) 8)
+                     (sim-read-byte mem #x00c0ffee3)))
+          (expected (parse-integer (cdr (assoc (file-namestring filename) *expected-results* :test #'string=)) :radix 16)))
       (format t "~A: expecting ~X, got ~X~%" filename expected result)
       (is (= result expected) (file-namestring filename)))))
-  
+
 (test run-executable-tests
       (let ((test-binaries (directory "bin/*.x")))
 	(mapc #'load-and-run test-binaries)))

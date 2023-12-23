@@ -1,23 +1,23 @@
 // opcode_def.h - Opcode Definitions
 //
-// Copyright (c) 2009 Anthony Green.  All Rights Reserved.
+// Copyright (c) 2009, 2023 Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
-// 
+//
 // The above named program is free software; you can redistribute it
 // and/or modify it under the terms of the GNU General Public License
 // version 2 as published by the Free Software Foundation.
-// 
+//
 // The above named program is distributed in the hope that it will be
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this work; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 // 02110-1301, USA.
 
-`define MOXIE_OP_NOP	16'b00000000????????
+`define MOXIE_OP_BAD	16'b00000000????????
 `define MOXIE_OP_LDIL	16'b00000001????????
 `define MOXIE_OP_MOV 	16'b00000010????????
 `define MOXIE_OP_JSRA 	16'b00000011????????
@@ -32,6 +32,7 @@
 `define MOXIE_OP_LDOL 	16'b00001100????????
 `define MOXIE_OP_STOL 	16'b00001101????????
 `define MOXIE_OP_CMP 	16'b00001110????????
+`define MOXIE_OP_NOP 	16'b00001111????????
 `define MOXIE_OP_JSR 	16'b00011001????????
 `define MOXIE_OP_JMPA 	16'b00011010????????
 `define MOXIE_OP_LDIB 	16'b00011011????????
@@ -79,4 +80,3 @@
 `define MOXIE_OP_BLE 	16'b110111??????????
 `define MOXIE_OP_BGEU 	16'b111000??????????
 `define MOXIE_OP_BLEU 	16'b111001??????????
-

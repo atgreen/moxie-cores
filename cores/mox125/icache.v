@@ -43,11 +43,11 @@ module icache (/*AUTOARG*/
    input [31:0]  adr_i;
    input 	 stb_i;
 
-   // Cache hit indicator, instruction, data. 
+   // Cache hit indicator, instruction, data.
    output      hit_o;
    output  [15:0] inst_o;
    output  [31:0] data_o;
-   
+
    // Interface to external memory.
    output reg [31:0] wb_adr_o;
    input [15:0]      wb_dat_i;
@@ -58,9 +58,9 @@ module icache (/*AUTOARG*/
 
    assign wb_cyc_o = wb_stb_o;
    assign wb_sel_o = 2'b11;
-   
+
    // We have an 8k instruction cache with cache lines that are 32
-   // bytes long.  
+   // bytes long.
    // (/ 8196 32) = 256 cache lines.
    // 8-bit index for 256 cache lines.
    // 4-bit offset into 32 byte cache line since all accesses are
@@ -98,7 +98,7 @@ module icache (/*AUTOARG*/
    reg [18:0] 	     hold_tag;
 
    wire 	     hit0, hit1, hit2;
-   
+
    assign hit0 = valid[set0] & (tags[set0] == tag);
    assign hit1 = valid[set1] & (tags[set1] == tag);
    assign hit2 = valid[set2] & (tags[set2] == tag);
@@ -124,20 +124,20 @@ module icache (/*AUTOARG*/
    always @(posedge clk_i) begin
       if (rst_i)
 	begin
-	   state <= ICACHE_IDLE;
-	   count <= 0;
-	   wb_stb_o <= 0;
-           for (i=0; i<256; i=i+1) valid[i] = 1'b0;
+	  state <= ICACHE_IDLE;
+	  count <= 0;
+	  wb_stb_o <= 0;
+    for (i=0; i<256; i=i+1) valid[i] = 1'b0;
 	end
       else
-	begin
-	   case (state)
-	     
+	      begin
+	        case (state)
+
 	     ICACHE_IDLE:
 	       begin
-		  state <= (stb_i ? 
+		  state <= (stb_i ?
 			    (!hit0 ? ICACHE_FILL0_WAIT
-			     : (! hit1 ? ICACHE_FILL1_WAIT 
+			     : (! hit1 ? ICACHE_FILL1_WAIT
 				: (! hit2 ? ICACHE_FILL2_WAIT : ICACHE_IDLE)))
 			    : ICACHE_IDLE);
 		  count <= 0;
@@ -150,7 +150,7 @@ module icache (/*AUTOARG*/
 		  hold_set2 <= set2;
 		  hold_tag  <= tag;
 	       end
-	     
+
 	     ICACHE_FILL0:
 	       begin
 		  if (wb_ack_i)
@@ -164,7 +164,7 @@ module icache (/*AUTOARG*/
 			    valid[hold_set0] <= 1;
 			    count <= 0;
 //			    state <= (hold_set0 == hold_set1) | (hit1 & hit2) ? ICACHE_IDLE : ICACHE_FILL1_WAIT;
-			    state <= ICACHE_IDLE;			    
+			    state <= ICACHE_IDLE;
 			  end
 			else
 			  state <= ICACHE_FILL0_WAIT;
@@ -175,7 +175,7 @@ module icache (/*AUTOARG*/
 	       begin
 		 state <= ICACHE_FILL0;
 	       end
-	     
+
 	     ICACHE_FILL1:
 	       begin
 		  if (wb_ack_i)
@@ -202,7 +202,7 @@ module icache (/*AUTOARG*/
 	       begin
 		  state <= ICACHE_FILL1;
 	       end
-	     
+
 	     ICACHE_FILL2:
 	       begin
 		  if (wb_ack_i)
@@ -230,7 +230,7 @@ module icache (/*AUTOARG*/
 	     default:
 	       begin
 	       end
-	     
+
 	   endcase
 
 	end // else: !if(rst_i)

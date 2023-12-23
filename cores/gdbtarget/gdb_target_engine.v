@@ -402,7 +402,6 @@ module gdb_target_engine (/*AUTOARG*/
 	            if (waitflag)
 		            state <= state_stack[sptr];
 	          end
-
 	        GDB_COMMAND_interrupt:
 	          begin
 	            // Put the target core in debug mode.

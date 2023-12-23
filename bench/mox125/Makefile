@@ -1,4 +1,4 @@
-VSRC = ../../cores/mox125/*.v 
+VSRC = ../../cores/mox125/*.v
 
 bin/%.x: asm/%.S
 	moxie-elf-as -o test.o $<
@@ -11,7 +11,7 @@ BIN_FILES := $(patsubst asm/%.S,bin/%.x,$(ASM_FILES))
 all: obj_dir/libmoxie.so microcode.bin bootrom.x $(BIN_FILES)
 
 obj_dir/libmoxie.so: $(VSRC)
-	verilator -Wno-fatal --trace --cc -I../../cores/mox125 --top-module moxie $(VSRC)
+	verilator -Wno-fatal --lib-create deleteme --trace --cc -I../../cores/mox125 --top-module moxie $(VSRC)
 	wrapilator moxie
 	(cd obj_dir; M32=-fpic make -f Vmoxie.mk)
 	(cd obj_dir; make -f Makefile.wrap)
