@@ -353,8 +353,9 @@ module cpu_execute (/*AUTOARG*/
 			                  dmem_address_o <= sp_i - 8;
 			                  dmem_sel_o <= 2'b11;
 			                  dmem_cyc_o <= 1;
+                        dmem_stb_o <= 1;
 			                  next_data <= PC_plus_6[15:0];
-			                  next_address <= sp_i - 6;
+			                  next_address <= sp_i - 4;
 			                  branch_target_o <= operand_i;
 		                  end
 		                `OP_LDA_B:
@@ -469,7 +470,8 @@ module cpu_execute (/*AUTOARG*/
 		                  end
 		                `OP_RET:
 		                  begin
-			                  reg1_result_o <= sp_i + 8;
+                        // Pop $fp. Pop return address. Skip static chain.
+			                  reg1_result_o <= sp_i + 12;
 			                  register1_write_index_o <= 1; // $sp
 			                  // Increment $sp by 8
 			                  dmem_address_o <= sp_i;

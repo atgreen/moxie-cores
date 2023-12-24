@@ -1,17 +1,17 @@
 // cpu_decode.v - The instruction decode unit
 //
-// Copyright (c) 2010, 2011, 2012, 2017 Anthony Green.
+// Copyright (c) 2010, 2011, 2012, 2017, 2023 Anthony Green.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
-// 
+//
 // The above named program is free software; you can redistribute it
 // and/or modify it under the terms of the GNU General Public License
 // version 2 as published by the Free Software Foundation.
-// 
+//
 // The above named program is distributed in the hope that it will be
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this work; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
@@ -37,13 +37,13 @@ module cpu_decode (/*AUTOARG*/
    input  stall_i;
    input  flush_i;
   input   branch_flag_i;
-  
+
    // --- Instructions ---------------------------------------------
-   input [15:0] opcode_i;	
-   input [31:0] operand_i;	
+   input [15:0] opcode_i;
+   input [31:0] operand_i;
    input 	valid_i;
    input [31:0] PC_i;
-   
+
    // --- Outputs --------------------------------------------------
    output [`PCB_WIDTH-1:0] pipeline_control_bits_o;
    output [3:0] 	   register1_write_index_o;
@@ -102,26 +102,26 @@ module cpu_decode (/*AUTOARG*/
   always @(posedge clk_i)
     if (! stall_i) begin
       if (! valid_i)
-	pipeline_control_bits_o <= 6'b000000;
+	      pipeline_control_bits_o <= 6'b000000;
       else
-	begin
-	  pcrel_offset_o <= opcode_i[9:0];
-	  if (opcode_i[15] == 0)
-	    pipeline_control_bits_o <= control;
-	  else
-	    casex (opcode_i[14:11])
-	      4'b1000: // INC
-		begin
-		  pipeline_control_bits_o <= 6'b101000;
-		end
-	      4'b1001: // DEC
-		begin
-		  pipeline_control_bits_o <= 6'b101000;
-		end
-	    endcase // casex (opcode_i[14:11])
-	end
+	      begin
+	        pcrel_offset_o <= opcode_i[9:0];
+	        if (opcode_i[15] == 0)
+	          pipeline_control_bits_o <= control;
+	        else
+	          casex (opcode_i[15:12])
+	            4'b1000: // INC
+		            begin
+		              pipeline_control_bits_o <= 6'b101000;
+		            end
+	            4'b1001: // DEC
+		            begin
+		              pipeline_control_bits_o <= 6'b101000;
+		            end
+	          endcase // casex (opcode_i[14:11])
+	      end
     end
-  
+
   always @(posedge clk_i)
     begin
       if (! stall_i)
@@ -174,7 +174,7 @@ module cpu_decode (/*AUTOARG*/
 	      8'b00001001:
 		begin
 		  op_o <= `OP_STA_L;
-		  operand_o <= operand_i;	
+		  operand_o <= operand_i;
 		end
 	      8'b00001010:
 		begin
@@ -266,7 +266,7 @@ module cpu_decode (/*AUTOARG*/
 	      8'b00011111:
 		begin
 		  op_o <= `OP_STA_B;
-		  operand_o <= operand_i;	
+		  operand_o <= operand_i;
 		end
 	      8'b00100000:
 		begin

@@ -187,7 +187,7 @@
                        ;; We are reading
                        (let* ((low-byte (sim-read-byte mem adr))
                               (high-byte (sim-read-byte mem (+ adr 1))))
-                                        ; (format t "R@~X~%" adr)
+                         (format t "R@~X~%" adr)
                          (moxie-set-wb-dat-i cpu (+ (* low-byte 256) high-byte)))))
                  (moxie-set-wb-ack-i cpu 1)
                  (tick-down cpu trace))

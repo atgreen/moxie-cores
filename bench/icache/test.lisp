@@ -70,11 +70,18 @@
                           (icache-set-wb-dat-i *ic* wb-fetch-address))
 
                       (tick-down)
+                      (format t "*")
 
                       ;; check for a cache hit
                       (if (eq 1 (icache-get-hit-o *ic*))
-                          (let ((memory-value (icache-get-inst-o *ic*)))
-                            (is (= address memory-value))
+                          (let* ((inst-value (icache-get-inst-o *ic*))
+                                 (data-value (icache-get-data-o *ic*))
+                                 (first-16 (ldb (byte 16 16) data-value))
+                                 (second-16 (ldb (byte 16 0) data-value)))
+                            (format t "~X: ~X ~X ~X~%" address inst-value first-16 second-16)
+                            (is (= address inst-value))
+                            (is (= (+ address 2) first-16))
+                            (is (= (+ address 4) second-16))
                             (return)))))))))
 
 (defun test-sequential-read (start-address stop-address step)
@@ -112,9 +119,15 @@
 
 (test sequential-read
       (loop for i from 0 to 3 do
-	   (reset-cycles 10)
-	   (loop for j from 0 to 3 do
-		(test-sequential-read 1000 10000 4))))
+        (reset-cycles 10)
+        (loop for j from 0 to 3 do
+          (test-sequential-read 40926 41000 4))))
+
+(test sequential-read
+      (loop for i from 0 to 3 do
+        (reset-cycles 10)
+        (loop for j from 0 to 3 do
+          (test-sequential-read 1000 10000 4))))
 
 (test random-read
       (test-random-read 4128 50128 50000))
