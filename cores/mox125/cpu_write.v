@@ -42,6 +42,7 @@ module cpu_write (/*AUTOARG*/
   dcache cache (.clk_i (clk_i),
 		.rst_i (rst_i),
 		.we_i (pipeline_control_bits_i[`PCB_WM]),
+		.sel_i (2'b11), // Default to word access for now
 		.address_i (memory_address_i),
 		.data_i (mem_result_i),
 		.data_o (data),
