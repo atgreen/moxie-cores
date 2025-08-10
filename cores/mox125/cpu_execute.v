@@ -25,7 +25,7 @@ module cpu_execute (/*AUTOARG*/
                     dmem_we_o, register_wea_o, register_web_o, register1_write_index_o,
                     register2_write_index_o, pipeline_control_bits_o, memory_address_o,
                     reg1_result_o, reg2_result_o, mem_result_o, PC_o, flush_o,
-                    branch_flag_o, branch_target_o,
+                    branch_flag_o, branch_target_o, sel_o,
                     // Inputs
                     rst_i, clk_i, dmem_data_i, dmem_ack_i, stall_i, flush_i, regA_i,
                     regB_i, pipeline_control_bits_i, register1_write_index_i,
@@ -82,6 +82,7 @@ module cpu_execute (/*AUTOARG*/
   output [31:0]           reg2_result_o;
   output [31:0]           mem_result_o;
   output [31:0]           PC_o;
+  output [1:0]            sel_o;
 
 
   output [0:0]            flush_o;
@@ -104,6 +105,7 @@ module cpu_execute (/*AUTOARG*/
   reg [31:0]              mem_result_o;
 
   reg [31:0]              PC_o;
+  reg [1:0]               sel_o;
   wire [31:0]             PC_plus_6;
   assign PC_plus_6 = PC_i+6;
 
@@ -208,6 +210,7 @@ module cpu_execute (/*AUTOARG*/
       branch_flag_o <= 0;
       dmem_we_o <= 0;
       dmem_sel_o <= 2'b0;
+      sel_o <= 2'b0;
       dmem_stb_o <= 0;
       dmem_cyc_o <= 0;
     end else begin
@@ -354,6 +357,7 @@ module cpu_execute (/*AUTOARG*/
 			                  dmem_data_o <= PC_plus_6[31:16];
 			                  dmem_address_o <= sp_i - 8;
 			                  dmem_sel_o <= 2'b11;
+			                  sel_o <= 2'b11;
 			                  dmem_cyc_o <= 1;
                         dmem_stb_o <= 1;
 			                  next_data <= PC_plus_6[15:0];
@@ -467,6 +471,7 @@ module cpu_execute (/*AUTOARG*/
 			                  dmem_data_o <= regB_i[31:16];
 			                  dmem_address_o <= regA_i - 4;
 			                  dmem_sel_o <= 2'b11;
+			                  sel_o <= 2'b11;
 			                  dmem_cyc_o <= 1;
 			                  next_data <= regB_i[15:0];
 			                  next_address <= regA_i - 2;
@@ -479,6 +484,7 @@ module cpu_execute (/*AUTOARG*/
 			                  // Increment $sp by 8
 			                  dmem_address_o <= sp_i;
 			                  dmem_sel_o <= 2'b11;
+			                  sel_o <= 2'b11;
 			                  dmem_cyc_o <= 1;
 			                  next_address <= sp_i + 2;
 		                  end
@@ -508,15 +514,19 @@ module cpu_execute (/*AUTOARG*/
 		                `OP_STA_B:
 		                  begin
 			                  dmem_data_o <= {8'b0, regA_i[7:0]};
+			                  mem_result_o <= {regA_i[7:0], regA_i[7:0], regA_i[7:0], regA_i[7:0]};
 			                  dmem_address_o <= operand_i;
 			                  dmem_sel_o <= 2'b01;
+			                  sel_o <= 2'b01;
 			                  dmem_cyc_o <= 1;
 		                  end
 		                `OP_STA_L:
 		                  begin
 			                  dmem_data_o <= regA_i[31:16];
+			                  mem_result_o <= regA_i;
 			                  dmem_address_o <= operand_i;
 			                  dmem_sel_o <= 2'b11;
+			                  sel_o <= 2'b11;
 			                  dmem_cyc_o <= 1;
 			                  next_data <= regA_i[15:0];
 			                  next_address <= operand_i+2;
@@ -531,15 +541,19 @@ module cpu_execute (/*AUTOARG*/
 		                `OP_ST_B:
 		                  begin
 			                  dmem_data_o <= {8'b0, regB_i[7:0]};
+			                  mem_result_o <= {regB_i[7:0], regB_i[7:0], regB_i[7:0], regB_i[7:0]};
 			                  dmem_address_o <= regA_i;
 			                  dmem_sel_o <= 2'b01;
+			                  sel_o <= 2'b01;
 			                  dmem_cyc_o <= 1;
 		                  end
 		                `OP_ST_L:
 		                  begin
 			                  dmem_data_o <= regB_i[31:16];
+			                  mem_result_o <= regB_i;
 			                  dmem_address_o <= regA_i;
 			                  dmem_sel_o <= 2'b11;
+			                  sel_o <= 2'b11;
 			                  dmem_cyc_o <= 1;
 			                  next_data <= regB_i[15:0];
 			                  next_address <= regA_i+2;
@@ -547,15 +561,19 @@ module cpu_execute (/*AUTOARG*/
 		                `OP_STO_B:
 		                  begin
 			                  dmem_data_o <= {8'b0, regB_i[7:0]};
+			                  mem_result_o <= {regB_i[7:0], regB_i[7:0], regB_i[7:0], regB_i[7:0]};
 			                  dmem_address_o <= operand_i + regA_i;
 			                  dmem_sel_o <= 2'b01;
+			                  sel_o <= 2'b01;
 			                  dmem_cyc_o <= 1;
 		                  end
 		                `OP_STO_L:
 		                  begin
 			                  dmem_data_o <= regB_i[31:16];
+			                  mem_result_o <= regB_i;
 			                  dmem_address_o <= operand_i + regA_i;
 			                  dmem_sel_o <= 2'b11;
+			                  sel_o <= 2'b11;
 			                  dmem_cyc_o <= 1;
 			                  next_data <= regB_i[15:0];
 			                  next_address <= operand_i + regA_i + 2;

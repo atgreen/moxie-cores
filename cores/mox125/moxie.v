@@ -101,6 +101,7 @@ module moxie (/*AUTOARG*/
   wire [31:0] xr_reg1_result;
   wire [31:0] xr_reg2_result;
   wire [31:0] xw_mem_result;
+  wire [1:0]  xw_sel;
   wire [3:0]  dx_regA;
   wire [3:0]  dx_regB;
   wire [3:0]  dx_regC;
@@ -264,6 +265,7 @@ module moxie (/*AUTOARG*/
 			     .reg2_result_o (xr_reg2_result),
 			     .mem_result_o (xw_mem_result),
 			     .memory_address_o (xw_memory_address),
+			     .sel_o (xw_sel),
 			     .sp_i (rx_sp),
 			     .fp_i (rx_fp),
 			     .register_wea_o (xr_register1_write_enable),
@@ -275,7 +277,8 @@ module moxie (/*AUTOARG*/
 			   .PC_i           (xw_PC),
 			   .pipeline_control_bits_i (xw_pipeline_control_bits),
 			   .memory_address_i (xw_memory_address),
-			   .mem_result_i (xw_mem_result) );
+			   .mem_result_i (xw_mem_result),
+			   .sel_i (xw_sel) );
 
   always @(posedge rst_i or posedge clk_i)
     if (rst_i) begin

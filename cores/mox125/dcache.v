@@ -51,8 +51,13 @@ module dcache (/*AUTOARG*/
       // Optional: Initialize memory during reset if needed
     end else if (we_i) begin
       if (sel_i == 2'b01) begin
-        // Byte write - only write the least significant byte
-        ram[index+3] <= data_i[7:0];
+        // Byte write - position based on address[1:0] for big-endian
+        case (address_i[1:0])
+          2'b00: ram[index+0] <= data_i[7:0];  // Most significant byte
+          2'b01: ram[index+1] <= data_i[7:0];
+          2'b10: ram[index+2] <= data_i[7:0]; 
+          2'b11: ram[index+3] <= data_i[7:0];  // Least significant byte
+        endcase
       end else begin
         // Word/halfword write (sel_i == 2'b11)
         ram[index]   <= data_i[31:24];

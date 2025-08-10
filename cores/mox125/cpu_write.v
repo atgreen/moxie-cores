@@ -22,7 +22,7 @@
 module cpu_write (/*AUTOARG*/
   // Inputs
   rst_i, clk_i, pipeline_control_bits_i,
-  memory_address_i, mem_result_i, PC_i
+  memory_address_i, mem_result_i, PC_i, sel_i
   );
   
   // --- Clock and Reset ------------------------------------------
@@ -32,6 +32,7 @@ module cpu_write (/*AUTOARG*/
   input [31:0] memory_address_i;
   input [31:0] mem_result_i;
   input [31:0] PC_i;
+  input [1:0] sel_i;
 
   wire [31:0] 	data;
   
@@ -42,7 +43,7 @@ module cpu_write (/*AUTOARG*/
   dcache cache (.clk_i (clk_i),
 		.rst_i (rst_i),
 		.we_i (pipeline_control_bits_i[`PCB_WM]),
-		.sel_i (2'b11), // Default to word access for now
+		.sel_i (sel_i),
 		.address_i (memory_address_i),
 		.data_i (mem_result_i),
 		.data_o (data),
