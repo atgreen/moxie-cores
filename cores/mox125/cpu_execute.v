@@ -316,6 +316,8 @@ module cpu_execute (/*AUTOARG*/
 		                  end
 		                `OP_DIV_L:
 		                  begin
+		                    reg1_result_o <= $signed(regA_i) / $signed(regB_i);
+		                    register1_write_index_o <= register1_write_index_i;
 		                  end
 		                `OP_GSR:
 		                  begin
@@ -417,7 +419,8 @@ module cpu_execute (/*AUTOARG*/
 		                  end
 		                `OP_MOD_L:
 		                  begin
-			                  // FIXME reg1_result_o <= regA_i % regB_i;
+			                  reg1_result_o <= $signed(regA_i) % $signed(regB_i);
+			                  register1_write_index_o <= register1_write_index_i;
 		                  end
 		                `OP_MOV:
 		                  begin
@@ -581,9 +584,13 @@ module cpu_execute (/*AUTOARG*/
 		                  end
 		                `OP_UDIV_L:
 		                  begin
+		                    reg1_result_o <= regA_i / regB_i;
+		                    register1_write_index_o <= register1_write_index_i;
 		                  end
 		                `OP_UMOD_L:
 		                  begin
+		                    reg1_result_o <= regA_i % regB_i;
+		                    register1_write_index_o <= register1_write_index_i;
 		                  end
 		                `OP_XOR:
 		                  begin

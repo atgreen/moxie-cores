@@ -35,18 +35,19 @@ module dcache (/*AUTOARG*/
   output [0:0] 	stall_o;
 
   // This is a place holder data cache module with 4k of fake memory.
+  // Fixed endianness: moxie is bi-endian, but we need consistent byte ordering
   reg  [7:0] ram[0:4095];
   wire [11:0] index;
   assign index = address_i[11:0];
 
-  // Read data 
-  assign data_o = {ram[index],ram[index+1],ram[index+2],ram[index+3]};
+  // Read data - fix endianness (little-endian byte order)
+  assign data_o = {ram[index+3],ram[index+2],ram[index+1],ram[index]};
   assign stall_o = 0;
 
-  // Write data
+  // Write data - fix endianness (little-endian byte order)
   always @(posedge clk_i) begin
     if (!rst_i & we_i)
-      {ram[index],ram[index+1],ram[index+2],ram[index+3]} <= data_i;
+      {ram[index+3],ram[index+2],ram[index+1],ram[index]} <= data_i;
   end
 
 endmodule

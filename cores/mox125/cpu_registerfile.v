@@ -72,6 +72,11 @@ module cpu_registerfile (/*AUTOARG*/
   wire [31:0]	     r6  /*verilator public*/;
   wire [31:0]	     r7  /*verilator public*/;
 
+  // Register mapping: 
+  // mem[0] = $fp (frame pointer)
+  // mem[1] = $sp (stack pointer)  
+  // mem[2-9] = r0-r7 (general purpose registers)
+  // mem[10-15] = reserved/unused
   assign r0 = mem[2];
   assign r1 = mem[3];
   assign r2 = mem[4];
@@ -81,30 +86,24 @@ module cpu_registerfile (/*AUTOARG*/
   assign r6 = mem[8];
   assign r7 = mem[9];
 
-  assign fp_o = mem[0];
-  assign sp_o = mem[1];
-  
-   always @ (posedge rst_i) begin
-      for (i=0; i<16; i=i+1)
-	mem[i] = 0;
-   end
-
-   // always @ (posedge clk_i) begin
-   //   fp_o <= mem[0];
-   //   sp_o <= mem[1];
-   // end
+  assign fp_o = mem[0];  // $fp = register 0 in addressing
+  assign sp_o = mem[1];  // $sp = register 1 in addressing
   
    always @(posedge clk_i) begin
-      value0_o <= mem[reg_read_index0_i];
-      if (write_enable0_i) begin
-	 mem[reg_write_index0_i] = value0_i;
-      end
-   end
-
-   always @(posedge clk_i) begin
-      value1_o <= mem[reg_read_index1_i];
-      if (write_enable1_i) begin
-	 mem[reg_write_index1_i] = value1_i;
+      if (rst_i) begin
+         for (i=0; i<16; i=i+1)
+           mem[i] <= 0;
+         value0_o <= 0;
+         value1_o <= 0;
+      end else begin
+         value0_o <= mem[reg_read_index0_i];
+         value1_o <= mem[reg_read_index1_i];
+         if (write_enable0_i) begin
+            mem[reg_write_index0_i] <= value0_i;
+         end
+         if (write_enable1_i) begin
+            mem[reg_write_index1_i] <= value1_i;
+         end
       end
    end
   
