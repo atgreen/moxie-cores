@@ -117,22 +117,23 @@
 (icache-set-wb-dat-i *ic* 0)
 (icache-set-adr-i *ic* 0)
 
-(test sequential-read
-      (loop for i from 0 to 3 do
-        (reset-cycles 10)
-        (loop for j from 0 to 3 do
-          (test-sequential-read 40926 41000 4))))
+(test sequential-read-boundary
+  (loop repeat 4 do
+    (reset-cycles 10)
+    (loop repeat 4 do
+      (test-sequential-read #x9FDE #xA020 4)))) ; around the wrap
 
-(test sequential-read
-      (loop for i from 0 to 3 do
-        (reset-cycles 10)
-        (loop for j from 0 to 3 do
-          (test-sequential-read 1000 10000 4))))
+(test sequential-read-scan
+  (loop repeat 4 do
+    (reset-cycles 10)
+    (loop repeat 4 do
+      (test-sequential-read 1000 10000 4))))
 
 (test random-read
       (test-random-read 4128 50128 50000))
 
 (explain! (run 'random-read))
-(run! 'sequential-read)
+(run! 'sequential-read-boundary)
+(run! 'sequential-read-scan)
 
 (exit)
