@@ -22,7 +22,7 @@
 ;;; Thanks for Zach Beane for quicklisp (which you'll need to install)
 ;;;
 
-(ql:quickload "cl-ppcre")
+(asdf:load-system "cl-ppcre")
 
 (defpackage :microcoder
   (:use :cl :cl-user :cl-ppcre))

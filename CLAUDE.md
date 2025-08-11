@@ -93,6 +93,43 @@ The repository includes several Common Lisp scripts in `scripts/`:
 - Linker scripts for different memory configurations in `soc/marin/`
 - Memory maps documented in `soc/marin/memory-map.txt`
 
+## Current Work Session State (Aug 2025)
+
+**Problem**: Register forwarding bug in mox125 processor affecting dual-register store operations (st.*, sto.*)
+
+**Status**: 30/35 tests passing (85%) - CONFIRMED register forwarding bug via NOP insertion test
+
+**Root Cause Identified**: 
+- Complex register forwarding logic in `cores/mox125/moxie.v` lines 253-254 fails for dual-register operations
+- ST_* operations require both regA_i (address) and regB_i (data) forwarding simultaneously  
+- STA_* operations work (single register) but ST_* operations fail (dual register)
+
+**Evidence**:
+- Without NOPs: ST_* operations write 0x0 instead of expected register values
+- With NOPs: ST_* operations work correctly (tests 004-006 now pass)
+- Trace shows `W[3]@C0FFEE0: 6789` instead of `W[3]@C0FFEE0: 0` with NOPs
+
+**Fixed So Far**:
+- Added missing memory_address_o assignments to ST_*/STO_* operations in cpu_execute.v
+- Fixed microcode.org for st.l (rB? 0→1) and regenerated microcode.bin
+- Modified microcoder.lisp to use asdf instead of quicklisp
+
+**Current State**:
+- Tests 004-006 (st.s, st.b, st.l) now pass with NOPs
+- Tests 007-009, 018, 027 still failing (likely STO_* operations)
+- Need to fix forwarding logic in moxie.v without requiring NOPs
+
+**Next Steps**:
+1. Analyze complex forwarding logic in moxie.v lines 253-254
+2. Fix simultaneous dual-register forwarding for ST_*/STO_* operations  
+3. Target: restore to 31/35 tests passing (all but 4) as mentioned in commit 3319a10
+
+**Files Modified**:
+- cores/mox125/cpu_execute.v (memory_address_o assignments)
+- cores/mox125/microcode.org (st.l microcode fix)  
+- scripts/microcoder.lisp (asdf instead of quicklisp)
+- bench/mox125/asm/test004.S, test005.S, test006.S (NOPs for validation - revert later)
+
 ## File Structure Notes
 
 - `bench/`: Contains performance benchmarks and test suites using Verilator

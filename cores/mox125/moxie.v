@@ -251,7 +251,7 @@ module moxie (/*AUTOARG*/
 			     .pcrel_offset_i (dx_pcrel_offset),
 			     .operand_i		(dx_operand[31:0]),
 			     .regA_i (xf_branch_flag ? rx_reg_value1 : (forward_1_to_1 ? xr_reg1_result : (forward_2_to_1 ? xr_reg2_result : (maybe_forward_1_to_1 ? maybe_reg1 : rx_reg_value1)))),
-			     .regB_i (xf_branch_flag ? rx_reg_value2 : (forward_2_to_2 ? xr_reg2_result : (forward_1_to_2 ? xr_reg1_result : rx_reg_value2))),
+			     .regB_i (xf_branch_flag ? rx_reg_value2 : (forward_2_to_2 ? xr_reg2_result : (forward_1_to_2 ? xr_reg1_result : (maybe_forward_2_to_2 ? maybe_reg2 : (maybe_forward_1_to_2 ? maybe_reg1 : rx_reg_value2))))),
 			     .branch_flag_o (xf_branch_flag),
 			     .branch_target_o (xf_branch_target),
 			     .pipeline_control_bits_i (dx_pipeline_control_bits),

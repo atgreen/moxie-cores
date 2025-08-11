@@ -549,6 +549,7 @@ module cpu_execute (/*AUTOARG*/
 		                  begin
 			                  dmem_data_o <= {8'b0, regB_i[7:0]};
 			                  mem_result_o <= {regB_i[7:0], regB_i[7:0], regB_i[7:0], regB_i[7:0]};
+			                  memory_address_o <= regA_i;
 			                  dmem_address_o <= regA_i;
 			                  dmem_sel_o <= 2'b01;
 			                  sel_o <= 2'b01;
@@ -559,6 +560,7 @@ module cpu_execute (/*AUTOARG*/
 		                  begin
 			                  dmem_data_o <= regB_i[31:16];
 			                  mem_result_o <= regB_i;
+			                  memory_address_o <= regA_i;
 			                  dmem_address_o <= regA_i;
 			                  dmem_sel_o <= 2'b11;
 			                  sel_o <= 2'b11;
@@ -571,6 +573,7 @@ module cpu_execute (/*AUTOARG*/
 		                  begin
 			                  dmem_data_o <= {8'b0, regB_i[7:0]};
 			                  mem_result_o <= {regB_i[7:0], regB_i[7:0], regB_i[7:0], regB_i[7:0]};
+			                  memory_address_o <= operand_i + regA_i;
 			                  dmem_address_o <= operand_i + regA_i;
 			                  dmem_sel_o <= 2'b01;
 			                  sel_o <= 2'b01;
@@ -581,6 +584,7 @@ module cpu_execute (/*AUTOARG*/
 		                  begin
 			                  dmem_data_o <= regB_i[31:16];
 			                  mem_result_o <= regB_i;
+			                  memory_address_o <= operand_i + regA_i;
 			                  dmem_address_o <= operand_i + regA_i;
 			                  dmem_sel_o <= 2'b11;
 			                  sel_o <= 2'b11;
@@ -593,6 +597,7 @@ module cpu_execute (/*AUTOARG*/
 		                  begin
 			                  dmem_data_o <= regB_i[15:0];
 			                  mem_result_o <= {regB_i[15:0], regB_i[15:0]};
+			                  memory_address_o <= operand_i + regA_i;
 			                  dmem_address_o <= operand_i + regA_i;
 			                  dmem_sel_o <= 2'b11;
 			                  sel_o <= 2'b11;
@@ -605,6 +610,7 @@ module cpu_execute (/*AUTOARG*/
 		                  begin
 			                  dmem_data_o <= regB_i[15:0];
 			                  mem_result_o <= {regB_i[15:0], regB_i[15:0]};
+			                  memory_address_o <= regA_i;
 			                  dmem_address_o <= regA_i;
 			                  dmem_sel_o <= 2'b11;
 			                  sel_o <= 2'b11;
