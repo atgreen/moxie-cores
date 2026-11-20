@@ -23,20 +23,17 @@ module cpu_decode (/*AUTOARG*/
   // Outputs
   pipeline_control_bits_o, register1_write_index_o,
   register2_write_index_o, operand_o, pcrel_offset_o, riA_o, riB_o,
-  op_o, PC_o, forward_1_to_1_o, forward_1_to_2_o, forward_2_to_1_o,
-  forward_2_to_2_o,
+  op_o, PC_o,
   // Inputs
-  rst_i, clk_i, stall_i, flush_i, branch_flag_i, opcode_i, operand_i,
+  rst_i, clk_i, stall_i, opcode_i, operand_i,
   valid_i, PC_i
   );
 
    // --- Clock and Reset ------------------------------------------
    input  rst_i, clk_i;
 
-   // --- Pipeline interlock and flush -----------------------------
+   // --- Pipeline interlock ---------------------------------------
    input  stall_i;
-   input  flush_i;
-  input   branch_flag_i;
 
    // --- Instructions ---------------------------------------------
    input [15:0] opcode_i;
@@ -71,19 +68,6 @@ module cpu_decode (/*AUTOARG*/
    wire [3:0] 		   b3 = opcode_i[11:8];
    wire [3:0] 		   b4 = opcode_i[15:12];
 
-  output reg  			   forward_1_to_1_o;
-  output reg 			   forward_1_to_2_o;
-  output reg 			   forward_2_to_1_o;
-  output reg 			   forward_2_to_2_o;
-
- always @(posedge clk_i)
-     begin
-       forward_1_to_1_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riA_o & !branch_flag_i;
-       forward_1_to_2_o <= pipeline_control_bits_o[`PCB_WA] & register1_write_index_o == riB_o & !branch_flag_i;
-       forward_2_to_1_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riA_o & !branch_flag_i;
-       forward_2_to_2_o <= pipeline_control_bits_o[`PCB_WB] & register2_write_index_o == riB_o & !branch_flag_i;
-     end
-
    wire [`PCB_WIDTH-1:0]   control;
 
    microcode mcode (.opcode(opcode_i[15:8]),
@@ -117,6 +101,10 @@ module cpu_decode (/*AUTOARG*/
 	            4'b1001: // DEC
 		            begin
 		              pipeline_control_bits_o <= 6'b101000;
+		            end
+	            default:
+		            begin
+		              pipeline_control_bits_o <= 6'b000000;
 		            end
 	          endcase // casex (opcode_i[14:11])
 	      end
@@ -187,11 +175,12 @@ module cpu_decode (/*AUTOARG*/
 	      8'b00001100:
 		begin
 		  op_o <= `OP_LDO_L;
+		  operand_o <= {{16{operand_i[31]}},operand_i[31:16]};
 		end
 	      8'b00001101:
 		begin
 		  op_o <= `OP_STO_L;
-		  operand_o <= {16'b0,operand_i[15:0]};
+		  operand_o <= {{16{operand_i[31]}},operand_i[31:16]};
 		end
 	      8'b00001110:
 		begin
@@ -258,6 +247,7 @@ module cpu_decode (/*AUTOARG*/
 	      8'b00011101:
 		begin
 		  op_o <= `OP_LDA_B;
+		  operand_o <= operand_i;
 		end
 	      8'b00011110:
 		begin
@@ -280,6 +270,7 @@ module cpu_decode (/*AUTOARG*/
 	      8'b00100010:
 		begin
 		  op_o <= `OP_LDA_S;
+		  operand_o <= operand_i;
 		end
 	      8'b00100011:
 		begin
@@ -361,20 +352,22 @@ module cpu_decode (/*AUTOARG*/
 	      8'b00110110:
 		begin
 		  op_o <= `OP_LDO_B;
+		  operand_o <= {{16{operand_i[31]}},operand_i[31:16]};
 		end
 	      8'b00110111:
 		begin
 		  op_o <= `OP_STO_B;
-		  operand_o <= {16'b0,operand_i[15:0]};
+		  operand_o <= {{16{operand_i[31]}},operand_i[31:16]};
 		end
 	      8'b00111000:
 		begin
 		  op_o <= `OP_LDO_S;
+		  operand_o <= {{16{operand_i[31]}},operand_i[31:16]};
 		end
 	      8'b00111001:
 		begin
 		  op_o <= `OP_STO_S;
-		  operand_o <= {16'b0,operand_i[15:0]};
+		  operand_o <= {{16{operand_i[31]}},operand_i[31:16]};
 		end
 	      8'b00111010:
 		begin

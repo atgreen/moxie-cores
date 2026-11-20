@@ -21,13 +21,16 @@ module cpu_registerfile (/*AUTOARG*/
   // Outputs
   value0_o, value1_o, sp_o, fp_o,
   // Inputs
-  rst_i, clk_i, write_enable0_i, write_enable1_i, value0_i, value1_i,
+  rst_i, clk_i, stall_i, write_enable0_i, write_enable1_i, value0_i, value1_i,
   reg_write_index0_i, reg_write_index1_i, reg_read_index0_i,
   reg_read_index1_i
   );
 
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
+
+  // Hold the read ports while the pipeline is stalled.
+  input  stall_i;
 
   output reg [31:0] value0_o, value1_o;
   output [31:0] sp_o /*verilator public*/;
@@ -96,8 +99,10 @@ module cpu_registerfile (/*AUTOARG*/
          value0_o <= 0;
          value1_o <= 0;
       end else begin
-         value0_o <= mem[reg_read_index0_i];
-         value1_o <= mem[reg_read_index1_i];
+         if (! stall_i) begin
+            value0_o <= mem[reg_read_index0_i];
+            value1_o <= mem[reg_read_index1_i];
+         end
          if (write_enable0_i) begin
             mem[reg_write_index0_i] <= value0_i;
          end

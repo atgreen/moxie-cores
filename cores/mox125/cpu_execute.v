@@ -24,22 +24,21 @@ module cpu_execute (/*AUTOARG*/
                     dmem_address_o, dmem_data_o, dmem_stb_o, dmem_sel_o, dmem_cyc_o,
                     dmem_we_o, register_wea_o, register_web_o, register1_write_index_o,
                     register2_write_index_o, pipeline_control_bits_o, memory_address_o,
-                    reg1_result_o, reg2_result_o, mem_result_o, PC_o, flush_o,
+                    reg1_result_o, reg2_result_o, mem_result_o, PC_o, busy_o,
                     branch_flag_o, branch_target_o, sel_o,
                     // Inputs
-                    rst_i, clk_i, dmem_data_i, dmem_ack_i, stall_i, flush_i, regA_i,
+                    rst_i, clk_i, dmem_data_i, dmem_ack_i, regA_i,
                     regB_i, pipeline_control_bits_i, register1_write_index_i,
                     register2_write_index_i, operand_i, op_i, sp_i, fp_i, PC_i,
                     pcrel_offset_i
                     );
 
-  parameter [2:0] STATE_READY = 3'b000,
-                  STATE_JSR1 = 3'b001,
-                  STATE_RET1 = 3'b010,
-                  STATE_STA_L1 = 3'b011,
-                  STATE_JSR2 = 3'b100,
-                  STATE_JSR3 = 3'b101,
-                  STATE_WAIT = 3'b110;
+  // Instructions that touch data memory run as a short sequence of
+  // 16-bit wishbone cycles.  These are the sequences we know about.
+  parameter [2:0] SEQ_STORE = 3'b000,
+                  SEQ_LOAD = 3'b001,
+                  SEQ_JSR = 3'b010,
+                  SEQ_RET = 3'b011;
 
   // --- Clock and Reset ------------------------------------------
   input           rst_i, clk_i;
@@ -55,8 +54,9 @@ module cpu_execute (/*AUTOARG*/
   input             dmem_ack_i;
 
   // --- Pipeline interlocking ------------------------------------
-  input             stall_i;
-  input             flush_i;
+  // High while a multi-cycle instruction owns the execute stage.
+  // The rest of the pipeline must hold still until it drops.
+  output reg        busy_o;
 
   // --- Inputs ---------------------------------------------------
   input [31:0]      regA_i;
@@ -84,10 +84,6 @@ module cpu_execute (/*AUTOARG*/
   output [31:0]           PC_o;
   output [1:0]            sel_o;
 
-
-  output [0:0]            flush_o;
-  reg [0:0]               flush_o;
-
   reg [0:4]               CC_result;
 
   output                  branch_flag_o;
@@ -106,16 +102,23 @@ module cpu_execute (/*AUTOARG*/
 
   reg [31:0]              PC_o;
   reg [1:0]               sel_o;
-  wire [31:0]             PC_plus_6;
-  assign PC_plus_6 = PC_i+6;
+  wire [31:0]             PC_plus_2 = PC_i+2;
+  wire [31:0]             PC_plus_6 = PC_i+6;
 
-  reg                     dmem_wait;
-  reg [2:0]               current_state;
-  wire [2:0]              next_state;
-  reg [2:0]               saved_next_state;
+  reg [2:0]               seq;
+  reg [1:0]               step;
+  reg [1:0]               last_step;
 
   reg [31:0]              next_address;
   reg [15:0]              next_data;
+  reg [15:0]              read_hi;
+  reg [31:0]              return_address;
+
+  // Register writes owed once the current sequence completes.
+  reg                     pending_wea;
+  reg                     pending_web;
+  reg                     load_byte;
+  reg                     load_to_b;
 
   reg                     register_wea_o;
   reg                     register_web_o;
@@ -151,555 +154,496 @@ module cpu_execute (/*AUTOARG*/
 
   wire [7:0]              incdec_value = pcrel_offset_i[7:0];
 
-  always @(posedge clk_i)
+  wire [15:0]             read_lo = dmem_data_i;
+  wire [31:0]             read_value = (last_step == 2'd0)
+                          ? (load_byte ? {24'b0, dmem_data_i[15:8]} : {16'b0, dmem_data_i})
+                          : {read_hi, read_lo};
+
+  // Start a data memory sequence of LAST+1 bus cycles.  Any register
+  // write is deferred until the sequence completes.
+  task mem_start;
+    input [2:0]  sq;
+    input [1:0]  last;
+    input        we;
+    input [1:0]  sel;
+    input [31:0] address;
+    input [15:0] data;
     begin
-      if (! (stall_i | rst_i)) begin
-	      register_wea_o = pipeline_control_bits_i[`PCB_WA] ;
-	      register_web_o = pipeline_control_bits_i[`PCB_WB];
-      end
+      busy_o <= 1;
+      seq <= sq;
+      step <= 2'd0;
+      last_step <= last;
+      dmem_cyc_o <= 1;
+      dmem_stb_o <= 1;
+      dmem_we_o <= we;
+      dmem_sel_o <= sel;
+      dmem_address_o <= address;
+      dmem_data_o <= data;
+      next_address <= address + 2;
+      register_wea_o <= 0;
+      register_web_o <= 0;
     end
-
-  always @(posedge clk_i)
-    begin
-      if (! stall_i)
-	      flush_o <= rst_i ? 1'b0
-		               : flush_i
-		               | branch_condition
-		               | (op_i == `OP_JMPA)
-		                 | (current_state == STATE_JSR3);
-    end
-
-  assign next_state = (rst_i | flush_i ) ? STATE_READY :
-		                  ((saved_next_state != STATE_WAIT) ? saved_next_state :
-		                   ((current_state == STATE_JSR1) ? STATE_JSR2 :
-			                  ((current_state == STATE_JSR2) ? STATE_JSR3 :
-			                   ((branch_flag_o | branch_condition) ? STATE_READY :
-			                    ((op_i == `OP_JSR) ? STATE_JSR1 :
-			                     ((op_i == `OP_JSRA) ? STATE_JSR1 :
-			                      ((op_i == `OP_RET) ? STATE_RET1 :
-			                       ((op_i == `OP_STA_L) ? STATE_STA_L1 :
-			                        ((op_i == `OP_ST_L) ? STATE_STA_L1 :
-			                         ((op_i == `OP_PUSH) ? STATE_STA_L1 :
-				                        ((op_i == `OP_STO_L) ? STATE_STA_L1 :
-				                         STATE_READY)))))))))));
-
-  always @(posedge rst_i or posedge clk_i)
-    if (rst_i)
-      saved_next_state <= STATE_WAIT;
-    else
-      if (! dmem_wait)
-	      current_state <= next_state;
-      else
-	      begin
-	        if (dmem_ack_i)
-	          begin
-	            current_state <= next_state;
-	            saved_next_state <= STATE_WAIT;
-	          end
-	        else
-	          begin
-	            current_state <= STATE_WAIT;
-	            if (saved_next_state != STATE_WAIT)
-		            saved_next_state <= next_state;
-	          end
-	      end
+  endtask
 
   always @(posedge rst_i or posedge clk_i)
     if (rst_i) begin
       pipeline_control_bits_o <= 6'b0;
       branch_flag_o <= 0;
+      busy_o <= 0;
+      register_wea_o <= 0;
+      register_web_o <= 0;
+      pending_wea <= 0;
+      pending_web <= 0;
       dmem_we_o <= 0;
       dmem_sel_o <= 2'b0;
       sel_o <= 2'b0;
       dmem_stb_o <= 0;
       dmem_cyc_o <= 0;
     end else begin
-      if (! stall_i)
-	      begin
-	        branch_flag_o <= branch_condition | (op_i == `OP_JMPA) | (op_i == `OP_JSRA);
-	        if (flush_i)
-	          /* We've just branched, so ignore any incoming instruction.  */
-	          pipeline_control_bits_o <= 6'b00000;
-	      end
-      case (current_state)
-	      STATE_WAIT:
-	        begin
-	          dmem_stb_o <= 0;
-	        end
-	      STATE_READY:
-	        begin
-	          if (stall_i)
-	            begin
-		            if (dmem_ack_i)
-		              dmem_we_o <= 0;
-	            end
-	          else
-	            if (! branch_flag_o)
-		            begin
-		              PC_o <= PC_i;
-		              dmem_we_o <= pipeline_control_bits_i[`PCB_WM];
-		              dmem_stb_o <= pipeline_control_bits_i[`PCB_WM] | pipeline_control_bits_i[`PCB_RM];
-		              pipeline_control_bits_o <= pipeline_control_bits_i;
-		              case (op_i)
-		                `OP_ADD_L:
-		                  begin
-			                  reg1_result_o <= regA_i + regB_i;
-			                  register1_write_index_o <= register1_write_index_i;
-			                  dmem_cyc_o <= 0;
-		                  end
-		                `OP_AND:
-		                  begin
-			                  reg1_result_o <= regA_i & regB_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_ASHL:
-		                  begin
-			                  reg1_result_o <= regA_i <<< regB_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_ASHR:
-		                  begin
-			                  reg1_result_o <= regA_i >>> regB_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_BAD:
-		                  begin
-		                  end
-		                `OP_BEQ:
-		                  begin
-			                  branch_target_o <= pcrel_branch_target;
-		                  end
-		                `OP_BGE:
-		                  begin
-			                  branch_target_o <= pcrel_branch_target;
-		                  end
-		                `OP_BGEU:
-		                  begin
-			                  branch_target_o <= pcrel_branch_target;
-		                  end
-		                `OP_BGT:
-		                  begin
-			                  branch_target_o <= pcrel_branch_target;
-		                  end
-		                `OP_BGTU:
-		                  begin
-			                  branch_target_o <= pcrel_branch_target;
-		                  end
-		                `OP_BLE:
-		                  begin
-			                  branch_target_o <= pcrel_branch_target;
-		                  end
-		                `OP_BLEU:
-		                  begin
-			                  branch_target_o <= pcrel_branch_target;
-		                  end
-		                `OP_BLT:
-		                  begin
-			                  branch_target_o <= pcrel_branch_target;
-		                  end
-		                `OP_BLTU:
-		                  begin
-			                  branch_target_o <= pcrel_branch_target;
-		                  end
-		                `OP_BNE:
-		                  begin
-			                  branch_target_o <= pcrel_branch_target;
-		                  end
-		                `OP_BRK:
-		                  begin
-		                  end
-		                `OP_CMP:
-		                  begin
-			                  CC_result <= {cc_eq, cc_lt, cc_gt, cc_ltu, cc_gtu};
-		                  end
-		                `OP_DEC:
-		                  begin
-			                  reg1_result_o <= regA_i - { 24'b0, incdec_value };
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_DIV_L:
-		                  begin
-		                    reg1_result_o <= $signed(regA_i) / $signed(regB_i);
-		                    register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_GSR:
-		                  begin
-		                  end
-		                `OP_INC:
-		                  begin
-			                  reg1_result_o <= regA_i + { 24'b0, incdec_value };
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_JMP:
-		                  begin
-			                  branch_target_o <= regA_i;
-		                  end
-		                `OP_JMPA:
-		                  begin
-			                  branch_target_o <= operand_i;
-			                  dmem_cyc_o <= 0;
-		                  end
-		                `OP_JSR:
-		                  begin
-			                  // Decrement $sp by 8 bytes and store the return address.
-			                  reg1_result_o <= sp_i - 8;
-			                  memory_address_o <= sp_i - 8;
-			                  mem_result_o <= PC_i+2;
-			                  register1_write_index_o <= 1; // $sp
-			                  branch_target_o <= regA_i;
-		                  end
-		                `OP_JSRA:
-		                  begin
-			                  // Decrement $sp by 8 bytes and store the return address.
-			                  reg1_result_o <= sp_i - 12;
-			                  register1_write_index_o <= 1; // $sp
-			                  // Write to memory
-			                  dmem_data_o <= PC_plus_6[31:16];
-			                  dmem_address_o <= sp_i - 8;
-			                  dmem_sel_o <= 2'b11;
-			                  sel_o <= 2'b11;
-			                  dmem_cyc_o <= 1;
-                        dmem_stb_o <= 1;
-			                  next_data <= PC_plus_6[15:0];
-			                  next_address <= sp_i - 4;
-			                  branch_target_o <= operand_i;
-		                  end
-		                `OP_LDA_B:
-		                  begin
-			                  memory_address_o <= operand_i;
-		                  end
-		                `OP_LDA_L:
-		                  begin
-			                  memory_address_o <= operand_i;
-		                  end
-		                `OP_LDA_S:
-		                  begin
-			                  memory_address_o <= operand_i;
-		                  end
-		                `OP_LD_B:
-		                  begin
-			                  memory_address_o <= regB_i;
-		                  end
-		                `OP_LDI_B:
-		                  begin
-			                  reg1_result_o <= operand_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_LDI_L:
-		                  begin
-			                  reg1_result_o <= operand_i;
-			                  register1_write_index_o <= register1_write_index_i;
-			                  dmem_cyc_o <= 0;
-		                  end
-		                `OP_LDI_S:
-		                  begin
-			                  reg1_result_o <= operand_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_LD_L:
-		                  begin
-			                  memory_address_o <= regB_i;
-		                  end
-		                `OP_LDO_B:
-		                  begin
-			                  memory_address_o <= operand_i + regB_i;
-		                  end
-		                `OP_LDO_L:
-		                  begin
-			                  memory_address_o <= operand_i + regB_i;
-		                  end
-		                `OP_LDO_S:
-		                  begin
-			                  memory_address_o <= operand_i + regB_i;
-		                  end
-		                `OP_LD_S:
-		                  begin
-			                  memory_address_o <= regB_i;
-		                  end
-		                `OP_LSHR:
-		                  begin
-			                  reg1_result_o <= regA_i >> regB_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_MOD_L:
-		                  begin
-			                  reg1_result_o <= $signed(regA_i) % $signed(regB_i);
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_MOV:
-		                  begin
-			                  reg1_result_o <= regB_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_MUL_L:
-		                  begin
-			                  reg1_result_o <= regA_i * regB_i;
-		                  end
-		                `OP_NEG:
-		                  begin
-			                  reg1_result_o <= -regB_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_NOP:
-		                  begin
-			                  dmem_cyc_o <= 0;
-		                  end
-		                `OP_NOT:
-		                  begin
-			                  reg1_result_o <= ~regB_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_OR:
-		                  begin
-			                  reg1_result_o <= regA_i | regB_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_POP:
-		                  begin
-			                  // Decrement pointer register by 4 bytes.
-			                  memory_address_o <= regA_i;
-			                  reg2_result_o <= regA_i - 4;
-			                  register1_write_index_o <= register2_write_index_i;
-			                  register2_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_PUSH:
-		                  begin
-			                  // Decrement pointer register by 4 bytes.
-			                  reg1_result_o <= regA_i - 4;
-			                  register1_write_index_o <= register1_write_index_i;
-			                  // Write to memory
-			                  dmem_data_o <= regB_i[31:16];
-			                  dmem_address_o <= regA_i - 4;
-			                  dmem_sel_o <= 2'b11;
-			                  sel_o <= 2'b11;
-			                  dmem_cyc_o <= 1;
-			                  next_data <= regB_i[15:0];
-			                  next_address <= regA_i - 2;
-		                  end
-		                `OP_RET:
-		                  begin
-                        // Pop $fp. Pop return address. Skip static chain.
-			                  reg1_result_o <= sp_i + 12;
-			                  register1_write_index_o <= 1; // $sp
-			                  // Increment $sp by 8
-			                  dmem_address_o <= sp_i;
-			                  dmem_sel_o <= 2'b11;
-			                  sel_o <= 2'b11;
-			                  dmem_cyc_o <= 1;
-			                  next_address <= sp_i + 2;
-		                  end
-		                `OP_SEX_B:
-		                  begin
-			                  reg1_result_o <= { {24{regB_i[7]}}, regB_i[7:0] };
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_SEX_S:
-		                  begin
-			                  reg1_result_o <= { {16{regB_i[15]}}, regB_i[15:0] };
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_ZEX_B:
-		                  begin
-			                  reg1_result_o <= { 24'b0, regB_i[7:0] };
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_ZEX_S:
-		                  begin
-			                  reg1_result_o <= { 16'b0, regB_i[15:0] };
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_SSR:
-		                  begin
-		                  end
-		                `OP_STA_B:
-		                  begin
-			                  dmem_data_o <= {8'b0, regA_i[7:0]};
-			                  mem_result_o <= {regA_i[7:0], regA_i[7:0], regA_i[7:0], regA_i[7:0]};
-			                  dmem_address_o <= operand_i;
-			                  dmem_sel_o <= 2'b01;
-			                  sel_o <= 2'b01;
-			                  dmem_cyc_o <= 1;
-			                  dmem_stb_o <= 1;
-		                  end
-		                `OP_STA_L:
-		                  begin
-			                  dmem_data_o <= regA_i[31:16];
-			                  mem_result_o <= regA_i;
-			                  dmem_address_o <= operand_i;
-			                  dmem_sel_o <= 2'b11;
-			                  sel_o <= 2'b11;
-			                  dmem_cyc_o <= 1;
-			                  dmem_stb_o <= 1;
-			                  next_data <= regA_i[15:0];
-			                  next_address <= operand_i+2;
-		                  end
-		                `OP_STA_S:
-		                  begin
-			                  dmem_data_o <= regA_i[15:0];
-			                  mem_result_o <= {regA_i[15:0], regA_i[15:0]};
-			                  dmem_address_o <= operand_i;
-			                  dmem_sel_o <= 2'b11;
-			                  sel_o <= 2'b11;
-			                  dmem_cyc_o <= 1;
-			                  dmem_stb_o <= 1;
-			                  next_data <= 16'h0000;
-			                  next_address <= operand_i;
-		                  end
-		                `OP_ST_B:
-		                  begin
-			                  dmem_data_o <= {8'b0, regB_i[7:0]};
-			                  mem_result_o <= {regB_i[7:0], regB_i[7:0], regB_i[7:0], regB_i[7:0]};
-			                  memory_address_o <= regA_i;
-			                  dmem_address_o <= regA_i;
-			                  dmem_sel_o <= 2'b01;
-			                  sel_o <= 2'b01;
-			                  dmem_cyc_o <= 1;
-			                  dmem_stb_o <= 1;
-		                  end
-		                `OP_ST_L:
-		                  begin
-			                  dmem_data_o <= regB_i[31:16];
-			                  mem_result_o <= regB_i;
-			                  memory_address_o <= regA_i;
-			                  dmem_address_o <= regA_i;
-			                  dmem_sel_o <= 2'b11;
-			                  sel_o <= 2'b11;
-			                  dmem_cyc_o <= 1;
-			                  dmem_stb_o <= 1;
-			                  next_data <= regB_i[15:0];
-			                  next_address <= regA_i+2;
-		                  end
-		                `OP_STO_B:
-		                  begin
-			                  dmem_data_o <= {8'b0, regB_i[7:0]};
-			                  mem_result_o <= {regB_i[7:0], regB_i[7:0], regB_i[7:0], regB_i[7:0]};
-			                  memory_address_o <= operand_i + regA_i;
-			                  dmem_address_o <= operand_i + regA_i;
-			                  dmem_sel_o <= 2'b01;
-			                  sel_o <= 2'b01;
-			                  dmem_cyc_o <= 1;
-			                  dmem_stb_o <= 1;
-		                  end
-		                `OP_STO_L:
-		                  begin
-			                  dmem_data_o <= regB_i[31:16];
-			                  mem_result_o <= regB_i;
-			                  memory_address_o <= operand_i + regA_i;
-			                  dmem_address_o <= operand_i + regA_i;
-			                  dmem_sel_o <= 2'b11;
-			                  sel_o <= 2'b11;
-			                  dmem_cyc_o <= 1;
-			                  dmem_stb_o <= 1;
-			                  next_data <= regB_i[15:0];
-			                  next_address <= operand_i + regA_i + 2;
-		                  end
-		                `OP_STO_S:
-		                  begin
-			                  dmem_data_o <= regB_i[15:0];
-			                  mem_result_o <= {regB_i[15:0], regB_i[15:0]};
-			                  memory_address_o <= operand_i + regA_i;
-			                  dmem_address_o <= operand_i + regA_i;
-			                  dmem_sel_o <= 2'b11;
-			                  sel_o <= 2'b11;
-			                  dmem_cyc_o <= 1;
-			                  dmem_stb_o <= 1;
-			                  next_data <= 16'h0000;
-			                  next_address <= operand_i + regA_i;
-		                  end
-		                `OP_ST_S:
-		                  begin
-			                  dmem_data_o <= regB_i[15:0];
-			                  mem_result_o <= {regB_i[15:0], regB_i[15:0]};
-			                  memory_address_o <= regA_i;
-			                  dmem_address_o <= regA_i;
-			                  dmem_sel_o <= 2'b11;
-			                  sel_o <= 2'b11;
-			                  dmem_cyc_o <= 1;
-			                  dmem_stb_o <= 1;
-			                  next_data <= 16'h0000;
-			                  next_address <= regA_i;
-		                  end
-		                `OP_SUB_L:
-		                  begin
-			                  reg1_result_o <= regA_i - regB_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_SWI:
-		                  begin
-		                  end
-		                `OP_UDIV_L:
-		                  begin
-		                    reg1_result_o <= regA_i / regB_i;
-		                    register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_UMOD_L:
-		                  begin
-		                    reg1_result_o <= regA_i % regB_i;
-		                    register1_write_index_o <= register1_write_index_i;
-		                  end
-		                `OP_XOR:
-		                  begin
-			                  reg1_result_o <= regA_i ^ regB_i;
-			                  register1_write_index_o <= register1_write_index_i;
-		                  end
-		              endcase // case (op_i)
-		            end // if (! branch_flag_o)
-	        end // case: STATE_READY
-	      STATE_JSR1:
-	        begin
-	          if (dmem_ack_i)
-	            begin
-		            dmem_data_o <= next_data;
-		            dmem_address_o <= next_address;
-		            dmem_sel_o <= 2'b11;
-		            dmem_cyc_o <= 1;
-		            dmem_stb_o <= 1;
-		            pipeline_control_bits_o <= 6'b000001;
-	            end
-	        end
-	      STATE_JSR2:
-	        begin
-	          if (dmem_ack_i)
-	            begin
-		            dmem_address_o <= sp_i;
-		            dmem_data_o <= fp_i[31:16];
-		            dmem_sel_o <= 2'b11;
-		            dmem_cyc_o <= 1;
-		            dmem_stb_o <= 1;
-		            pipeline_control_bits_o <= 6'b000001;
-	            end
-	        end
-	      STATE_JSR3:
-	        begin
-	          if (dmem_ack_i)
-	            begin
-		            dmem_address_o <= sp_i + 2;
-		            dmem_data_o <= fp_i[15:0];
-		            dmem_sel_o <= 2'b11;
-		            dmem_cyc_o <= 1;
-		            dmem_stb_o <= 1;
-		            pipeline_control_bits_o <= 6'b000001;
-	            end
-	        end
-	      STATE_RET1:
-	        begin
-	          // Increment $sp by 4 bytes.
-	          reg1_result_o <= sp_i + 4;
-	          memory_address_o <= sp_i + 4;
-	          pipeline_control_bits_o <= 6'b010000;
-	          // This is all wrong
-	          register1_write_index_o <= 1; // $sp
-	          branch_target_o <= operand_i;
-	        end
-	      STATE_STA_L1:
-	        if (dmem_ack_i)
-	          begin
-	            dmem_data_o <= next_data;
-	            dmem_address_o <= next_address;
-	            dmem_sel_o <= 2'b11;
-	            dmem_cyc_o <= 1;
-	            dmem_stb_o <= 1;
-	          end
-      endcase // case (current_state)
+      if (busy_o)
+        begin
+          // Hold the bus cycle until the slave acks it.
+          if (dmem_ack_i)
+            begin
+              step <= step + 2'd1;
+              if (step == last_step)
+                begin
+                  busy_o <= 0;
+                  dmem_cyc_o <= 0;
+                  dmem_stb_o <= 0;
+                  dmem_we_o <= 0;
+                  register_wea_o <= pending_wea;
+                  register_web_o <= pending_web;
+                  pipeline_control_bits_o <= 6'b0;
+                end
+              case (seq)
+                SEQ_STORE:
+                  begin
+                    dmem_address_o <= next_address;
+                    dmem_data_o <= next_data;
+                  end
+                SEQ_LOAD:
+                  begin
+                    read_hi <= dmem_data_i;
+                    dmem_address_o <= next_address;
+                    if (step == last_step)
+                      begin
+                        if (load_to_b)
+                          reg2_result_o <= read_value;
+                        else
+                          reg1_result_o <= read_value;
+                      end
+                  end
+                SEQ_JSR:
+                  // Return address at $sp-8, old $fp at $sp-12.  The
+                  // slot at $sp-4 is reserved for the static chain.
+                  case (step)
+                    2'd0:
+                      begin
+                        dmem_address_o <= sp_i - 6;
+                        dmem_data_o <= return_address[15:0];
+                      end
+                    2'd1:
+                      begin
+                        dmem_address_o <= sp_i - 12;
+                        dmem_data_o <= fp_i[31:16];
+                      end
+                    2'd2:
+                      begin
+                        dmem_address_o <= sp_i - 10;
+                        dmem_data_o <= fp_i[15:0];
+                      end
+                    2'd3:
+                      begin
+                        // $sp and $fp both end up pointing at the saved $fp.
+                        reg1_result_o <= sp_i - 12;
+                        register1_write_index_o <= 4'd1;
+                        reg2_result_o <= sp_i - 12;
+                        register2_write_index_o <= 4'd0;
+                        branch_flag_o <= 1;
+                      end
+                  endcase // case (step)
+                SEQ_RET:
+                  // Pop $fp, pop the return address, skip the static chain.
+                  case (step)
+                    2'd0:
+                      begin
+                        read_hi <= dmem_data_i;
+                        dmem_address_o <= fp_i + 2;
+                      end
+                    2'd1:
+                      begin
+                        reg2_result_o <= {read_hi, read_lo};
+                        dmem_address_o <= fp_i + 4;
+                      end
+                    2'd2:
+                      begin
+                        read_hi <= dmem_data_i;
+                        dmem_address_o <= fp_i + 6;
+                      end
+                    2'd3:
+                      begin
+                        branch_target_o <= {read_hi, read_lo};
+                        reg1_result_o <= fp_i + 12;
+                        register1_write_index_o <= 4'd1;
+                        register2_write_index_o <= 4'd0;
+                        branch_flag_o <= 1;
+                      end
+                  endcase // case (step)
+                default:
+                  begin
+                  end
+              endcase // case (seq)
+            end
+        end
+      else if (branch_flag_o)
+        begin
+          /* We've just branched, so ignore the incoming instruction.  */
+          branch_flag_o <= 0;
+          pipeline_control_bits_o <= 6'b0;
+          register_wea_o <= 0;
+          register_web_o <= 0;
+        end
+      else
+        begin
+          branch_flag_o <= branch_condition | (op_i == `OP_JMPA) | (op_i == `OP_JMP);
+          PC_o <= PC_i;
+          pipeline_control_bits_o <= pipeline_control_bits_i;
+          register_wea_o <= pipeline_control_bits_i[`PCB_WA];
+          register_web_o <= pipeline_control_bits_i[`PCB_WB];
+          register1_write_index_o <= register1_write_index_i;
+          register2_write_index_o <= register2_write_index_i;
+          pending_wea <= 0;
+          pending_web <= 0;
+          load_byte <= 0;
+          load_to_b <= 0;
+            case (op_i)
+              `OP_ADD_L:
+                begin
+                  reg1_result_o <= regA_i + regB_i;
+                end
+              `OP_AND:
+                begin
+                  reg1_result_o <= regA_i & regB_i;
+                end
+              `OP_ASHL:
+                begin
+                  reg1_result_o <= regA_i <<< regB_i;
+                end
+              `OP_ASHR:
+                begin
+                  reg1_result_o <= $signed(regA_i) >>> regB_i;
+                end
+              `OP_BAD:
+                begin
+                end
+              `OP_BEQ:
+                begin
+                  branch_target_o <= pcrel_branch_target;
+                end
+              `OP_BGE:
+                begin
+                  branch_target_o <= pcrel_branch_target;
+                end
+              `OP_BGEU:
+                begin
+                  branch_target_o <= pcrel_branch_target;
+                end
+              `OP_BGT:
+                begin
+                  branch_target_o <= pcrel_branch_target;
+                end
+              `OP_BGTU:
+                begin
+                  branch_target_o <= pcrel_branch_target;
+                end
+              `OP_BLE:
+                begin
+                  branch_target_o <= pcrel_branch_target;
+                end
+              `OP_BLEU:
+                begin
+                  branch_target_o <= pcrel_branch_target;
+                end
+              `OP_BLT:
+                begin
+                  branch_target_o <= pcrel_branch_target;
+                end
+              `OP_BLTU:
+                begin
+                  branch_target_o <= pcrel_branch_target;
+                end
+              `OP_BNE:
+                begin
+                  branch_target_o <= pcrel_branch_target;
+                end
+              `OP_BRK:
+                begin
+                end
+              `OP_CMP:
+                begin
+                  CC_result <= {cc_eq, cc_lt, cc_gt, cc_ltu, cc_gtu};
+                end
+              `OP_DEC:
+                begin
+                  reg1_result_o <= regA_i - { 24'b0, incdec_value };
+                end
+              `OP_DIV_L:
+                begin
+                  reg1_result_o <= $signed(regA_i) / $signed(regB_i);
+                end
+              `OP_GSR:
+                begin
+                end
+              `OP_INC:
+                begin
+                  reg1_result_o <= regA_i + { 24'b0, incdec_value };
+                end
+              `OP_JMP:
+                begin
+                  branch_target_o <= regA_i;
+                end
+              `OP_JMPA:
+                begin
+                  branch_target_o <= operand_i;
+                end
+              `OP_JSR:
+                begin
+                  mem_start (SEQ_JSR, 2'd3, 1'b1, 2'b11, sp_i - 8, PC_plus_2[31:16]);
+                  return_address <= PC_plus_2;
+                  branch_target_o <= regA_i;
+                  pending_wea <= 1;
+                  pending_web <= 1;
+                end
+              `OP_JSRA:
+                begin
+                  mem_start (SEQ_JSR, 2'd3, 1'b1, 2'b11, sp_i - 8, PC_plus_6[31:16]);
+                  return_address <= PC_plus_6;
+                  branch_target_o <= operand_i;
+                  pending_wea <= 1;
+                  pending_web <= 1;
+                end
+              `OP_LDA_B:
+                begin
+                  mem_start (SEQ_LOAD, 2'd0, 1'b0, 2'b10, operand_i, 16'b0);
+                  pending_wea <= 1;
+                  load_byte <= 1;
+                end
+              `OP_LDA_L:
+                begin
+                  mem_start (SEQ_LOAD, 2'd1, 1'b0, 2'b11, operand_i, 16'b0);
+                  pending_wea <= 1;
+                end
+              `OP_LDA_S:
+                begin
+                  mem_start (SEQ_LOAD, 2'd0, 1'b0, 2'b11, operand_i, 16'b0);
+                  pending_wea <= 1;
+                end
+              `OP_LD_B:
+                begin
+                  mem_start (SEQ_LOAD, 2'd0, 1'b0, 2'b10, regB_i, 16'b0);
+                  pending_wea <= 1;
+                  load_byte <= 1;
+                end
+              `OP_LDI_B:
+                begin
+                  reg1_result_o <= operand_i;
+                end
+              `OP_LDI_L:
+                begin
+                  reg1_result_o <= operand_i;
+                end
+              `OP_LDI_S:
+                begin
+                  reg1_result_o <= operand_i;
+                end
+              `OP_LD_L:
+                begin
+                  mem_start (SEQ_LOAD, 2'd1, 1'b0, 2'b11, regB_i, 16'b0);
+                  pending_wea <= 1;
+                end
+              `OP_LDO_B:
+                begin
+                  mem_start (SEQ_LOAD, 2'd0, 1'b0, 2'b10, operand_i + regB_i, 16'b0);
+                  pending_wea <= 1;
+                  load_byte <= 1;
+                end
+              `OP_LDO_L:
+                begin
+                  mem_start (SEQ_LOAD, 2'd1, 1'b0, 2'b11, operand_i + regB_i, 16'b0);
+                  pending_wea <= 1;
+                end
+              `OP_LDO_S:
+                begin
+                  mem_start (SEQ_LOAD, 2'd0, 1'b0, 2'b11, operand_i + regB_i, 16'b0);
+                  pending_wea <= 1;
+                end
+              `OP_LD_S:
+                begin
+                  mem_start (SEQ_LOAD, 2'd0, 1'b0, 2'b11, regB_i, 16'b0);
+                  pending_wea <= 1;
+                end
+              `OP_LSHR:
+                begin
+                  reg1_result_o <= regA_i >> regB_i;
+                end
+              `OP_MOD_L:
+                begin
+                  reg1_result_o <= $signed(regA_i) % $signed(regB_i);
+                end
+              `OP_MOV:
+                begin
+                  reg1_result_o <= regB_i;
+                end
+              `OP_MUL_L:
+                begin
+                  reg1_result_o <= regA_i * regB_i;
+                end
+              `OP_NEG:
+                begin
+                  reg1_result_o <= -regB_i;
+                end
+              `OP_NOP:
+                begin
+                end
+              `OP_NOT:
+                begin
+                  reg1_result_o <= ~regB_i;
+                end
+              `OP_OR:
+                begin
+                  reg1_result_o <= regA_i | regB_i;
+                end
+              `OP_POP:
+                begin
+                  // Load the value into register B, then bump the pointer
+                  // in register A by 4 bytes.
+                  mem_start (SEQ_LOAD, 2'd1, 1'b0, 2'b11, regA_i, 16'b0);
+                  reg1_result_o <= regA_i + 4;
+                  pending_wea <= 1;
+                  pending_web <= 1;
+                  load_to_b <= 1;
+                end
+              `OP_PUSH:
+                begin
+                  // Decrement pointer register by 4 bytes.
+                  mem_start (SEQ_STORE, 2'd1, 1'b1, 2'b11, regA_i - 4, regB_i[31:16]);
+                  next_data <= regB_i[15:0];
+                  reg1_result_o <= regA_i - 4;
+                  pending_wea <= 1;
+                  sel_o <= 2'b11;
+                end
+              `OP_RET:
+                begin
+                  mem_start (SEQ_RET, 2'd3, 1'b0, 2'b11, fp_i, 16'b0);
+                  pending_wea <= 1;
+                  pending_web <= 1;
+                end
+              `OP_SEX_B:
+                begin
+                  reg1_result_o <= { {24{regB_i[7]}}, regB_i[7:0] };
+                end
+              `OP_SEX_S:
+                begin
+                  reg1_result_o <= { {16{regB_i[15]}}, regB_i[15:0] };
+                end
+              `OP_ZEX_B:
+                begin
+                  reg1_result_o <= { 24'b0, regB_i[7:0] };
+                end
+              `OP_ZEX_S:
+                begin
+                  reg1_result_o <= { 16'b0, regB_i[15:0] };
+                end
+              `OP_SSR:
+                begin
+                end
+              `OP_STA_B:
+                begin
+                  mem_start (SEQ_STORE, 2'd0, 1'b1, 2'b01, operand_i, {8'b0, regA_i[7:0]});
+                  mem_result_o <= {regA_i[7:0], regA_i[7:0], regA_i[7:0], regA_i[7:0]};
+                  memory_address_o <= operand_i;
+                  sel_o <= 2'b01;
+                end
+              `OP_STA_L:
+                begin
+                  mem_start (SEQ_STORE, 2'd1, 1'b1, 2'b11, operand_i, regA_i[31:16]);
+                  next_data <= regA_i[15:0];
+                  mem_result_o <= regA_i;
+                  memory_address_o <= operand_i;
+                  sel_o <= 2'b11;
+                end
+              `OP_STA_S:
+                begin
+                  mem_start (SEQ_STORE, 2'd0, 1'b1, 2'b11, operand_i, regA_i[15:0]);
+                  mem_result_o <= {regA_i[15:0], regA_i[15:0]};
+                  memory_address_o <= operand_i;
+                  sel_o <= 2'b11;
+                end
+              `OP_ST_B:
+                begin
+                  mem_start (SEQ_STORE, 2'd0, 1'b1, 2'b01, regA_i, {8'b0, regB_i[7:0]});
+                  mem_result_o <= {regB_i[7:0], regB_i[7:0], regB_i[7:0], regB_i[7:0]};
+                  memory_address_o <= regA_i;
+                  sel_o <= 2'b01;
+                end
+              `OP_ST_L:
+                begin
+                  mem_start (SEQ_STORE, 2'd1, 1'b1, 2'b11, regA_i, regB_i[31:16]);
+                  next_data <= regB_i[15:0];
+                  mem_result_o <= regB_i;
+                  memory_address_o <= regA_i;
+                  sel_o <= 2'b11;
+                end
+              `OP_STO_B:
+                begin
+                  mem_start (SEQ_STORE, 2'd0, 1'b1, 2'b01, operand_i + regA_i, {8'b0, regB_i[7:0]});
+                  mem_result_o <= {regB_i[7:0], regB_i[7:0], regB_i[7:0], regB_i[7:0]};
+                  memory_address_o <= operand_i + regA_i;
+                  sel_o <= 2'b01;
+                end
+              `OP_STO_L:
+                begin
+                  mem_start (SEQ_STORE, 2'd1, 1'b1, 2'b11, operand_i + regA_i, regB_i[31:16]);
+                  next_data <= regB_i[15:0];
+                  mem_result_o <= regB_i;
+                  memory_address_o <= operand_i + regA_i;
+                  sel_o <= 2'b11;
+                end
+              `OP_STO_S:
+                begin
+                  mem_start (SEQ_STORE, 2'd0, 1'b1, 2'b11, operand_i + regA_i, regB_i[15:0]);
+                  mem_result_o <= {regB_i[15:0], regB_i[15:0]};
+                  memory_address_o <= operand_i + regA_i;
+                  sel_o <= 2'b11;
+                end
+              `OP_ST_S:
+                begin
+                  mem_start (SEQ_STORE, 2'd0, 1'b1, 2'b11, regA_i, regB_i[15:0]);
+                  mem_result_o <= {regB_i[15:0], regB_i[15:0]};
+                  memory_address_o <= regA_i;
+                  sel_o <= 2'b11;
+                end
+              `OP_SUB_L:
+                begin
+                  reg1_result_o <= regA_i - regB_i;
+                end
+              `OP_SWI:
+                begin
+                end
+              `OP_UDIV_L:
+                begin
+                  reg1_result_o <= regA_i / regB_i;
+                end
+              `OP_UMOD_L:
+                begin
+                  reg1_result_o <= regA_i % regB_i;
+                end
+              `OP_XOR:
+                begin
+                  reg1_result_o <= regA_i ^ regB_i;
+                end
+            endcase // case (op_i)
+          end
     end // else: !if(rst_i)
 endmodule // cpu_execute;

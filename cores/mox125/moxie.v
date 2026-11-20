@@ -69,8 +69,31 @@ module moxie (/*AUTOARG*/
   assign wb_we_o = wb_D_cyc_o ? wb_D_we_o : 1'b0;
   assign wb_cyc_o = wb_D_cyc_o | wb_I_cyc_o;
   assign wb_stb_o = wb_D_cyc_o ? wb_D_stb_o : wb_I_stb_o;
-  assign wb_I_ack_i  = wb_D_cyc_o ? 1'b0 : wb_ack_i;
-  assign wb_D_ack_i  = wb_D_cyc_o ? wb_ack_i : 1'b0;
+  assign wb_I_ack_i  = wb_D_cyc_o ? 1'b0 : wb_ack;
+  assign wb_D_ack_i  = wb_D_cyc_o ? wb_ack : 1'b0;
+
+  // Slaves are free to register their acks, and the data side can
+  // take the bus away from the instruction side at any time.  So an
+  // ack only answers the request we are driving if that same request
+  // was already on the bus one clock ago.  Anything else is left over
+  // from the previous cycle or the previous owner.
+  reg [31:0] wb_adr_q;
+  reg        wb_stb_q;
+  reg        wb_we_q;
+  reg        wb_D_cyc_q;
+
+  always @(posedge rst_i or posedge clk_i)
+    if (rst_i) begin
+      wb_stb_q <= 0;
+    end else begin
+      wb_adr_q <= wb_adr_o;
+      wb_stb_q <= wb_stb_o & wb_cyc_o;
+      wb_we_q <= wb_we_o;
+      wb_D_cyc_q <= wb_D_cyc_o;
+    end
+
+  wire wb_ack = wb_ack_i & wb_stb_q & (wb_adr_q == wb_adr_o)
+       & (wb_we_q == wb_we_o) & (wb_D_cyc_q == wb_D_cyc_o);
 
   // --- Wires to connect the 5 pipeline stages -------------------
   //
@@ -118,7 +141,8 @@ module moxie (/*AUTOARG*/
   wire [3:0]  dr_reg_index1;
   wire [3:0]  dr_reg_index2;
 
-  wire [0:0]  flush_x;
+  // High while execute is busy with a multi-cycle instruction.
+  wire        stall;
 
 `ifndef VERILATOR   
   // synthesis translate_off 
@@ -151,42 +175,38 @@ module moxie (/*AUTOARG*/
 			 .reg_read_index1_i (dr_reg_index2),
 			 .sp_o (rx_sp),
 			 .fp_o (rx_fp),
+			 .stall_i (stall),
 			 .value0_i (xr_reg1_result),
-			 .value1_i (0));
+			 .value1_i (xr_reg2_result));
 
-  // Forwarding logic.  
-  wire forward_1_to_1;
-  wire forward_1_to_2;
-  wire forward_2_to_1;
-  wire forward_2_to_2;
+  // Forwarding logic.
+  //
+  // An instruction's operands are read from the register file as it
+  // moves into decode, so it can miss the results of the two
+  // instructions ahead of it.  The newest of those is still sitting
+  // on the execute outputs (forward_*), and the one before that was
+  // being written to the register file as we read it (maybe_forward_*).
+  wire forward_1_to_1 = xr_register1_write_enable
+       & (xr_register1_write_index == dx_register1_write_index);
+  wire forward_1_to_2 = xr_register1_write_enable
+       & (xr_register1_write_index == dx_register2_write_index);
+  wire forward_2_to_1 = xr_register2_write_enable
+       & (xr_register2_write_index == dx_register1_write_index);
+  wire forward_2_to_2 = xr_register2_write_enable
+       & (xr_register2_write_index == dx_register2_write_index);
   reg maybe_forward_1_to_1;
   reg maybe_forward_1_to_2;
   reg maybe_forward_2_to_1;
   reg maybe_forward_2_to_2;
   reg [31:0] maybe_reg1;
   reg [31:0] maybe_reg2;
-  
-  // Memory stall logic.
-  reg  memory_wait_state;
 
-  parameter STATE_READY = 1'b0,
-    STATE_MEMWAIT = 1'b1;
-  
-  always @(posedge rst_i or posedge clk_i)
-    if (rst_i) begin
-      memory_wait_state <= STATE_READY;
-    end else begin
-      case (memory_wait_state)
-	STATE_READY:
-	  begin
-	    memory_wait_state <= wb_we_o ? STATE_MEMWAIT : STATE_READY;
-	  end
-	STATE_MEMWAIT:
-	  begin
-	    memory_wait_state <= wb_ack_i ? STATE_READY : STATE_MEMWAIT;
-	  end
-      endcase // case (memory_wait_state)
-    end
+  // $sp and $fp come straight out of the register file, so they only
+  // need forwarding from the execute outputs.
+  wire [31:0] x_sp = (xr_register1_write_enable & (xr_register1_write_index == 4'd1)) ? xr_reg1_result
+	      : ((xr_register2_write_enable & (xr_register2_write_index == 4'd1)) ? xr_reg2_result : rx_sp);
+  wire [31:0] x_fp = (xr_register1_write_enable & (xr_register1_write_index == 4'd0)) ? xr_reg1_result
+	      : ((xr_register2_write_enable & (xr_register2_write_index == 4'd0)) ? xr_reg2_result : rx_fp);
 
   cpu_fetch stage_fetch (// Outputs
 			 .opcode		(fd_opcode[15:0] ),
@@ -203,7 +223,7 @@ module moxie (/*AUTOARG*/
 			 .clk_i			(clk_i),
 			 .branch_flag_i         (xf_branch_flag),
 			 .branch_target_i       (xf_branch_target),
-			 .stall_i               ((wb_we_o == 1) | (memory_wait_state == STATE_MEMWAIT)),
+			 .stall_i               (stall),
 			 .imem_data_i           (wb_I_dat_i[15:0]));
 
   cpu_decode stage_decode (// Inputs
@@ -213,17 +233,11 @@ module moxie (/*AUTOARG*/
 			   .operand_i		(fd_operand[31:0]),
 			   .PC_i                (fd_PC[31:0]),
 			   .valid_i		(fd_valid),
-			   .flush_i             (flush_x),
-			   .branch_flag_i       (xf_branch_flag),
-			   .stall_i             ((wb_we_o == 1) | (memory_wait_state == STATE_MEMWAIT)),
+			   .stall_i             (stall),
 			   // Outputs
 			   .pipeline_control_bits_o (dx_pipeline_control_bits),
 			   .register1_write_index_o (dx_register1_write_index),
 			   .register2_write_index_o (dx_register2_write_index),
-			   .forward_1_to_1_o (forward_1_to_1),
-			   .forward_1_to_2_o (forward_1_to_2),
-			   .forward_2_to_1_o (forward_2_to_1),
-			   .forward_2_to_2_o (forward_2_to_2),
 			   .operand_o (dx_operand),
 			   .PC_o (dx_PC),
 			   .riA_o (dr_reg_index1),
@@ -234,9 +248,7 @@ module moxie (/*AUTOARG*/
   cpu_execute stage_execute (// Inputs
 			     .rst_i	     (rst_i),
 			     .clk_i	     (clk_i),
-			     .flush_i        (1'b0),
-			     .flush_o        (flush_x),
-			     .stall_i        ((wb_we_o == 1) | (memory_wait_state == STATE_MEMWAIT)),
+			     .busy_o         (stall),
 			     .op_i           (dx_op),
 			     .PC_i           (dx_PC),
 			     .PC_o           (xw_PC),
@@ -250,8 +262,8 @@ module moxie (/*AUTOARG*/
 			     .dmem_we_o      (wb_D_we_o),
 			     .pcrel_offset_i (dx_pcrel_offset),
 			     .operand_i		(dx_operand[31:0]),
-			     .regA_i (xf_branch_flag ? rx_reg_value1 : (forward_1_to_1 ? xr_reg1_result : (forward_2_to_1 ? xr_reg2_result : (maybe_forward_1_to_1 ? maybe_reg1 : rx_reg_value1)))),
-			     .regB_i (xf_branch_flag ? rx_reg_value2 : (forward_2_to_2 ? xr_reg2_result : (forward_1_to_2 ? xr_reg1_result : (maybe_forward_2_to_2 ? maybe_reg2 : (maybe_forward_1_to_2 ? maybe_reg1 : rx_reg_value2))))),
+			     .regA_i (forward_1_to_1 ? xr_reg1_result : (forward_2_to_1 ? xr_reg2_result : (maybe_forward_1_to_1 ? maybe_reg1 : (maybe_forward_2_to_1 ? maybe_reg2 : rx_reg_value1)))),
+			     .regB_i (forward_2_to_2 ? xr_reg2_result : (forward_1_to_2 ? xr_reg1_result : (maybe_forward_2_to_2 ? maybe_reg2 : (maybe_forward_1_to_2 ? maybe_reg1 : rx_reg_value2)))),
 			     .branch_flag_o (xf_branch_flag),
 			     .branch_target_o (xf_branch_target),
 			     .pipeline_control_bits_i (dx_pipeline_control_bits),
@@ -266,8 +278,8 @@ module moxie (/*AUTOARG*/
 			     .mem_result_o (xw_mem_result),
 			     .memory_address_o (xw_memory_address),
 			     .sel_o (xw_sel),
-			     .sp_i (rx_sp),
-			     .fp_i (rx_fp),
+			     .sp_i (x_sp),
+			     .fp_i (x_fp),
 			     .register_wea_o (xr_register1_write_enable),
 			     .register_web_o (xr_register2_write_enable));
   
@@ -286,7 +298,7 @@ module moxie (/*AUTOARG*/
       maybe_forward_1_to_2 <= 0;
       maybe_forward_2_to_1 <= 0;
       maybe_forward_2_to_2 <= 0;
-    end else begin
+    end else if (! stall) begin
       maybe_forward_1_to_1 <= xr_register1_write_enable
 			      & (xr_register1_write_index == dr_reg_index1);
       maybe_forward_2_to_1 <= xr_register2_write_enable
