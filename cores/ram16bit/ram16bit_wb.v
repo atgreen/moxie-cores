@@ -51,7 +51,7 @@ module ram16bit_wb (input         rst_i,
     begin
       dat <= {ram[index], ram[index+1]};
       ack <= wb_stb_i & wb_cyc_i;
-      if (wb_we_i)
+      if (wb_stb_i & wb_cyc_i & wb_we_i)
 	begin
 	  ram[index] = wb_dat_i[15:8];
 	  ram[index+1] = wb_dat_i[7:0];

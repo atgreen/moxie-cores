@@ -448,7 +448,7 @@ int main()
       for (i = 0; i < 20; i++)
 	regbuf[i] = 0;
       gdb_protocol_handler_loop ();
-      goto *regbuf[16];
+      goto *(void *) regbuf[16];
     }
   else
     {

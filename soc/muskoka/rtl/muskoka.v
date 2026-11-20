@@ -126,6 +126,7 @@ module muskoka (/*AUTOARG*/
 	        .slave_6_addr (32'b1111_1111_1111_1111_1111_1111_1111_1111))
    
    bus_intercon (.wbm_dat_o (wb2mx_dat),
+		 .wbm_dat_i (mx2wb_dat),
 		 .wbm_adr_i (mx2wb_adr),
 		 .wbm_sel_i (mx2wb_sel),
 		 .wbm_we_i (mx2wb_we),
@@ -151,7 +152,7 @@ module muskoka (/*AUTOARG*/
 		.wbs_1_stb_o (wb2dp_stb),
 		.wbs_1_ack_i (dp2wb_ack),
 		
-		 .wbs_2_dat_o (),
+		 .wbs_2_dat_o (wb2ua_dat),
 		 .wbs_2_dat_i (ua2wb_dat),
 		 .wbs_2_adr_o (wb2ua_adr),
 		 .wbs_2_sel_o (wb2ua_sel),
@@ -232,7 +233,7 @@ module muskoka (/*AUTOARG*/
 	      .wb_stb_o (mx2wb_stb),
 	      .wb_ack_i (wb2mx_ack));
 
-  ram16bit_wb ram (.clk_i (clk_cpu),
+  ram16bit_wb ram (.clk_i (clk_i),
 		   .rst_i (rst_i),
 		   .wb_dat_i (wb2rm_dat),
 		   .wb_dat_o (rm2wb_dat),

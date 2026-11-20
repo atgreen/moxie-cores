@@ -1,6 +1,4 @@
 #include <stdio.h>
-#include <verilated.cpp>
-#include <verilated_vcd_c.cpp>
 #include <verilated_vcd_c.h>
 #include <Vmuskoka.h>
 #include <Vmuskoka_muskoka.h>
@@ -47,6 +45,9 @@ int main()
   VerilatedVcdC* tfp = new VerilatedVcdC;
   soc.trace (tfp, 99);
   tfp->open ("vlt_dump.vcd");
+
+  // Idle serial line.
+  soc.rx_i = 1;
 
   soc.rst_i = 1;
   for (int i = 0; i < 10; i++)
