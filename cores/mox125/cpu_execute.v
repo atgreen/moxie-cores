@@ -120,6 +120,24 @@ module cpu_execute (/*AUTOARG*/
   reg                     load_byte;
   reg                     load_to_b;
 
+  // One shared restoring divider, a quotient bit per clock.  It works
+  // on magnitudes and fixes up the sign of the result at the end.
+  reg                     div_active;
+  reg                     div_fixup;
+  reg [4:0]               div_count;
+  reg [31:0]              div_quotient;
+  reg [31:0]              div_remainder;
+  reg [31:0]              div_divisor;
+  reg                     div_want_remainder;
+  reg                     div_negate;
+
+  wire [32:0]             div_trial = {div_remainder, div_quotient[31]};
+  wire [32:0]             div_diff = div_trial - {1'b0, div_divisor};
+  wire                    div_fits = !div_diff[32];
+  wire [31:0]             div_next_remainder = div_fits ? div_diff[31:0] : div_trial[31:0];
+  wire [31:0]             div_next_quotient = {div_quotient[30:0], div_fits};
+  wire [31:0]             div_magnitude = div_want_remainder ? div_remainder : div_quotient;
+
   reg                     register_wea_o;
   reg                     register_web_o;
 
@@ -185,11 +203,33 @@ module cpu_execute (/*AUTOARG*/
     end
   endtask
 
+  // Start a divide.  The quotient takes the sign of the two operands
+  // combined, the remainder takes the sign of the dividend.
+  task div_start;
+    input        is_signed;
+    input        want_remainder;
+    begin
+      busy_o <= 1;
+      div_active <= 1;
+      div_fixup <= 0;
+      div_count <= 5'd31;
+      div_remainder <= 32'b0;
+      div_quotient <= (is_signed & regA_i[31]) ? -regA_i : regA_i;
+      div_divisor <= (is_signed & regB_i[31]) ? -regB_i : regB_i;
+      div_want_remainder <= want_remainder;
+      div_negate <= is_signed & (want_remainder ? regA_i[31] : (regA_i[31] ^ regB_i[31]));
+      register_wea_o <= 0;
+      register_web_o <= 0;
+      pending_wea <= 1;
+    end
+  endtask
+
   always @(posedge rst_i or posedge clk_i)
     if (rst_i) begin
       pipeline_control_bits_o <= 6'b0;
       branch_flag_o <= 0;
       busy_o <= 0;
+      div_active <= 0;
       register_wea_o <= 0;
       register_web_o <= 0;
       pending_wea <= 0;
@@ -200,7 +240,25 @@ module cpu_execute (/*AUTOARG*/
       dmem_stb_o <= 0;
       dmem_cyc_o <= 0;
     end else begin
-      if (busy_o)
+      if (div_active)
+        begin
+          if (div_fixup)
+            begin
+              // The magnitude is ready; apply the sign and finish.
+              busy_o <= 0;
+              div_active <= 0;
+              reg1_result_o <= div_negate ? -div_magnitude : div_magnitude;
+              register_wea_o <= pending_wea;
+            end
+          else
+            begin
+              div_count <= div_count - 5'd1;
+              div_remainder <= div_next_remainder;
+              div_quotient <= div_next_quotient;
+              div_fixup <= (div_count == 5'd0);
+            end
+        end
+      else if (busy_o)
         begin
           // Hold the bus cycle until the slave acks it.
           if (dmem_ack_i)
@@ -390,7 +448,7 @@ module cpu_execute (/*AUTOARG*/
                 end
               `OP_DIV_L:
                 begin
-                  reg1_result_o <= $signed(regA_i) / $signed(regB_i);
+                  div_start (1'b1, 1'b0);
                 end
               `OP_GSR:
                 begin
@@ -489,7 +547,7 @@ module cpu_execute (/*AUTOARG*/
                 end
               `OP_MOD_L:
                 begin
-                  reg1_result_o <= $signed(regA_i) % $signed(regB_i);
+                  div_start (1'b1, 1'b1);
                 end
               `OP_MOV:
                 begin
@@ -633,11 +691,11 @@ module cpu_execute (/*AUTOARG*/
                 end
               `OP_UDIV_L:
                 begin
-                  reg1_result_o <= regA_i / regB_i;
+                  div_start (1'b0, 1'b0);
                 end
               `OP_UMOD_L:
                 begin
-                  reg1_result_o <= regA_i % regB_i;
+                  div_start (1'b0, 1'b1);
                 end
               `OP_XOR:
                 begin

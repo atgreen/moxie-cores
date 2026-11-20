@@ -1,0 +1,10 @@
+# 2
+	.section .text
+	.global	_start
+_start:	
+	/* 0xffffff9c % 0x7 unsigned */
+	ldi.l   $r0, 0xffffff9c
+	ldi.l   $r1, 0x7
+	umod   $r0, $r1
+	sta.l   0x0c0ffee0, $r0
+	sta.b   0xdead, $r0
