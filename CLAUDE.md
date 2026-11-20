@@ -11,6 +11,7 @@ This repository contains open-source CPU cores and System-on-Chip (SoC) implemen
 ### Cores
 - **MoxieLite** (`cores/MoxieLite/`): A bi-endian non-pipelined implementation in VHDL
 - **mox125** (`cores/mox125/`): A big-endian pipelined implementation in Verilog with 5-stage pipeline (fetch, decode, execute, write)
+- Wishbone peripherals also live under `cores/`: `wishbone/` (interconnect, watchdog), `uart3/`, `ram16bit/`, `hex_display/`, `psram/`, `altera_sdram/`, `mtimer/`, `nexys7seg/`, `statled/`, `gdbtarget/`, `LVT-regs/`
 
 ### System-on-Chips
 - **Marin** (`soc/marin/`): MoxieLite-based SoC for Spartan 6 (Nexys3) and Cyclone II (DE2) evaluation boards
@@ -93,42 +94,25 @@ The repository includes several Common Lisp scripts in `scripts/`:
 - Linker scripts for different memory configurations in `soc/marin/`
 - Memory maps documented in `soc/marin/memory-map.txt`
 
-## Current Work Session State (Aug 2025)
+## mox125 Pipeline Notes (Nov 2026)
 
-**Problem**: Register forwarding bug in mox125 processor affecting dual-register store operations (st.*, sto.*)
+**Status**: `bench/mox125` passes: boot address, NOP sequence with 0-120 fetch wait states, and all `asm/test*.S` binaries at 0/1/2/5 bus wait states.
 
-**Status**: 30/35 tests passing (85%) - CONFIRMED register forwarding bug via NOP insertion test
+**Pipeline contract** (keep this true when changing the core):
+- `cpu_execute` owns the data bus. Any instruction touching data memory runs as a sequence of 16-bit wishbone cycles (`mem_start` task, `SEQ_*` sequences) and holds `busy_o` high until the last ack. The 16-bit bus is a requirement.
+- `busy_o` is the only stall. It freezes fetch, the decode latches, the register file read ports and the `maybe_forward_*` registers in `moxie.v`. Register writes for a multi-cycle instruction happen when its sequence completes.
+- Register write port 1 writes register A (`opcode[7:4]`, or `[11:8]` for inc/dec), port 2 writes register B. `jsr`/`jsra`/`ret` override the indices to write `$sp` (1) and `$fp` (0).
+- Forwarding in `moxie.v` compares what execute is actually writing against the operand indices of the instruction in decode; `$sp`/`$fp` are forwarded the same way.
+- A taken branch raises `branch_flag_o` for one cycle, which redirects fetch and squashes the one instruction behind it.
+- The SoC slaves register their acks (`ack <= stb & cyc`), so `moxie.v` only accepts an ack when the same request was already on the bus one clock earlier. This also makes it safe for the data side to take the bus from the icache mid-fill.
+- Byte loads read the high lane (`sel=2'b10`, data on `[15:8]`); byte stores drive the low lane (`sel=2'b01`). This matches the memory model in `bench/mox125/test.lisp`.
 
-**Root Cause Identified**: 
-- Complex register forwarding logic in `cores/mox125/moxie.v` lines 253-254 fails for dual-register operations
-- ST_* operations require both regA_i (address) and regB_i (data) forwarding simultaneously  
-- STA_* operations work (single register) but ST_* operations fail (dual register)
+**Muskoka SoC under Verilator**: `cd soc/muskoka/verilator && make && ./muskoka` builds the on-chip bootloader (`firmware/bootrom`, linked with `soc/marin/moxie-marin-onchip.ld`) and runs it. It prints one trace line per clock (last field is `hex digits,tx`); the bootloader shows FEED on the hex display, prints its banner on the UART at 434 clocks per bit, then polls for input.
 
-**Evidence**:
-- Without NOPs: ST_* operations write 0x0 instead of expected register values
-- With NOPs: ST_* operations work correctly (tests 004-006 now pass)
-- Trace shows `W[3]@C0FFEE0: 6789` instead of `W[3]@C0FFEE0: 0` with NOPs
-
-**Fixed So Far**:
-- Added missing memory_address_o assignments to ST_*/STO_* operations in cpu_execute.v
-- Fixed microcode.org for st.l (rB? 0→1) and regenerated microcode.bin
-- Modified microcoder.lisp to use asdf instead of quicklisp
-
-**Current State**:
-- Tests 004-006 (st.s, st.b, st.l) now pass with NOPs
-- Tests 007-009, 018, 027 still failing (likely STO_* operations)
-- Need to fix forwarding logic in moxie.v without requiring NOPs
-
-**Next Steps**:
-1. Analyze complex forwarding logic in moxie.v lines 253-254
-2. Fix simultaneous dual-register forwarding for ST_*/STO_* operations  
-3. Target: restore to 31/35 tests passing (all but 4) as mentioned in commit 3319a10
-
-**Files Modified**:
-- cores/mox125/cpu_execute.v (memory_address_o assignments)
-- cores/mox125/microcode.org (st.l microcode fix)  
-- scripts/microcoder.lisp (asdf instead of quicklisp)
-- bench/mox125/asm/test004.S, test005.S, test006.S (NOPs for validation - revert later)
+**Bench notes**:
+- Needs Verilator 5 and wrapilator from git master (the v1.1.0 release predates Verilator 5).
+- Run `ocicl install` in `bench/mox125` and `bench/icache` to fetch the Lisp dependencies.
+- Each test stores its result at 0x0c0ffee0 and exits by writing to 0xdead; the expected value is the comment on the first line of the `.S` file.
 
 ## File Structure Notes
 
