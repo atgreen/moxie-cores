@@ -36,14 +36,16 @@
 (defun tick-up (cpu trace)
   (moxie-set-clk-i cpu 1)
   (moxie-eval cpu)
-  (VerilatedVcdC-dump trace *time*)
+  (when trace
+    (VerilatedVcdC-dump trace *time*))
   (incf *time*))
 
 ;;; Clock down and eval
 (defun tick-down (cpu trace)
   (moxie-set-clk-i cpu 0)
   (moxie-eval cpu)
-  (VerilatedVcdC-dump trace *time*)
+  (when trace
+    (VerilatedVcdC-dump trace *time*))
   (incf *time*))
 
 ;;; Hold reset high for CYCLES
@@ -58,7 +60,8 @@
 ;;; After reset, the core should start reading from 0x1000
 ;;; ---------------------------------------------------------------------------
 (test check-boot-address
-      (let ((cpu (moxie-new)))
+      (let ((cpu (moxie-new))
+	    (trace nil))
 	(moxie-set-wb-ack-i cpu 0)
 	(reset-cycles cpu trace 10)
 	(loop until (and (eq (moxie-get-wb-stb-o cpu) 1)
@@ -74,7 +77,8 @@
 ;;; Run test multiple times, with increasing numbers of memory wait states.
 ;;; ---------------------------------------------------------------------------
 (test run-nop-sequence
-      (let ((cpu (moxie-new)))
+      (let ((cpu (moxie-new))
+	    (trace nil))
 	(loop for memory-wait-cycles from 0 to 120
 	   do
 	     (progn
@@ -91,7 +95,7 @@
 			 initially (moxie-set-wb-ack-i cpu 0)
 			 do (progn (tick-down cpu trace) (tick-up cpu trace)))
 		      ;; Have we waited too long?
-		      (if (> count 10000) (finish-loop))
+		      (if (> count 10000) (return))
 		      ;; Insert some number of wait cycles to fetch from memory...
 		      (loop for wait from 1 to memory-wait-cycles
 			 initially (moxie-set-wb-ack-i cpu 0)
@@ -144,7 +148,9 @@
      ,@body
      (VerilatedVcdC-close ,trace)))
 
-(defun load-and-run (filename)
+;;; MEMORY-WAIT-CYCLES is the number of clocks the bus slave sits on
+;;; each request before acking it.
+(defun load-and-run (filename &optional (memory-wait-cycles 0))
   (traceEverOn 1)
   (setq *time* 0)
   (let ((mem (make-hash-table))
@@ -165,6 +171,9 @@
                                  (format t "+")
                                  (tick-up cpu trace)))
                  (if (> count 1000) (return))
+                 ;; Insert some number of wait cycles...
+                 (loop repeat memory-wait-cycles
+                       do (progn (tick-down cpu trace) (tick-up cpu trace)))
                  ;; Read or write...
                  (let ((adr (moxie-get-wb-adr-o cpu))
                        (sel (moxie-get-wb-sel-o cpu)))
@@ -198,15 +207,18 @@
                      (ash (sim-read-byte mem #x00c0ffee2) 8)
                      (sim-read-byte mem #x00c0ffee3)))
           (expected (parse-integer (cdr (assoc (file-namestring filename) *expected-results* :test #'string=)) :radix 16)))
-      (format t "~A: expecting ~X, got ~X~%" filename expected result)
+      (format t "~A (~A wait): expecting ~X, got ~X~%"
+              filename memory-wait-cycles expected result)
       (is (= result expected) (file-namestring filename)))))
 
 (test run-executable-tests
       (let ((test-binaries (directory "bin/*.x")))
-	(mapc #'load-and-run test-binaries)))
+	(dolist (memory-wait-cycles '(0 1 2 5))
+	  (dolist (binary test-binaries)
+	    (load-and-run binary memory-wait-cycles)))))
 
-; (run! 'check-boot-address)
-; (run! 'run-nop-sequence)
+(run! 'check-boot-address)
+(run! 'run-nop-sequence)
 (run! 'run-executable-tests)
 
 
