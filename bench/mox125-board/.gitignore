@@ -1,0 +1,4 @@
+obj_dir/
+board
+board.vcd
+microcode.bin

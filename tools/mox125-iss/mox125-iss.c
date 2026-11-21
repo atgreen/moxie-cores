@@ -40,7 +40,9 @@
    usage: mox125-iss [-t] [-n max-insns] [-r] program.elf
      -t  trace every instruction
      -n  stop after this many instructions
-     -r  report the word at 0x0c0ffee0 on exit, as the bench tests do  */
+     -r  report the word at 0x0c0ffee0 on exit, as the bench tests do
+     -b  each time execution reaches this address (hex), print the
+	 argument registers and where the call came from  */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -293,6 +295,8 @@ static struct tlb_entry dtlb[64], itlb[64];
 static struct { int valid; u32 tag; u8 data[32]; } icache[256];
 
 static int trace;
+static u32 watch_pc;
+static int watching;
 static int faulted;
 
 static u32
@@ -563,6 +567,16 @@ step (void)
   if (fetch (at, &op, &operand))
     return;
 
+  if (watching && at == watch_pc)
+    {
+      /* At a function's first instruction the frame the call built is
+	 at $fp, so the caller can be named.  Kernel addresses only.  */
+      u32 f = reg[FP] >= 0xc0000000 ? reg[FP] - 0xc0000000 : reg[FP];
+      fprintf (stderr, "[%llu: at %08x from %08x: r0=%08x r1=%08x r2=%08x r3=%08x]\n",
+	       (unsigned long long) insns, at,
+	       (u32) (ram_read16 (f + 4) << 16) | ram_read16 (f + 6),
+	       reg[2], reg[3], reg[4], reg[5]);
+    }
   if (trace)
     fprintf (stderr, "%08x: %04x %08x  fp=%08x sp=%08x r0=%08x r1=%08x r2=%08x\n",
 	     at, op, operand, reg[FP], reg[SP], reg[2], reg[3], reg[4]);
@@ -822,12 +836,13 @@ main (int argc, char **argv)
   uint64_t max_insns = 0;
   int opt;
 
-  while ((opt = getopt (argc, argv, "tn:r")) != -1)
+  while ((opt = getopt (argc, argv, "tn:rb:")) != -1)
     switch (opt)
       {
       case 't': trace = 1; break;
       case 'n': max_insns = strtoull (optarg, NULL, 0); break;
       case 'r': report = 1; break;
+      case 'b': watch_pc = strtoul (optarg, NULL, 16); watching = 1; break;
       default:
 	fprintf (stderr, "usage: %s [-t] [-n max-insns] [-r] program.elf\n", argv[0]);
 	return 2;
@@ -858,7 +873,8 @@ main (int argc, char **argv)
       printf ("%X\n", (u32) (ram_read16 (0x0c0ffee0) << 16) | ram_read16 (0x0c0ffee2));
       return 0;
     }
-  fprintf (stderr, "\n[%s after %llu instructions]\n", done ? "exit requested" : "stopped",
-	   (unsigned long long) insns);
+  fprintf (stderr, "\n[%s after %llu instructions; pc %08x, status %03x, last cause %u]\n",
+	   done ? "exit requested" : "stopped", (unsigned long long) insns,
+	   pc, status_word (), sr_cause);
   return exit_code;
 }
