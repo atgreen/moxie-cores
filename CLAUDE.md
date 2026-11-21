@@ -107,6 +107,13 @@ The repository includes several Common Lisp scripts in `scripts/`:
 - The SoC slaves register their acks (`ack <= stb & cyc`), so `moxie.v` only accepts an ack when the same request was already on the bus one clock earlier. This also makes it safe for the data side to take the bus from the icache mid-fill.
 - Byte loads read the high lane (`sel=2'b10`, data on `[15:8]`); byte stores drive the low lane (`sel=2'b01`). This matches the memory model in `bench/mox125/test.lisp`.
 
+**Exceptions and interrupts**:
+- Special registers (`gsr`/`ssr`): sr0 status (bit 0 interrupt enable, bits 8:4 condition codes), sr1 handler address, sr2 cause (2 interrupt, 3 `swi`, 5 `brk`), sr3 `swi` number, sr4 status saved at exception entry, sr5 resume address, sr6/sr7 scratch.
+- `irq_i` is level sensitive. An interrupt is taken in place of the instruction execute was about to accept, so sr5 is that instruction's address.
+- Taking an exception copies sr0 to sr4, clears the interrupt enable and jumps to sr1. To return, write the status to resume with to sr4 and leave with `ret` or `jmp`; writing sr4 arms the core to copy it back into sr0 as that branch is taken.
+
+**Zephyr**: the port lives on the `moxie` branch of https://github.com/atgreen/zephyr (board `mox125_sim`, toolchain variant `cross-compile` with `CROSS_COMPILE=.../moxie-elf-`, `CONFIG_MINIMAL_LIBC=y`). Run an image with `cd bench/mox125 && sbcl --non-interactive --load zephyr.lisp <zephyr.elf> [max-clocks [trace-from]]`; `zephyr.lisp` is the board (RAM, console, interrupt controller, timer) and documents its register map. The Moxie ABI makes every caller reserve 24 bytes at the bottom of its frame for the callee to store its argument registers; hand-written assembly that calls C must do the same.
+
 **Muskoka SoC under Verilator**: `cd soc/muskoka/verilator && make && ./muskoka` builds the on-chip bootloader (`firmware/bootrom`, linked with `soc/marin/moxie-marin-onchip.ld`) and runs it. It prints one trace line per clock (last field is `hex digits,tx`); the bootloader shows FEED on the hex display, prints its banner on the UART at 434 clocks per bit, then polls for input.
 
 **Bench notes**:

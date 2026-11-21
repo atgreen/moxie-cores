@@ -98,3 +98,9 @@ obj_dir
 expected-results.lisp
 
 /bench/mox125/microcode.bin
+
+# Lisp dependencies fetched by ocicl, and other build byproducts
+/bench/*/systems/
+/cores/mox125/ocicl/
+/cores/mox125/ocicl.csv
+/cores/mox125/bootrom.vh
