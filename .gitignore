@@ -108,3 +108,10 @@ expected-results.lisp
 /tools/mox125-iss/mox125-iss
 soc/muskoka/boards/de2/bootrom.vh
 soc/muskoka/boards/de2/microcode.bin
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
+*.gate.lock*

@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "moxie_cores",
+  "project_id": "112a51fa-9636-4c19-8ffd-8db87474ab48"
+}
