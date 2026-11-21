@@ -110,7 +110,16 @@ The repository includes several Common Lisp scripts in `scripts/`:
 **Exceptions and interrupts**:
 - Special registers (`gsr`/`ssr`): sr0 status (bit 0 interrupt enable, bits 8:4 condition codes), sr1 handler address, sr2 cause (2 interrupt, 3 `swi`, 5 `brk`), sr3 `swi` number, sr4 status saved at exception entry, sr5 resume address, sr6/sr7 scratch.
 - `irq_i` is level sensitive. An interrupt is taken in place of the instruction execute was about to accept, so sr5 is that instruction's address.
-- Taking an exception copies sr0 to sr4, clears the interrupt enable and jumps to sr1. To return, write the status to resume with to sr4 and leave with `ret` or `jmp`; writing sr4 arms the core to copy it back into sr0 as that branch is taken.
+- Taking an exception copies sr0 to sr4, then clears the interrupt enable, leaves user mode, turns translation off and jumps to sr1. `eret` (opcode 0x3a) copies sr4 back to sr0 and jumps to sr5 as one step; it is the only way to enter user mode or turn translation on. `wfi` (0x3b) stops the core until `irq_i` is asserted, even with interrupts disabled. Both are mox125 extensions; `tools/binutils-moxie-eret-wfi.patch` teaches the assembler about them.
+- `gsr`, `ssr`, `eret` and `wfi` are privileged: in user mode they raise cause 12.
+
+**Memory management** (software-refilled TLB, see the comments in `cpu_execute.v` and `tlb.v`):
+- sr0 bit 2 is user mode and bit 3 turns translation on. sr8 fault address, sr9 tlbhi (virtual page number, address space id), sr10 tlblo (physical page number; flags valid 1, writable 2, user 8, global 16), sr11 write stores tlbhi/tlblo in the data TLB (bit 0 clear) or instruction TLB (bit 0 set), sr12 current address space id, sr13 TLB miss handler (zero means use sr1), sr14 write flushes the instruction cache.
+- Each TLB is direct mapped with 64 entries and 4 KiB pages; the low six bits of the virtual page number pick the entry. Entries are not cleared at reset, so software must write all of them before enabling translation.
+- Causes: 6 instruction TLB miss, 7/8 data TLB miss on load/store, 9 instruction protection, 10/11 data protection on load/store. A fault puts the address in sr8 and preloads tlbhi.
+- Faults are precise: a multi-cycle instruction that faults has changed no register and is restarted from the beginning.
+- The instruction cache is tagged with the virtual address plus the translation and user-mode bits. Changing a mapping does not invalidate it; software must flush.
+- Translation is combinational between the bus sequencer and the bus, which roughly doubled the longest path through the core. Registering it is a known follow-up.
 
 **Zephyr**: the port lives on the `moxie` branch of https://github.com/atgreen/zephyr (board `mox125_sim`, toolchain variant `cross-compile` with `CROSS_COMPILE=.../moxie-elf-`, `CONFIG_MINIMAL_LIBC=y`). Run an image with `cd bench/mox125 && sbcl --non-interactive --load zephyr.lisp <zephyr.elf> [max-clocks [trace-from]]`; `zephyr.lisp` is the board (RAM, console, interrupt controller, timer) and documents its register map. The Moxie ABI makes every caller reserve 24 bytes at the bottom of its frame for the callee to store its argument registers; hand-written assembly that calls C must do the same.
 

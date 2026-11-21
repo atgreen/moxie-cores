@@ -147,6 +147,59 @@ module moxie (/*AUTOARG*/
   // High while execute is busy with a multi-cycle instruction.
   wire        stall;
 
+  // --- Memory management ----------------------------------------
+  wire        mmu;
+  wire        um;
+  wire [7:0]  asid;
+  wire [31:0] tlbhi;
+  wire [31:0] tlblo;
+  wire        icache_flush;
+
+  wire        dtlb_we;
+  wire [31:0] dtlb_vaddr;
+  wire        dtlb_hit;
+  wire [19:0] dtlb_ppn;
+  wire        dtlb_user;
+  wire        dtlb_writable;
+
+  wire        itlb_we;
+  wire [31:0] itlb_vaddr;
+  wire        itlb_hit;
+  wire [19:0] itlb_ppn;
+  wire        itlb_user;
+
+  // Fetch cannot go on if the line it needs has no translation, or
+  // has one that user mode may not use.
+  wire        itlb_prot = mmu & itlb_hit & um & !itlb_user;
+  wire        itlb_fault = mmu & (!itlb_hit | (um & !itlb_user));
+  wire        fetch_fault;
+
+  tlb dtlb (// Outputs
+	    .hit_o	(dtlb_hit),
+	    .ppn_o	(dtlb_ppn),
+	    .user_o	(dtlb_user),
+	    .writable_o	(dtlb_writable),
+	    // Inputs
+	    .clk_i	(clk_i),
+	    .we_i	(dtlb_we),
+	    .hi_i	(tlbhi),
+	    .lo_i	(tlblo),
+	    .vaddr_i	(dtlb_vaddr),
+	    .asid_i	(asid));
+
+  tlb itlb (// Outputs
+	    .hit_o	(itlb_hit),
+	    .ppn_o	(itlb_ppn),
+	    .user_o	(itlb_user),
+	    .writable_o	(),
+	    // Inputs
+	    .clk_i	(clk_i),
+	    .we_i	(itlb_we),
+	    .hi_i	(tlbhi),
+	    .lo_i	(tlblo),
+	    .vaddr_i	(itlb_vaddr),
+	    .asid_i	(asid));
+
 `ifndef VERILATOR   
   // synthesis translate_off 
   initial
@@ -227,6 +280,12 @@ module moxie (/*AUTOARG*/
 			 .branch_flag_i         (xf_branch_flag),
 			 .branch_target_i       (xf_branch_target),
 			 .stall_i               (stall),
+			 .mode_i                ({mmu, um}),
+			 .xlate_vaddr_o         (itlb_vaddr),
+			 .xlate_ppn_i           (itlb_ppn),
+			 .xlate_fault_i         (itlb_fault),
+			 .fault_o               (fetch_fault),
+			 .flush_i               (icache_flush),
 			 .imem_data_i           (wb_I_dat_i[15:0]));
 
   cpu_decode stage_decode (// Inputs
@@ -252,6 +311,22 @@ module moxie (/*AUTOARG*/
 			     .rst_i	     (rst_i),
 			     .clk_i	     (clk_i),
 			     .irq_i	     (irq_i),
+			     .mmu_o          (mmu),
+			     .um_o           (um),
+			     .asid_o         (asid),
+			     .dtlb_vaddr_o   (dtlb_vaddr),
+			     .dtlb_hit_i     (dtlb_hit),
+			     .dtlb_ppn_i     (dtlb_ppn),
+			     .dtlb_user_i    (dtlb_user),
+			     .dtlb_writable_i (dtlb_writable),
+			     .dtlb_we_o      (dtlb_we),
+			     .itlb_we_o      (itlb_we),
+			     .tlbhi_o        (tlbhi),
+			     .tlblo_o        (tlblo),
+			     .icache_flush_o (icache_flush),
+			     .ifault_i       (fetch_fault),
+			     .ifault_prot_i  (itlb_prot),
+			     .ifault_addr_i  (itlb_vaddr),
 			     .busy_o         (stall),
 			     .op_i           (dx_op),
 			     .PC_i           (dx_PC),

@@ -92,3 +92,5 @@
 `define OP_SEX_S  7'b1000000
 `define OP_ZEX_B  7'b1000001
 `define OP_ZEX_S  7'b1000011
+`define OP_ERET   7'b1000010
+`define OP_WFI    7'b1000100

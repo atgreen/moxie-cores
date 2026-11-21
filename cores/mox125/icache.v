@@ -29,12 +29,27 @@
 // Does not latch output from cache!
 //
 // rst_i clears the cache valid bits for safety.
+//
+// The cache is indexed and tagged with virtual addresses.  A line's
+// tag also records whether translation was on and whether the core
+// was in user mode when it was filled, so the untranslated code an
+// exception handler runs can never be mistaken for translated code at
+// the same address, and user code can never run a line that was only
+// fetched with supervisor rights.  Changing or removing a translation
+// does not touch the cache; software has to flush it.
+//
+// Before filling a line the cache presents its address on
+// xlate_vaddr_o.  If that cannot be translated the fill does not
+// start and fault_o says so, for as long as the fetch address stays
+// where it is.
 
 module icache (/*AUTOARG*/
                // Outputs
                hit_o, inst_o, data_o, wb_adr_o, wb_sel_o, wb_cyc_o, wb_stb_o,
+               xlate_vaddr_o, fault_o,
                // Inputs
-               rst_i, clk_i, adr_i, stb_i, wb_dat_i, wb_ack_i
+               rst_i, clk_i, adr_i, stb_i, wb_dat_i, wb_ack_i, mode_i,
+               xlate_ppn_i, xlate_fault_i, flush_i
                );
 
   input         rst_i,     clk_i;
@@ -56,6 +71,18 @@ module icache (/*AUTOARG*/
   output reg        wb_stb_o;
   input             wb_ack_i;
 
+  // {translation on, user mode}
+  input  [1:0]      mode_i;
+
+  // Translation of the line we want to fill next.
+  output [31:0]     xlate_vaddr_o;
+  input  [19:0]     xlate_ppn_i;
+  input             xlate_fault_i;
+  output            fault_o;
+
+  // Forget everything.
+  input             flush_i;
+
   assign wb_cyc_o = wb_stb_o;
   assign wb_sel_o = 2'b11;
 
@@ -63,7 +90,7 @@ module icache (/*AUTOARG*/
   // Tag bits: 32 - (8 index) - (4 byte offset) - (1 alignment bit) = 19.
 
   reg               valid[0:255];
-  reg  [18:0]       tags [0:255];
+  reg  [20:0]       tags [0:255];
   reg  [15:0]       line [0:4095];
 
   // Base tag / word offset within a line (halfword granularity)
@@ -87,9 +114,9 @@ module icache (/*AUTOARG*/
   wire [18:0] tag2 = tag0 + set2_w[8];
 
   // Hit checks per potentially referenced line (each with its own tag)
-  wire hit0 = valid[set0] & (tags[set0] == tag0);
-  wire hit1 = valid[set1] & (tags[set1] == tag1);
-  wire hit2 = valid[set2] & (tags[set2] == tag2);
+  wire hit0 = valid[set0] & (tags[set0] == {mode_i, tag0});
+  wire hit1 = valid[set1] & (tags[set1] == {mode_i, tag1});
+  wire hit2 = valid[set2] & (tags[set2] == {mode_i, tag2});
 
   assign hit_o = (!rst_i) & hit0 & hit1 & hit2;
 
@@ -109,38 +136,32 @@ module icache (/*AUTOARG*/
   assign data_o[31:16] = line[data1_idx];
   assign data_o[15:0]  = line[data2_idx];
 
-  // --- State machine states -----------------------------------------
-  parameter ICACHE_IDLE       = 4'd0;
-  parameter ICACHE_FILL0      = 4'd1;
-  parameter ICACHE_FILL1      = 4'd2;
-  parameter ICACHE_FILL2      = 4'd5;
-  parameter ICACHE_FILL0_WAIT = 4'd3;
-  parameter ICACHE_FILL1_WAIT = 4'd4;
-  parameter ICACHE_FILL2_WAIT = 4'd6;
+  // --- Line fill ---------------------------------------------------
+  parameter ICACHE_IDLE      = 2'd0;
+  parameter ICACHE_FILL      = 2'd1;
+  parameter ICACHE_FILL_WAIT = 2'd2;
 
-  reg [3:0] state = ICACHE_IDLE;
+  reg [1:0] state = ICACHE_IDLE;
   reg [3:0] count = 4'd0;
 
-  // Latched request context for fill flows
-  reg [7:0]  hold_set0, hold_set1, hold_set2;
-  reg [18:0] hold_tag0, hold_tag1, hold_tag2;
+  // The line being filled, and the mode it is being filled in.
+  reg [7:0]  hold_set;
+  reg [18:0] hold_tag;
+  reg [1:0]  hold_mode;
 
-  // Which lines actually need filling for this request
-  reg        need0, need1, need2;
+  // Fill whichever of the lines we need comes first.  Each fill ends
+  // back in idle, where the next one is chosen and translated afresh.
+  wire        miss = stb_i & !(hit0 & hit1 & hit2);
+  wire [7:0]  fill_set = !hit0 ? set0 : (!hit1 ? set1 : set2);
+  wire [18:0] fill_tag = !hit0 ? tag0 : (!hit1 ? tag1 : tag2);
+  wire [31:0] fill_vaddr = { fill_tag, fill_set, 5'b00000 };
 
-  // Combinational "next-need" wires used at end of each fill
-  wire n1_after_fill0 = need1 & (hold_set1 != hold_set0);
-  wire n2_after_fill0 = need2 & (hold_set2 != hold_set0);
-
-  wire n0_after_fill1 = need0 & (hold_set0 != hold_set1);
-  wire n2_after_fill1 = need2 & (hold_set2 != hold_set1);
-
-  wire n0_after_fill2 = need0 & (hold_set0 != hold_set2);
-  wire n1_after_fill2 = need1 & (hold_set1 != hold_set2);
+  assign xlate_vaddr_o = fill_vaddr;
+  assign fault_o = (state == ICACHE_IDLE) & miss & xlate_fault_i;
 
   integer i;
   always @(posedge clk_i) begin
-    if (rst_i) begin
+    if (rst_i | flush_i) begin
       state    <= ICACHE_IDLE;
       count    <= 4'd0;
       wb_stb_o <= 1'b0;
@@ -148,9 +169,9 @@ module icache (/*AUTOARG*/
       for (i = 0; i < 256; i = i + 1)
         valid[i] <= 1'b0;
 
-      hold_set0 <= 8'd0; hold_set1 <= 8'd0; hold_set2 <= 8'd0;
-      hold_tag0 <= 19'd0; hold_tag1 <= 19'd0; hold_tag2 <= 19'd0;
-      need0 <= 1'b0; need1 <= 1'b0; need2 <= 1'b0;
+      hold_set <= 8'd0;
+      hold_tag <= 19'd0;
+      hold_mode <= 2'd0;
 
     end else begin
       case (state)
@@ -158,143 +179,45 @@ module icache (/*AUTOARG*/
         ICACHE_IDLE: begin
           count <= 4'd0;
 
-          if (stb_i && !(hit0 & hit1 & hit2)) begin
-            // Latch the miss context
-            hold_set0 <= set0; hold_tag0 <= tag0;
-            hold_set1 <= set1; hold_tag1 <= tag1;
-            hold_set2 <= set2; hold_tag2 <= tag2;
+          if (miss & !xlate_fault_i) begin
+            hold_set  <= fill_set;
+            hold_tag  <= fill_tag;
+            hold_mode <= mode_i;
 
-            need0 <= !hit0;
-            need1 <= !hit1;
-            need2 <= !hit2;
+            // The line stops being what its tag says as soon as we
+            // start overwriting it.
+            valid[fill_set] <= 1'b0;
 
+            // A line never crosses a page, so one translation does
+            // for the whole fill.
+            wb_adr_o <= mode_i[1] ? { xlate_ppn_i, fill_vaddr[11:0] } : fill_vaddr;
             wb_stb_o <= 1'b1;
-
-            // IMPORTANT: Use current combinational (tagX,setX) for the first fill
-            if (!hit0) begin
-              wb_adr_o <= { tag0, set0, 5'b00000 };
-              state    <= ICACHE_FILL0_WAIT;
-            end else if (!hit1) begin
-              wb_adr_o <= { tag1, set1, 5'b00000 };
-              state    <= ICACHE_FILL1_WAIT;
-            end else begin
-              wb_adr_o <= { tag2, set2, 5'b00000 };
-              state    <= ICACHE_FILL2_WAIT;
-            end
+            state    <= ICACHE_FILL_WAIT;
           end else begin
             wb_stb_o <= 1'b0;
-            state    <= ICACHE_IDLE;
           end
         end
 
-        // --- Fill line 0 ---------------------------------------------
-        ICACHE_FILL0: begin
+        ICACHE_FILL: begin
           if (wb_ack_i) begin
-            line[ ({hold_set0,4'b0000} + {8'b0, count}) ] <= wb_dat_i;
+            line[ ({hold_set,4'b0000} + {8'b0, count}) ] <= wb_dat_i;
             wb_adr_o <= wb_adr_o + 32'd2;
             count    <= count + 4'd1;
 
             if (count == 4'd15) begin
-              tags[hold_set0]  <= hold_tag0;
-              valid[hold_set0] <= 1'b1;
-              count            <= 4'd0;
-
-              // commit next needs
-              need0 <= 1'b0;
-              need1 <= n1_after_fill0;
-              need2 <= n2_after_fill0;
-
-              // choose next line to fill
-              if (n1_after_fill0) begin
-                wb_adr_o <= { hold_tag1, hold_set1, 5'b00000 };
-                state    <= ICACHE_FILL1_WAIT;
-              end else if (n2_after_fill0) begin
-                wb_adr_o <= { hold_tag2, hold_set2, 5'b00000 };
-                state    <= ICACHE_FILL2_WAIT;
-              end else begin
-                wb_stb_o <= 1'b0;
-                state    <= ICACHE_IDLE;
-              end
+              tags[hold_set]  <= { hold_mode, hold_tag };
+              valid[hold_set] <= 1'b1;
+              count           <= 4'd0;
+              wb_stb_o        <= 1'b0;
+              state           <= ICACHE_IDLE;
             end else begin
-              state <= ICACHE_FILL0_WAIT;
+              state <= ICACHE_FILL_WAIT;
             end
           end
         end
 
-        ICACHE_FILL0_WAIT: begin
-          state <= ICACHE_FILL0;
-        end
-
-        // --- Fill line 1 ---------------------------------------------
-        ICACHE_FILL1: begin
-          if (wb_ack_i) begin
-            line[ ({hold_set1,4'b0000} + {8'b0, count}) ] <= wb_dat_i;
-            wb_adr_o <= wb_adr_o + 32'd2;
-            count    <= count + 4'd1;
-
-            if (count == 4'd15) begin
-              tags[hold_set1]  <= hold_tag1;
-              valid[hold_set1] <= 1'b1;
-              count            <= 4'd0;
-
-              need1 <= 1'b0;
-              need0 <= n0_after_fill1;
-              need2 <= n2_after_fill1;
-
-              if (n0_after_fill1) begin
-                wb_adr_o <= { hold_tag0, hold_set0, 5'b00000 };
-                state    <= ICACHE_FILL0_WAIT;
-              end else if (n2_after_fill1) begin
-                wb_adr_o <= { hold_tag2, hold_set2, 5'b00000 };
-                state    <= ICACHE_FILL2_WAIT;
-              end else begin
-                wb_stb_o <= 1'b0;
-                state    <= ICACHE_IDLE;
-              end
-            end else begin
-              state <= ICACHE_FILL1_WAIT;
-            end
-          end
-        end
-
-        ICACHE_FILL1_WAIT: begin
-          state <= ICACHE_FILL1;
-        end
-
-        // --- Fill line 2 ---------------------------------------------
-        ICACHE_FILL2: begin
-          if (wb_ack_i) begin
-            line[ ({hold_set2,4'b0000} + {8'b0, count}) ] <= wb_dat_i;
-            wb_adr_o <= wb_adr_o + 32'd2;
-            count    <= count + 4'd1;
-
-            if (count == 4'd15) begin
-              tags[hold_set2]  <= hold_tag2;
-              valid[hold_set2] <= 1'b1;
-              count            <= 4'd0;
-
-              need2 <= 1'b0;
-              need0 <= n0_after_fill2;
-              need1 <= n1_after_fill2;
-
-              if (n0_after_fill2) begin
-                wb_adr_o <= { hold_tag0, hold_set0, 5'b00000 };
-                state    <= ICACHE_FILL0_WAIT;
-              end else if (n1_after_fill2) begin
-                wb_adr_o <= { hold_tag1, hold_set1, 5'b00000 };
-                state    <= ICACHE_FILL1_WAIT;
-              end else begin
-                wb_stb_o <= 1'b0;
-                state    <= ICACHE_IDLE;
-              end
-            end else begin
-              state <= ICACHE_FILL2_WAIT;
-            end
-          end
-        end
-
-        ICACHE_FILL2_WAIT: begin
-          state <= ICACHE_FILL2;
+        ICACHE_FILL_WAIT: begin
+          state <= ICACHE_FILL;
         end
 
         default: begin

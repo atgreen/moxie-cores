@@ -1,0 +1,13 @@
+--- opcodes/moxie-opc.c.orig	2026-11-21 02:37:04.280939763 +0100
++++ opcodes/moxie-opc.c	2026-11-21 02:37:04.397938954 +0100
+@@ -110,8 +110,8 @@
+     { 0x37, MOXIE_F1_AiB2, "sto.b" },
+     { 0x38, MOXIE_F1_ABi2, "ldo.s" },
+     { 0x39, MOXIE_F1_AiB2, "sto.s" },
+-    { 0x3a, MOXIE_BAD,     "bad" },
+-    { 0x3b, MOXIE_BAD,     "bad" },
++    { 0x3a, MOXIE_F1_NARG, "eret" },
++    { 0x3b, MOXIE_F1_NARG, "wfi" },
+     { 0x3c, MOXIE_BAD,     "bad" },
+     { 0x3d, MOXIE_BAD,     "bad" },
+     { 0x3e, MOXIE_BAD,     "bad" },

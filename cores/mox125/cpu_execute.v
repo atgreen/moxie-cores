@@ -25,9 +25,13 @@ module cpu_execute (/*AUTOARG*/
                     dmem_we_o, register_wea_o, register_web_o, register1_write_index_o,
                     register2_write_index_o, pipeline_control_bits_o, memory_address_o,
                     reg1_result_o, reg2_result_o, mem_result_o, PC_o, busy_o,
-                    branch_flag_o, branch_target_o, sel_o,
+                    branch_flag_o, branch_target_o, sel_o, mmu_o, um_o, asid_o,
+                    dtlb_vaddr_o, dtlb_we_o, itlb_we_o, tlbhi_o, tlblo_o,
+                    icache_flush_o,
                     // Inputs
-                    rst_i, clk_i, irq_i, dmem_data_i, dmem_ack_i, regA_i,
+                    rst_i, clk_i, irq_i, dmem_data_i, dmem_ack_i, dtlb_hit_i,
+                    dtlb_ppn_i, dtlb_user_i, dtlb_writable_i, ifault_i,
+                    ifault_prot_i, ifault_addr_i, regA_i,
                     regB_i, pipeline_control_bits_i, register1_write_index_i,
                     register2_write_index_i, operand_i, op_i, sp_i, fp_i, PC_i,
                     pcrel_offset_i
@@ -47,14 +51,41 @@ module cpu_execute (/*AUTOARG*/
   input           irq_i;
 
   // --- Data memory ----------------------------------------------
-  output reg [31:0] dmem_address_o;
+  output [31:0]     dmem_address_o;
   input [15:0]      dmem_data_i;
   output reg [15:0] dmem_data_o;
-  output reg        dmem_stb_o;
+  output            dmem_stb_o;
   output reg [1:0]  dmem_sel_o;
-  output reg        dmem_cyc_o;
-  output reg        dmem_we_o;
+  output            dmem_cyc_o;
+  output            dmem_we_o;
   input             dmem_ack_i;
+
+  // --- Memory management ----------------------------------------
+  // Translation enabled, user mode, and the address space id, for
+  // the instruction side and the TLBs.
+  output            mmu_o;
+  output            um_o;
+  output [7:0]      asid_o;
+
+  // The data TLB is looked up with the address of each bus cycle.
+  output [31:0]     dtlb_vaddr_o;
+  input             dtlb_hit_i;
+  input [19:0]      dtlb_ppn_i;
+  input             dtlb_user_i;
+  input             dtlb_writable_i;
+
+  // Writing the TLB control register stores tlbhi/tlblo in a TLB.
+  output reg        dtlb_we_o;
+  output reg        itlb_we_o;
+  output [31:0]     tlbhi_o;
+  output [31:0]     tlblo_o;
+
+  output reg        icache_flush_o;
+
+  // Fetch could not translate the address it needs next.
+  input             ifault_i;
+  input             ifault_prot_i;
+  input [31:0]      ifault_addr_i;
 
   // --- Pipeline interlocking ------------------------------------
   // High while a multi-cycle instruction owns the execute stage.
@@ -123,34 +154,89 @@ module cpu_execute (/*AUTOARG*/
   reg                     load_byte;
   reg                     load_to_b;
 
-  // Special registers, read with gsr and written with ssr.
-  //   sr0  status: bit 0 enables interrupts, bits 8:4 are the
-  //        condition codes
-  //   sr1  exception handler address
-  //   sr2  exception cause: 2 interrupt, 3 swi, 5 brk
-  //   sr3  swi number
-  //   sr4  status as it was when the last exception was taken
-  //   sr5  address to resume at after the exception
+  // Special registers, read with gsr and written with ssr.  They are
+  // privileged, as are eret and wfi: using any of them in user mode
+  // is an exception.
+  //   sr0   status: bit 0 enables interrupts, bit 2 is user mode,
+  //         bit 3 turns address translation on, bits 8:4 are the
+  //         condition codes.  Writing it only changes the interrupt
+  //         enable and the condition codes.
+  //   sr1   exception handler address
+  //   sr2   exception cause, see below
+  //   sr3   swi number
+  //   sr4   status as it was when the last exception was taken
+  //   sr5   address to resume at after the exception
   //   sr6, sr7  scratch
-  // Taking an exception copies sr0 to sr4, disables interrupts and
-  // jumps to sr1.  Writing sr0 sets the condition codes as well as
-  // the interrupt enable.
+  //   sr8   address that could not be translated
+  //   sr9   tlbhi: virtual page number and address space id
+  //   sr10  tlblo: physical page number and flags
+  //   sr11  writing stores tlbhi/tlblo in the data TLB (bit 0 clear)
+  //         or the instruction TLB (bit 0 set)
+  //   sr12  current address space id
+  //   sr13  TLB miss handler address, or zero to use sr1
+  //   sr14  writing empties the instruction cache
   //
-  // To return, a handler writes the status it wants to resume with
-  // to sr4 and then leaves with ret or jmp.  Writing sr4 arms the
-  // restore, and the next ret or jmp copies sr4 back into sr0 as it
-  // branches, so interrupts stay off until the handler is really gone.
+  // Causes: 2 interrupt, 3 swi, 5 brk, 6 instruction TLB miss,
+  // 7 data TLB miss on a load, 8 data TLB miss on a store,
+  // 9 instruction protection, 10 data protection on a load,
+  // 11 data protection on a store, 12 privileged instruction.
+  //
+  // Taking an exception copies sr0 to sr4, then disables interrupts,
+  // leaves user mode, turns translation off and jumps to the handler.
+  // A TLB miss or protection fault also puts the address in sr8 and
+  // its page number, with the current address space id, in sr9.
+  //
+  // eret undoes that: it copies sr4 back to sr0 and jumps to sr5, as
+  // one step, so the mode only changes as the handler leaves.  A
+  // handler that may be interrupted must save sr4 and sr5 first and
+  // put them back before it returns.  eret is also the only way to
+  // enter user mode or to turn translation on.
+  //
+  // wfi stops the core until an interrupt is requested, whether or not
+  // interrupts are enabled.  Waiting with them disabled and enabling
+  // them afterwards cannot miss a request, because it stays asserted.
   reg                     sr_ie;
+  reg                     sr_um;
+  reg                     sr_mmu;
   reg [31:0]              sr_handler;
-  reg [2:0]               sr_cause;
+  reg [3:0]               sr_cause;
   reg [31:0]              sr_swi;
-  reg [5:0]               sr_saved_status;
+  reg [7:0]               sr_saved_status;
   reg [31:0]              sr_resume;
   reg [31:0]              sr_scratch6;
   reg [31:0]              sr_scratch7;
-  reg                     sr_restore_armed;
+  reg [31:0]              sr_fault_address;
+  reg [31:0]              sr_tlbhi;
+  reg [31:0]              sr_tlblo;
+  reg [7:0]               sr_asid;
+  reg [31:0]              sr_tlb_handler;
+  reg                     waiting;
 
   wire                    take_irq = irq_i & sr_ie;
+
+  assign mmu_o = sr_mmu;
+  assign um_o = sr_um;
+  assign asid_o = sr_asid;
+  assign tlbhi_o = sr_tlbhi;
+  assign tlblo_o = sr_tlblo;
+
+  // The bus request as the sequencer sees it, before translation.
+  reg [31:0]              dmem_vaddr;
+  reg                     dmem_stb;
+  reg                     dmem_cyc;
+  reg                     dmem_we;
+
+  wire                    dmem_miss = sr_mmu & !dtlb_hit_i;
+  wire                    dmem_prot = sr_mmu & dtlb_hit_i
+                          & ((sr_um & !dtlb_user_i) | (dmem_we & !dtlb_writable_i));
+  wire                    dmem_fault = dmem_stb & (dmem_miss | dmem_prot);
+
+  // A cycle that cannot be translated never reaches the bus.
+  assign dtlb_vaddr_o = dmem_vaddr;
+  assign dmem_address_o = sr_mmu ? {dtlb_ppn_i, dmem_vaddr[11:0]} : dmem_vaddr;
+  assign dmem_stb_o = dmem_stb & !dmem_fault;
+  assign dmem_cyc_o = dmem_cyc & !dmem_fault;
+  assign dmem_we_o = dmem_we;
 
   // One shared restoring divider, a quotient bit per clock.  It works
   // on magnitudes and fixes up the sign of the result at the end.
@@ -223,11 +309,11 @@ module cpu_execute (/*AUTOARG*/
       seq <= sq;
       step <= 2'd0;
       last_step <= last;
-      dmem_cyc_o <= 1;
-      dmem_stb_o <= 1;
-      dmem_we_o <= we;
+      dmem_cyc <= 1;
+      dmem_stb <= 1;
+      dmem_we <= we;
       dmem_sel_o <= sel;
-      dmem_address_o <= address;
+      dmem_vaddr <= address;
       dmem_data_o <= data;
       next_address <= address + 2;
       register_wea_o <= 0;
@@ -236,19 +322,37 @@ module cpu_execute (/*AUTOARG*/
   endtask
 
   task exception_enter;
-    input [2:0]  cause;
+    input [3:0]  cause;
     input [31:0] resume;
     begin
-      sr_saved_status <= {CC_result, sr_ie};
-      sr_restore_armed <= 0;
+      sr_saved_status <= {CC_result, sr_mmu, sr_um, sr_ie};
       sr_ie <= 0;
+      sr_um <= 0;
+      sr_mmu <= 0;
       sr_cause <= cause;
       sr_resume <= resume;
-      branch_target_o <= sr_handler;
+      // TLB misses can have a handler of their own.
+      if ((cause >= 4'd6) && (cause <= 4'd8) && (sr_tlb_handler != 32'b0))
+        branch_target_o <= sr_tlb_handler;
+      else
+        branch_target_o <= sr_handler;
       branch_flag_o <= 1;
       register_wea_o <= 0;
       register_web_o <= 0;
       pipeline_control_bits_o <= 6'b0;
+    end
+  endtask
+
+  // An address could not be translated.  Leave it, and the tlbhi
+  // value an entry for it would need, where the handler can find them.
+  task fault_enter;
+    input [3:0]  cause;
+    input [31:0] resume;
+    input [31:0] address;
+    begin
+      exception_enter (cause, resume);
+      sr_fault_address <= address;
+      sr_tlbhi <= {address[31:12], 4'b0, sr_asid};
     end
   endtask
 
@@ -280,18 +384,38 @@ module cpu_execute (/*AUTOARG*/
       busy_o <= 0;
       div_active <= 0;
       sr_ie <= 0;
-      sr_restore_armed <= 0;
+      sr_um <= 0;
+      sr_mmu <= 0;
+      sr_asid <= 8'b0;
+      sr_tlb_handler <= 32'b0;
+      waiting <= 0;
+      dtlb_we_o <= 0;
+      itlb_we_o <= 0;
+      icache_flush_o <= 0;
       register_wea_o <= 0;
       register_web_o <= 0;
       pending_wea <= 0;
       pending_web <= 0;
-      dmem_we_o <= 0;
+      dmem_we <= 0;
       dmem_sel_o <= 2'b0;
       sel_o <= 2'b0;
-      dmem_stb_o <= 0;
-      dmem_cyc_o <= 0;
+      dmem_stb <= 0;
+      dmem_cyc <= 0;
     end else begin
-      if (div_active)
+      dtlb_we_o <= 0;
+      itlb_we_o <= 0;
+      icache_flush_o <= 0;
+
+      if (waiting)
+        begin
+          // Idle until something wants attention.
+          if (irq_i)
+            begin
+              waiting <= 0;
+              busy_o <= 0;
+            end
+        end
+      else if (div_active)
         begin
           if (div_fixup)
             begin
@@ -311,16 +435,28 @@ module cpu_execute (/*AUTOARG*/
         end
       else if (busy_o)
         begin
+          if (dmem_fault)
+            begin
+              // Give the instruction up.  Nothing it does to a register
+              // has happened yet, and what it has written to memory it
+              // will simply write again when it is restarted.
+              busy_o <= 0;
+              dmem_cyc <= 0;
+              dmem_stb <= 0;
+              dmem_we <= 0;
+              fault_enter (dmem_miss ? (dmem_we ? 4'd8 : 4'd7) : (dmem_we ? 4'd11 : 4'd10),
+                           PC_o, dmem_vaddr);
+            end
           // Hold the bus cycle until the slave acks it.
-          if (dmem_ack_i)
+          else if (dmem_ack_i)
             begin
               step <= step + 2'd1;
               if (step == last_step)
                 begin
                   busy_o <= 0;
-                  dmem_cyc_o <= 0;
-                  dmem_stb_o <= 0;
-                  dmem_we_o <= 0;
+                  dmem_cyc <= 0;
+                  dmem_stb <= 0;
+                  dmem_we <= 0;
                   register_wea_o <= pending_wea;
                   register_web_o <= pending_web;
                   pipeline_control_bits_o <= 6'b0;
@@ -328,13 +464,13 @@ module cpu_execute (/*AUTOARG*/
               case (seq)
                 SEQ_STORE:
                   begin
-                    dmem_address_o <= next_address;
+                    dmem_vaddr <= next_address;
                     dmem_data_o <= next_data;
                   end
                 SEQ_LOAD:
                   begin
                     read_hi <= dmem_data_i;
-                    dmem_address_o <= next_address;
+                    dmem_vaddr <= next_address;
                     if (step == last_step)
                       begin
                         if (load_to_b)
@@ -349,17 +485,17 @@ module cpu_execute (/*AUTOARG*/
                   case (step)
                     2'd0:
                       begin
-                        dmem_address_o <= sp_i - 6;
+                        dmem_vaddr <= sp_i - 6;
                         dmem_data_o <= return_address[15:0];
                       end
                     2'd1:
                       begin
-                        dmem_address_o <= sp_i - 12;
+                        dmem_vaddr <= sp_i - 12;
                         dmem_data_o <= fp_i[31:16];
                       end
                     2'd2:
                       begin
-                        dmem_address_o <= sp_i - 10;
+                        dmem_vaddr <= sp_i - 10;
                         dmem_data_o <= fp_i[15:0];
                       end
                     2'd3:
@@ -378,26 +514,21 @@ module cpu_execute (/*AUTOARG*/
                     2'd0:
                       begin
                         read_hi <= dmem_data_i;
-                        dmem_address_o <= fp_i + 2;
+                        dmem_vaddr <= fp_i + 2;
                       end
                     2'd1:
                       begin
                         reg2_result_o <= {read_hi, read_lo};
-                        dmem_address_o <= fp_i + 4;
+                        dmem_vaddr <= fp_i + 4;
                       end
                     2'd2:
                       begin
                         read_hi <= dmem_data_i;
-                        dmem_address_o <= fp_i + 6;
+                        dmem_vaddr <= fp_i + 6;
                       end
                     2'd3:
                       begin
                         branch_target_o <= {read_hi, read_lo};
-                        if (sr_restore_armed)
-                          begin
-                            {CC_result, sr_ie} <= sr_saved_status;
-                            sr_restore_armed <= 0;
-                          end
                         reg1_result_o <= fp_i + 12;
                         register1_write_index_o <= 4'd1;
                         register2_write_index_o <= 4'd0;
@@ -434,7 +565,14 @@ module cpu_execute (/*AUTOARG*/
             if (take_irq)
               // Take the interrupt in place of the incoming instruction,
               // which runs when the handler resumes at its address.
-              exception_enter (3'd2, PC_i);
+              exception_enter (4'd2, PC_i);
+            else if (ifault_i & (op_i == `OP_NOP))
+              // Nothing is left ahead of the instruction fetch is stuck
+              // on, so the fault is real and it is that instruction's.
+              fault_enter (ifault_prot_i ? 4'd9 : 4'd6, PC_i, ifault_addr_i);
+            else if (sr_um & ((op_i == `OP_GSR) | (op_i == `OP_SSR)
+                              | (op_i == `OP_ERET) | (op_i == `OP_WFI)))
+              exception_enter (4'd12, PC_i);
             else
             case (op_i)
               `OP_ADD_L:
@@ -498,7 +636,7 @@ module cpu_execute (/*AUTOARG*/
                 end
               `OP_BRK:
                 begin
-                  exception_enter (3'd5, PC_plus_2);
+                  exception_enter (4'd5, PC_plus_2);
                 end
               `OP_CMP:
                 begin
@@ -514,16 +652,22 @@ module cpu_execute (/*AUTOARG*/
                 end
               `OP_GSR:
                 begin
-                  case (incdec_value[2:0])
-                    3'd0: reg1_result_o <= {23'b0, CC_result, 3'b0, sr_ie};
-                    3'd1: reg1_result_o <= sr_handler;
-                    3'd2: reg1_result_o <= {29'b0, sr_cause};
-                    3'd3: reg1_result_o <= sr_swi;
-                    3'd4: reg1_result_o <= {23'b0, sr_saved_status[5:1], 3'b0, sr_saved_status[0]};
-                    3'd5: reg1_result_o <= sr_resume;
-                    3'd6: reg1_result_o <= sr_scratch6;
-                    3'd7: reg1_result_o <= sr_scratch7;
-                  endcase // case (incdec_value[2:0])
+                  case (incdec_value[3:0])
+                    4'd0: reg1_result_o <= {23'b0, CC_result, sr_mmu, sr_um, 1'b0, sr_ie};
+                    4'd1: reg1_result_o <= sr_handler;
+                    4'd2: reg1_result_o <= {28'b0, sr_cause};
+                    4'd3: reg1_result_o <= sr_swi;
+                    4'd4: reg1_result_o <= {23'b0, sr_saved_status[7:1], 1'b0, sr_saved_status[0]};
+                    4'd5: reg1_result_o <= sr_resume;
+                    4'd6: reg1_result_o <= sr_scratch6;
+                    4'd7: reg1_result_o <= sr_scratch7;
+                    4'd8: reg1_result_o <= sr_fault_address;
+                    4'd9: reg1_result_o <= sr_tlbhi;
+                    4'd10: reg1_result_o <= sr_tlblo;
+                    4'd12: reg1_result_o <= {24'b0, sr_asid};
+                    4'd13: reg1_result_o <= sr_tlb_handler;
+                    default: reg1_result_o <= 32'b0;
+                  endcase // case (incdec_value[3:0])
                 end
               `OP_INC:
                 begin
@@ -532,11 +676,17 @@ module cpu_execute (/*AUTOARG*/
               `OP_JMP:
                 begin
                   branch_target_o <= regA_i;
-                  if (sr_restore_armed)
-                    begin
-                      {CC_result, sr_ie} <= sr_saved_status;
-                      sr_restore_armed <= 0;
-                    end
+                end
+              `OP_ERET:
+                begin
+                  branch_target_o <= sr_resume;
+                  branch_flag_o <= 1;
+                  {CC_result, sr_mmu, sr_um, sr_ie} <= sr_saved_status;
+                end
+              `OP_WFI:
+                begin
+                  waiting <= 1;
+                  busy_o <= 1;
                 end
               `OP_JMPA:
                 begin
@@ -692,24 +842,34 @@ module cpu_execute (/*AUTOARG*/
                 end
               `OP_SSR:
                 begin
-                  case (incdec_value[2:0])
-                    3'd0:
+                  case (incdec_value[3:0])
+                    4'd0:
                       begin
                         sr_ie <= regA_i[0];
                         CC_result <= regA_i[8:4];
                       end
-                    3'd1: sr_handler <= regA_i;
-                    3'd2: sr_cause <= regA_i[2:0];
-                    3'd3: sr_swi <= regA_i;
-                    3'd4:
+                    4'd1: sr_handler <= regA_i;
+                    4'd2: sr_cause <= regA_i[3:0];
+                    4'd3: sr_swi <= regA_i;
+                    4'd4: sr_saved_status <= {regA_i[8:2], regA_i[0]};
+                    4'd5: sr_resume <= regA_i;
+                    4'd6: sr_scratch6 <= regA_i;
+                    4'd7: sr_scratch7 <= regA_i;
+                    4'd8: sr_fault_address <= regA_i;
+                    4'd9: sr_tlbhi <= regA_i;
+                    4'd10: sr_tlblo <= regA_i;
+                    4'd11:
                       begin
-                        sr_saved_status <= {regA_i[8:4], regA_i[0]};
-                        sr_restore_armed <= 1;
+                        dtlb_we_o <= !regA_i[0];
+                        itlb_we_o <= regA_i[0];
                       end
-                    3'd5: sr_resume <= regA_i;
-                    3'd6: sr_scratch6 <= regA_i;
-                    3'd7: sr_scratch7 <= regA_i;
-                  endcase // case (incdec_value[2:0])
+                    4'd12: sr_asid <= regA_i[7:0];
+                    4'd13: sr_tlb_handler <= regA_i;
+                    4'd14: icache_flush_o <= 1;
+                    default:
+                      begin
+                      end
+                  endcase // case (incdec_value[3:0])
                 end
               `OP_STA_B:
                 begin
@@ -784,7 +944,7 @@ module cpu_execute (/*AUTOARG*/
               `OP_SWI:
                 begin
                   sr_swi <= operand_i;
-                  exception_enter (3'd3, PC_plus_6);
+                  exception_enter (4'd3, PC_plus_6);
                 end
               `OP_UDIV_L:
                 begin

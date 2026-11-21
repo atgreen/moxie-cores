@@ -24,10 +24,11 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
 		   )(/*AUTOARG*/
    // Outputs
    imem_address_o, imem_stb_o, imem_cyc_o, PC_o, opcode, valid,
-   operand, imem_sel_o,
+   operand, imem_sel_o, xlate_vaddr_o, fault_o,
    // Inputs
    rst_i, clk_i, imem_data_i, imem_ack_i, branch_flag_i,
-   branch_target_i, stall_i
+   branch_target_i, stall_i, mode_i, xlate_ppn_i, xlate_fault_i,
+   flush_i
    );
   
   // --- Clock and Reset ------------------------------------------
@@ -48,6 +49,16 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
   
   // --- Pipeline interlock ---------------------------------------
   input stall_i;
+
+  // --- Memory management ----------------------------------------
+  // {translation on, user mode}, and the translation of the cache
+  // line the cache wants to fill next.
+  input [1:0]   mode_i;
+  output [31:0] xlate_vaddr_o;
+  input [19:0]  xlate_ppn_i;
+  input         xlate_fault_i;
+  output        fault_o;
+  input         flush_i;
   
   // --- Instruction Buffer ---------------------------------------
   output [15:0] opcode;
@@ -107,12 +118,18 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
 		.wb_sel_o (imem_sel_o),
 		.wb_cyc_o (imem_cyc_o),
 		.wb_stb_o (imem_stb_o),
+		.xlate_vaddr_o (xlate_vaddr_o),
+		.fault_o (fault_o),
 
 		// Inputs
 		.rst_i	(rst_i),
 		.clk_i	(clk_i),
 		.adr_i	(fetchPC),
 		.stb_i	(!stall_i),
+		.mode_i	(mode_i),
+		.xlate_ppn_i (xlate_ppn_i),
+		.xlate_fault_i (xlate_fault_i),
+		.flush_i (flush_i),
 		.wb_dat_i (imem_data_i),
 		.wb_ack_i (imem_ack_i));
 

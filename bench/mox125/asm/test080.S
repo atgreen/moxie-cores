@@ -18,7 +18,4 @@ handler:
 	sta.s 0xf0000010, $r2
 	inc $r5, 0x10
 	cmp $r1, $r2
-	gsr $r3, 4
-	ssr $r3, 4
-	gsr $r4, 5
-	jmp $r4
+	eret

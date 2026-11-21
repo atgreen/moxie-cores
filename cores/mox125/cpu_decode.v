@@ -376,11 +376,11 @@ module cpu_decode (/*AUTOARG*/
 		end
 	      8'b00111010:
 		begin
-		  op_o <= `OP_BAD;
+		  op_o <= `OP_ERET;
 		end
 	      8'b00111011:
 		begin
-		  op_o <= `OP_BAD;
+		  op_o <= `OP_WFI;
 		end
 	      8'b00111100:
 		begin

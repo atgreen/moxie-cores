@@ -159,19 +159,23 @@
     (with-verilated-trace cpu trace (format nil "~A.vcd" filename)
       (load-elf-executable mem filename)
       (reset-cycles cpu trace 10)
-      (loop for count from 1 to 200
+      (loop for count from 1 to 4000
+            with stuck = nil
             do
                (progn
-                 ;; Wait until there is a bus request...
+                 ;; Wait until there is a bus request, but not forever:
+                 ;; a test that has gone wrong can spin in cached code.
                  (tick-up cpu trace)
-                 (loop until (and (eq (moxie-get-wb-stb-o cpu) 1)
-                                  (eq (moxie-get-wb-cyc-o cpu) 1))
+                 (loop for idle from 0
                        initially (moxie-set-wb-ack-i cpu 0)
+                       until (and (eq (moxie-get-wb-stb-o cpu) 1)
+                                  (eq (moxie-get-wb-cyc-o cpu) 1))
                        do (progn (tick-down cpu trace)
-                                 (if (> count 200) (return))
-                                 (format t "+")
+                                 (when (> idle 20000)
+                                   (setf stuck t)
+                                   (return))
                                  (tick-up cpu trace)))
-                 (if (> count 1000) (return))
+                 (if stuck (return))
                  ;; Insert some number of wait cycles...
                  (loop repeat memory-wait-cycles
                        do (progn (tick-down cpu trace) (tick-up cpu trace)))
