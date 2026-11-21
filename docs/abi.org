@@ -1,5 +1,3 @@
-THIS IS DRAFT DOCUMENTATION.  A WORK IN PROGRESS.
-
 * Introduction
 ** Overview
 The Moxie CPU is a general purpose bi-endian load-store processor,
@@ -74,21 +72,52 @@ developers are encouraged to migrate their software to the latest ABI
 version to take advantage of new features and improvements.
 
 ** Data Types and Sizes
-Here is a table describing the supported C data types in the Moxie ABI:
+The Moxie ABI is an ILP32 ABI: =int=, =long= and pointers are all 32
+bits wide.
+
 #+CAPTION: Moxie ABI Data Types
-| C Type         | Size (in bits) | Alignment (in bytes) | Notes                                  |
-|----------------|----------------|----------------------|----------------------------------------|
-| char           | 8              | 1                    | Unsigned 8-bit integer                 |
-| short          | 16             | 2                    | Signed 16-bit integer                  |
-| int            | 32             | 4                    | Signed 32-bit integer                  |
-| long           | 32             | 4                    | Signed 32-bit integer                  |
-| long long      | 64             | 8                    | Signed 64-bit integer                  |
-| void*          | 32             | 4                    | Pointer to void (32-bit address)       |
+| C Type        | Size (bits) | Alignment (bytes) | Notes                              |
+|---------------+-------------+-------------------+------------------------------------|
+| _Bool         |           8 |                 1 |                                    |
+| char          |           8 |                 1 | Unsigned unless declared otherwise |
+| short         |          16 |                 2 |                                    |
+| int           |          32 |                 4 |                                    |
+| long          |          32 |                 4 |                                    |
+| long long     |          64 |                 4 |                                    |
+| pointer       |          32 |                 4 |                                    |
+| float         |          32 |                 4 | IEEE 754 single precision          |
+| double        |          64 |                 4 | IEEE 754 double precision          |
+| long double   |          64 |                 4 | Same as double                     |
+| enum          |          32 |                 4 | Same as int                        |
+| size_t        |          32 |                 4 | unsigned int                       |
+| ptrdiff_t     |          32 |                 4 | int                                |
+| wchar_t       |          32 |                 4 | unsigned int                       |
+
+Note that plain =char= is unsigned, and that no type is aligned to more
+than four bytes: =long long= and =double= are eight bytes long but
+only need to start on a four byte boundary.
+
+There is no floating point hardware.  Floating point values are held
+in the general purpose registers and in memory in IEEE 754 format, and
+arithmetic on them is done by library routines.
 
 ** Endianness
 The Moxie CPU is bi-endian, meaning it can operate in either
-big-endian or little-endian mode. The specific endianness mode is
-determined at system startup and is reflected in the ABI.
+big-endian or little-endian mode.  The byte order is a property of the
+hardware implementation and of the program; it cannot be changed while
+a program runs, and code built for one byte order cannot be linked
+with code built for the other.  Big-endian is the default.  The
+compiler option =-mel= selects little-endian, and the preprocessor
+symbols =__MOXIE_BIG_ENDIAN__= and =__MOXIE_LITTLE_ENDIAN__= say
+which is in effect.
+
+Instructions are a sequence of 16-bit words, stored in the byte order
+of the program.
+
+A 64-bit value held in a pair of registers or a pair of memory words
+puts its most significant half first (in the lower numbered register
+or at the lower address) when big-endian, and its least significant
+half first when little-endian.
 
 ** Function Call Conventions
 *** Overview
@@ -99,104 +128,354 @@ to these conventions ensures that functions from different compilation
 units or libraries can interoperate seamlessly.
 
 *** Register Usage
-The Moxie CPU has a set of general-purpose registers (GPRs) that are
-used for parameter passing and return value handling. The available
-registers and their specific roles in the function call conventions
-are as follows:
+The Moxie CPU has sixteen 32-bit general purpose registers.  The
+number is the one used in instruction encodings and in debugging
+information.
 
-   - $fp: Frame pointer, used to access local variables and function arguments within the current stack frame.
-   - $sp: Stack pointer, used to manage the stack during function calls and manage local variables and parameters.
-   - $r0-$r5: General-purpose registers used for passing function arguments.
-   - $r6-$r11: General-purpose registers that are preserved across function calls.
-   - $r12-$r13: General-purpose registers with specific roles reserved for the execution environment.
+#+CAPTION: Moxie Register Usage
+| Number | Name      | Role                                    | Preserved across calls |
+|--------+-----------+-----------------------------------------+------------------------|
+|      0 | $fp       | Frame pointer                           | Yes                    |
+|      1 | $sp       | Stack pointer                           | Yes                    |
+|    2-7 | $r0-$r5   | Arguments; $r0 and $r1 for return value | No                     |
+|   8-13 | $r6-$r11  | General purpose                         | Yes                    |
+|     14 | $r12      | Scratch                                 | No                     |
+|     15 | $r13      | Reserved for the execution environment  | Not to be touched      |
+
+A function that uses any of $r6 to $r11 must put back the value it
+found there before it returns.  A function may use $r0 to $r5 and $r12
+freely, and must assume that any function it calls does the same.
+Compiled code uses $r12 as a temporary when setting up and tearing
+down stack frames.
+
+$r13 belongs to the execution environment.  Compiled code neither
+reads nor writes it.
+
+The condition codes set by =cmp= are not preserved across calls.
+
+*** The Call and Return Instructions
+The stack grows towards lower addresses, and $sp points at the lowest
+word in use.  The call instructions =jsr= and =jsra= build the start
+of the called function's frame themselves.  They:
+
+1. leave the word at $sp - 4 for the static chain (see Nested
+   Functions),
+2. store the return address at $sp - 8,
+3. store the caller's $fp at $sp - 12,
+4. set both $fp and $sp to $sp - 12, and jump.
+
+The =ret= instruction undoes this using $fp alone: it sets $sp to
+$fp + 12, reloads $fp from the word $fp pointed at, and jumps to the
+return address.  A function can therefore leave $sp anywhere when it
+returns, but must return with $fp as it was on entry.
+
+*** Stack Frame Layout
+The frame of a function, as seen by that function after it has set
+itself up:
+
+#+BEGIN_EXAMPLE
+                                     higher addresses
+|--------------------------------|
+|  Arguments passed on the stack |  $fp + 36 and up
+|--------------------------------|
+|  Home for the six argument     |  $fp + 12 to $fp + 35
+|  registers                     |
+|--------------------------------|  <--- the caller's $sp
+|  Static chain                  |  $fp + 8
+|--------------------------------|
+|  Return address                |  $fp + 4
+|--------------------------------|
+|  Caller's $fp                  |  $fp      <--- $fp
+|--------------------------------|
+|  Saved $r6 to $r11, those used |  $fp - 4 and down
+|--------------------------------|
+|  Local variables               |
+|--------------------------------|
+|  Arguments for functions this  |
+|  one calls, beyond the sixth   |
+|--------------------------------|
+|  Home for the six argument     |  $sp to $sp + 23
+|  registers of functions this   |
+|  one calls                     |
+|--------------------------------|  <--- $sp
+                                     lower addresses
+#+END_EXAMPLE
+
+The 24 bytes at the bottom of every frame are the important thing to
+remember.  *Every function that calls another must have 24 bytes
+reserved at $sp at the time of the call*, whether or not the function
+called takes any arguments.  They belong to the function called, which
+may store its argument registers there or use them for anything else.
+Hand-written assembly that calls compiled code and neglects this will
+have the words above its stack pointer overwritten.
+
+A function that calls nothing need not reserve anything, and need not
+move $sp at all if it has no use for the stack.
+
+Compiled code allocates the whole frame once on entry, by pushing the
+registers it has to save, lowest numbered first, and then subtracting
+from $sp.  It restores those registers on exit by address from $fp.
+None of this is required; only the layout above $fp and the 24 bytes
+at $sp are part of the interface.
+
+$sp is always a multiple of four.
 
 *** Parameter Passing
-Function arguments are passed in the registers $r0-$r5, depending on
-the number and size of the arguments. Additional arguments beyond the
-capacity of these registers are passed on the stack. The first
-argument is passed in $r0, the second in $r1, and so on, up to
-$r5. Arguments that do not fit in registers are placed on the stack in
-right-to-left order, with the last argument at the lowest address.
+Each argument is first made to fit in a whole number of 32-bit words:
+
+- Integers narrower than =int= are widened to 32 bits by the caller,
+  by sign or zero extension according to their type.
+- =long long= and =double= take two words, in the order given under
+  Endianness.
+- A structure, union or array of any size is not passed at all.  The
+  caller makes a copy, and passes the address of the copy as a
+  pointer.  The function called may modify the copy.
+- So is any other value of more than 24 bytes.
+
+The words of all the arguments, in order from the first argument to
+the last, are then assigned to $r0, $r1, $r2, $r3, $r4, $r5, and after
+that to successive words of the stack starting at the caller's
+$sp + 24, which is the called function's $fp + 36.  No register or
+stack word is skipped for alignment.  A two-word argument can start in
+any register, and if it starts in $r5 its second word is the first
+word on the stack.
+
+The home area and the stack arguments are contiguous.  A function that
+stores $r0 to $r5 in the home area at $fp + 12 has all of its argument
+words in memory in order, as if every one of them had been passed on
+the stack.
 
 *** Return Values
-Function return values that are 32 bits or smaller are returned in the
-register $r0. For return values larger than 32 bits and up to 64 bits,
-the most significant bits are returned in $r1, and the least
-significant bits are returned in $r0.
+An integer, pointer or =float= is returned in $r0.  A function
+returning an integer narrower than =int= does not have to extend it,
+and its caller must not rely on the upper bits of $r0.
 
-Return values larger than 64 bits are returned in memory. The caller
-is responsible for setting up the memory space for the return value,
-which is then passed as a hidden first parameter to the called
-function in the $r0 register. The size and alignment of the memory
-block must match the size and alignment requirements of type of value
-being returned.
+A =long long= or =double= is returned in $r0 and $r1, in the order
+given under Endianness: when big-endian the most significant half is
+in $r0.
 
-*** Stack Usage
-The stack is used to manage the function call hierarchy, including
-storing return addresses, preserving registers, and allocating space
-for local variables. The stack grows downward in memory, with $sp
-pointing to the top of the stack. During a function call, the jsr
-instruction pushes a 32-bit spot reserved for a static chain (nested
-functions), followed by the return address, followed by the caller's
-frame pointer.
-
-Note: this is actually wrong.  It's just a place holder for now:
-#+BEGIN_VERBATIM
-|-----------------------| <--- Higher memory addresses
-|  Static Slot          |     (e.g., $fp + 16)
-|-----------------------|
-|  Return Address       |     (e.g., $fp + 12)
-|-----------------------|
-|  Previous $fp         |     (e.g., $fp + 8)
-|-----------------------|
-|  Local Variables      |     (e.g., $fp - N)
-|                       |
-|                       |
-|                       |
-|-----------------------| <--- $fp (Frame Pointer)
-|  Function Parameters  |     (e.g., $fp + 4)
-|-----------------------|
-|  Saved Register $r11  |     (e.g., $fp)
-|-----------------------|
-|  Saved Register $r10  |     (e.g., $fp - 4)
-|-----------------------|
-|  Saved Register $r9   |     (e.g., $fp - 8)
-|-----------------------|
-|  Saved Register $r8   |     (e.g., $fp - 12)
-|-----------------------| <--- Lower memory addresses
-#+END_VERBATIM
-
+A structure or union of any size, and any other value of more than
+eight bytes, is returned in memory.  The caller provides the memory
+and passes its address as a hidden first argument, in $r0; the
+declared arguments then start at $r1.  The memory must have the size
+and alignment of the type being returned.
 
 *** Variadic Functions
-If the function is variadic, additional arguments beyond those
-explicitly passed can be accessed using the stack and an appropriate
-mechanism to determine the number and types of the variable arguments.
+A function taking a variable number of arguments is called exactly as
+any other; the caller does nothing special, and there is no difference
+between the named and the unnamed arguments.
+
+On entry such a function stores the argument registers that do not
+hold named arguments in their places in the home area.  The unnamed
+arguments are then consecutive words in memory running up from there
+into the stack arguments, and =va_list= is a single pointer that steps
+through them.  Remember when fetching them that a structure argument
+is a pointer to the structure.
+
+*** Nested Functions
+A nested function (a GNU C extension, and a feature of some other
+languages) needs the address of the frame of the function containing
+it.  This static chain is passed in the word that the call
+instructions leave free: the caller stores it at $sp - 4 just before
+the call, and the function called finds it at $fp + 8.  Ordinary
+functions ignore that word and their callers do not set it.
+
+When the address of a nested function is taken, the result is the
+address of a trampoline: 20 bytes of code on the stack that stores the
+static chain at $fp + 8 and jumps to the function.  Stack memory must
+therefore be executable for this to work, and an implementation with
+an instruction cache must make sure the trampoline is fetched afresh.
 
 * Stack Usage
 ** Stack Organization
+The stack is a single contiguous region that grows towards lower
+addresses.  $sp holds the address of the lowest word in use;
+everything below $sp is free and may be overwritten at any time, for
+instance by an interrupt handler running on the same stack.  There is
+no red zone.
+
+The =push= and =pop= instructions work on any register as a stack
+pointer: =push= subtracts four and then stores, =pop= loads and then
+adds four.
+
 ** Stack Frame Layout for Function Calls
+See Stack Frame Layout under Function Call Conventions.
+
 ** Stack Alignment Requirements
+$sp must be a multiple of four at all times.  Nothing requires more
+than that, since no type has an alignment greater than four.
+
 ** Stack Parameters and Local Variables
+Arguments are found at non-negative offsets from $fp and local
+variables at negative offsets.  Because the call instruction sets $fp,
+every function has a frame pointer whether it wants one or not, and
+the chain of frames can always be walked: the word at $fp is the
+caller's $fp, and the word at $fp + 4 is the address the function will
+return to.  The outermost frame is marked by a saved $fp of zero.
+
+** Process Startup
+A program's entry point is not called; it is jumped to, with $sp set
+by the execution environment and no frame.  It should set $fp to zero
+so that walking the stack stops there, and reserve the 24 byte home
+area before calling anything:
+
+#+BEGIN_SRC asm
+_start:
+	xor	$fp, $fp
+	dec	$sp, 24
+	jsra	main
+#+END_SRC
 
 * Memory Model
 ** Addressing Modes and Memory Access
+Addresses are 32 bits.  Data can be reached in three ways: through a
+register (=ld.l $r0, ($r1)=), through a register plus a signed 16-bit
+offset (=ldo.l $r0, 8($fp)=), and by a full 32-bit absolute address
+(=lda.l $r0, symbol=).  There is no indexed mode and no addressing
+relative to the program counter.
+
+Loads of bytes and 16-bit words fill the rest of the register with
+zeros.
+
+Calls and jumps are either through a register or to a full 32-bit
+absolute address, so any function can call any other wherever they are
+placed.  Conditional branches are relative to the program counter and
+reach about 1 KiB in either direction.
+
 ** Data Alignment and Padding Rules
+Every object is aligned to at least the alignment of its type given
+under Data Types and Sizes.  Accessing a 16-bit or 32-bit value at an
+address that is not a multiple of its alignment is not supported; an
+implementation may give the wrong answer rather than trap.
+
+Structure members are placed in order, each at the next offset that
+suits its alignment.  A structure has the alignment of its most
+aligned member, and its size is rounded up to a multiple of that.  For
+example,
+
+#+BEGIN_SRC c
+struct { char c; long long ll; short s; double d; char e; };
+#+END_SRC
+
+puts =ll= at offset 4, =s= at 12, =d= at 16 and =e= at 24, and is 28
+bytes long with an alignment of 4.
+
+A bit-field is allocated from the unit of its declared type, and that
+type's alignment applies to the structure containing it:
+=struct { int a:8; char b; }= is four bytes long.  Bit-fields are
+allocated starting from the most significant bit when big-endian and
+from the least significant bit when little-endian.  A zero-width
+bit-field moves to the next four byte boundary.
+
+Arrays of =char= that are variables in their own right are aligned to
+four bytes.
+
+Functions are aligned to two bytes.
+
 ** Global and Static Variable Access
+Code is not position independent.  Global and static variables are
+reached by absolute address, which the linker fills in.  There is no
+global pointer, no small data area and no global offset table.
+
 ** Dynamic Memory (Heap) Interaction
+Memory returned by =malloc= and its relatives is aligned to at least
+four bytes, which suits every type.
 
 * Exception Handling
 ** Exception Handling Mechanisms
+Language-level exceptions (C++ =throw=, and stack unwinding in
+general) use DWARF call frame information; there are no registers or
+frame fields set aside for them.  In that information the registers
+have the numbers given under Register Usage, so $fp is 0, $sp is 1 and
+$r0 is 2.  On entry to a function the canonical frame address is $sp
+and the return address is at $sp + 4.
+
+When an exception is delivered to a landing pad, $r0 to $r3 carry the
+values the unwinder hands over.
+
 ** Register Preservation during Exception Handling
+Unwinding through a frame restores $fp, $sp and whichever of $r6 to
+$r11 that frame saved, as the call frame information describes.
+
+** Software Interrupts
+The =swi= instruction, which carries a 32-bit number, is how a program
+asks the execution environment for a service.  What the number and the
+registers mean is up to the environment.
+
+- The GNU simulator and the newlib C library use the number in the
+  =swi= to select the service, pass arguments as for a function call,
+  and return the result in $r0.
+- Linux uses =swi 0=, with the system call number in $r12 and up to
+  six arguments in $r0 to $r5.  The result is returned in $r0, and a
+  value from -4095 to -1 is a negated error number.  All other
+  registers are preserved.
 
 * Linkage and Symbol Resolution
-** Symbol Resolution and Linking
-** Function, Variable, and Symbol Treatment
-** Naming Conventions
+** Object File Format
+Object files, executables and core files are 32-bit ELF, with
+=e_machine= set to =EM_MOXIE= (223) and =e_flags= zero.  The byte
+order is given by =EI_DATA= in the usual way.  Some old files use the
+unofficial machine number 0xFEED.
 
-* Known Issues and Limitations (if any)
+** Symbol Resolution and Linking
+Linking is static.  Relocations use explicit addends (=Elf32_Rela=).
+There are two:
+
+#+CAPTION: Moxie Relocations
+| Name            | Number | Field                          | Calculation         |
+|-----------------+--------+--------------------------------+---------------------|
+| R_MOXIE_NONE    |      0 | none                           | none                |
+| R_MOXIE_32      |      1 | 32-bit word                    | S + A               |
+| R_MOXIE_PCREL10 |      2 | low 10 bits of a 16-bit word   | (S + A - P - 2) / 2 |
+
+S is the value of the symbol, A the addend, and P the address of the
+instruction being relocated.  =R_MOXIE_PCREL10= is the signed offset
+of a conditional branch, counted in 16-bit words from the instruction
+that follows the branch; the linker reports an error if the target is
+out of reach.
+
+** Function, Variable, and Symbol Treatment
+A function symbol's value is the address of its first instruction.
+There are no function descriptors, and a pointer to a function is that
+address.
+
+** Naming Conventions
+C names are used for symbols exactly as written, with no leading
+underscore.  Assembler-local labels begin with =.L=.  Register names
+are written with a leading =$= in assembly, which keeps them apart
+from symbols.
+
+* Known Issues and Limitations
+- No position independent code, shared libraries or thread-local
+  storage have been defined.
+- Every structure is passed and returned through memory, however
+  small.  This is simple but costs a copy for small structures.
+- =long long= and =double= are aligned to four bytes, which differs
+  from most other 32-bit ABIs and matters when sharing binary data
+  layouts with them.
+- The linker in binutils 2.45 leaves the 2 out of the
+  =R_MOXIE_PCREL10= calculation, so a conditional branch whose target
+  is only known at link time (a global symbol, or a symbol in another
+  file) lands one instruction past it.  Branches that the assembler
+  resolves itself, which is all that compiled code contains, are not
+  affected.
+- There are no atomic instructions in the base instruction set.  The
+  mox125 implementation adds a compare and swap, =cas.l=, which
+  compilers do not yet use.
 
 * Revision History
-
-* Appendix
+| Date       | Change                                                      |
+|------------+-------------------------------------------------------------|
+| 2023       | First draft.                                                |
+| 2026-11-21 | Calling convention, stack frame, data layout and ELF        |
+|            | details completed from the behaviour of GCC 15 and binutils |
+|            | 2.45.                                                       |
 
 * References
+- Moxie architecture: http://moxielogic.org/blog/pages/architecture.html
+- The GCC port: =gcc/config/moxie= in the GCC sources.
+- The binutils port: =include/elf/moxie.h=, =bfd/elf32-moxie.c= and
+  =opcodes/moxie-opc.c= in the binutils sources.
+- System V Application Binary Interface, for the ELF object file
+  format.
+- DWARF Debugging Information Format, for call frame information.
