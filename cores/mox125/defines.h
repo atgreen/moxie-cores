@@ -94,3 +94,4 @@
 `define OP_ZEX_S  7'b1000011
 `define OP_ERET   7'b1000010
 `define OP_WFI    7'b1000100
+`define OP_CAS_L  7'b1000101

@@ -33,7 +33,7 @@ module cpu_execute (/*AUTOARG*/
                     dtlb_ppn_i, dtlb_user_i, dtlb_writable_i, ifault_i,
                     ifault_prot_i, ifault_addr_i, regA_i,
                     regB_i, pipeline_control_bits_i, register1_write_index_i,
-                    register2_write_index_i, operand_i, op_i, sp_i, fp_i, PC_i,
+                    register2_write_index_i, operand_i, op_i, sp_i, fp_i, r0_i, PC_i,
                     pcrel_offset_i
                     );
 
@@ -42,7 +42,8 @@ module cpu_execute (/*AUTOARG*/
   parameter [2:0] SEQ_STORE = 3'b000,
                   SEQ_LOAD = 3'b001,
                   SEQ_JSR = 3'b010,
-                  SEQ_RET = 3'b011;
+                  SEQ_RET = 3'b011,
+                  SEQ_CAS = 3'b100;
 
   // --- Clock and Reset ------------------------------------------
   input           rst_i, clk_i;
@@ -102,6 +103,7 @@ module cpu_execute (/*AUTOARG*/
   input [6:0]            op_i;
   input [31:0]           sp_i;
   input [31:0]           fp_i;
+  input [31:0]           r0_i;
   input [31:0]           PC_i /*verilator public*/;
   input [9:0]            pcrel_offset_i;
 
@@ -147,6 +149,10 @@ module cpu_execute (/*AUTOARG*/
   reg [15:0]              next_data;
   reg [15:0]              read_hi;
   reg [31:0]              return_address;
+
+  // cas.l: the value expected in memory and the one to replace it with.
+  reg [31:0]              cas_expected;
+  reg [31:0]              cas_new;
 
   // Register writes owed once the current sequence completes.
   reg                     pending_wea;
@@ -508,6 +514,47 @@ module cpu_execute (/*AUTOARG*/
                         branch_flag_o <= 1;
                       end
                   endcase // case (step)
+                SEQ_CAS:
+                  // Read the word; if it is what $r0 says it should be,
+                  // write the new value.  Nothing can come between the
+                  // two, because interrupts are only taken between
+                  // instructions.  $r0 gets what was read either way,
+                  // and the "equal" condition says whether we wrote.
+                  case (step)
+                    2'd0:
+                      begin
+                        read_hi <= dmem_data_i;
+                        dmem_vaddr <= next_address;
+                      end
+                    2'd1:
+                      begin
+                        reg1_result_o <= {read_hi, read_lo};
+                        register1_write_index_o <= 4'd2;
+                        if ({read_hi, read_lo} == cas_expected)
+                          begin
+                            CC_result <= 5'b10000;
+                            dmem_vaddr <= next_address - 2;
+                            dmem_data_o <= cas_new[31:16];
+                            dmem_we <= 1;
+                          end
+                        else
+                          begin
+                            CC_result <= 5'b00000;
+                            busy_o <= 0;
+                            dmem_cyc <= 0;
+                            dmem_stb <= 0;
+                            register_wea_o <= 1;
+                          end
+                      end
+                    2'd2:
+                      begin
+                        dmem_vaddr <= next_address;
+                        dmem_data_o <= cas_new[15:0];
+                      end
+                    2'd3:
+                      begin
+                      end
+                  endcase // case (step)
                 SEQ_RET:
                   // Pop $fp, pop the return address, skip the static chain.
                   case (step)
@@ -637,6 +684,13 @@ module cpu_execute (/*AUTOARG*/
               `OP_BRK:
                 begin
                   exception_enter (4'd5, PC_plus_2);
+                end
+              `OP_CAS_L:
+                begin
+                  mem_start (SEQ_CAS, 2'd3, 1'b0, 2'b11, regA_i, 16'b0);
+                  cas_expected <= r0_i;
+                  cas_new <= regB_i;
+                  pending_wea <= 1;
                 end
               `OP_CMP:
                 begin

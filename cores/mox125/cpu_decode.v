@@ -384,7 +384,7 @@ module cpu_decode (/*AUTOARG*/
 		end
 	      8'b00111100:
 		begin
-		  op_o <= `OP_BAD;
+		  op_o <= `OP_CAS_L;
 		end
 	      8'b00111101:
 		begin

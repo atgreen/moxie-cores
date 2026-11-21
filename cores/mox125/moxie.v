@@ -135,6 +135,7 @@ module moxie (/*AUTOARG*/
   // Stack and frame pointers
   wire [31:0] rx_sp;
   wire [31:0] rx_fp;
+  wire [31:0] rx_r0;
 
   wire [0:0]  xf_branch_flag;
   wire [31:0] xf_branch_target;
@@ -231,6 +232,7 @@ module moxie (/*AUTOARG*/
 			 .reg_read_index1_i (dr_reg_index2),
 			 .sp_o (rx_sp),
 			 .fp_o (rx_fp),
+			 .r0_o (rx_r0),
 			 .stall_i (stall),
 			 .value0_i (xr_reg1_result),
 			 .value1_i (xr_reg2_result));
@@ -261,6 +263,9 @@ module moxie (/*AUTOARG*/
   // need forwarding from the execute outputs.
   wire [31:0] x_sp = (xr_register1_write_enable & (xr_register1_write_index == 4'd1)) ? xr_reg1_result
 	      : ((xr_register2_write_enable & (xr_register2_write_index == 4'd1)) ? xr_reg2_result : rx_sp);
+  // cas.l takes the value it expects to find from $r0.
+  wire [31:0] x_r0 = (xr_register1_write_enable & (xr_register1_write_index == 4'd2)) ? xr_reg1_result
+	      : ((xr_register2_write_enable & (xr_register2_write_index == 4'd2)) ? xr_reg2_result : rx_r0);
   wire [31:0] x_fp = (xr_register1_write_enable & (xr_register1_write_index == 4'd0)) ? xr_reg1_result
 	      : ((xr_register2_write_enable & (xr_register2_write_index == 4'd0)) ? xr_reg2_result : rx_fp);
 
@@ -359,6 +364,7 @@ module moxie (/*AUTOARG*/
 			     .sel_o (xw_sel),
 			     .sp_i (x_sp),
 			     .fp_i (x_fp),
+			     .r0_i (x_r0),
 			     .register_wea_o (xr_register1_write_enable),
 			     .register_web_o (xr_register2_write_enable));
   

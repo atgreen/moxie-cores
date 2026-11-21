@@ -19,7 +19,7 @@
 
 module cpu_registerfile (/*AUTOARG*/
   // Outputs
-  value0_o, value1_o, sp_o, fp_o,
+  value0_o, value1_o, sp_o, fp_o, r0_o,
   // Inputs
   rst_i, clk_i, stall_i, write_enable0_i, write_enable1_i, value0_i, value1_i,
   reg_write_index0_i, reg_write_index1_i, reg_read_index0_i,
@@ -35,6 +35,7 @@ module cpu_registerfile (/*AUTOARG*/
   output reg [31:0] value0_o, value1_o;
   output [31:0] sp_o /*verilator public*/;
   output [31:0] fp_o /*verilator public*/;
+  output [31:0] r0_o;
 
   input 	 write_enable0_i /*verilator public*/;
   input write_enable1_i /*verilator public*/;
@@ -81,6 +82,7 @@ module cpu_registerfile (/*AUTOARG*/
   // mem[2-9] = r0-r7 (general purpose registers)
   // mem[10-15] = reserved/unused
   assign r0 = mem[2];
+  assign r0_o = mem[2];
   assign r1 = mem[3];
   assign r2 = mem[4];
   assign r3 = mem[5];
