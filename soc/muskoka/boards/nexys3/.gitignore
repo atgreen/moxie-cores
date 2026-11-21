@@ -1,6 +1,6 @@
 # What ISE and the Makefile leave behind
-bootrom.vh
-microcode.bin
+/bootrom.vh
+/microcode.bin
 muskoka.prj
 muskoka.bit
 *.ngc
