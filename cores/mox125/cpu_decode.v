@@ -480,6 +480,10 @@ module cpu_decode (/*AUTOARG*/
 		begin
 		  op_o <= `OP_BAD;
 		end
+	      default:
+		begin
+		  op_o <= `OP_BAD;
+		end
 	    endcase // casex (opcode_i)
 	    //	register_write_enable_o <= (!op_nop) & (op_ldi|op_dec|op_xor|op_sub);
 	  end // else: !if(!valid_i)

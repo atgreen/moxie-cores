@@ -102,7 +102,7 @@
 			 initially (moxie-set-wb-ack-i cpu 0)
 			 do (progn (tick-down cpu trace) (tick-up cpu trace)))
 		      ;; Return NOP instruction...
-		      (moxie-set-wb-dat-i cpu 15)
+		      (moxie-set-wb-dat-i cpu #x0f00)
 		      (moxie-set-wb-ack-i cpu 1)
 		      (tick-down cpu trace))
 		  ;; Did we end up at the right $PC?

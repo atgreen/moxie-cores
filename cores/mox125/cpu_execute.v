@@ -182,10 +182,13 @@ module cpu_execute (/*AUTOARG*/
   //   sr13  TLB miss handler address, or zero to use sr1
   //   sr14  writing empties the instruction cache
   //
-  // Causes: 2 interrupt, 3 swi, 5 brk, 6 instruction TLB miss,
+  // Causes: 0 divide by zero, 1 undefined instruction, 2 interrupt,
+  // 3 swi, 5 brk, 6 instruction TLB miss,
   // 7 data TLB miss on a load, 8 data TLB miss on a store,
   // 9 instruction protection, 10 data protection on a load,
-  // 11 data protection on a store, 12 privileged instruction.
+  // 11 data protection on a store, 12 privileged instruction.  The
+  // first six follow MoxieLite and the boot ROM's exception handler;
+  // 4 is its bus error, which this core never raises.
   //
   // Taking an exception copies sr0 to sr4, then disables interrupts,
   // leaves user mode, turns translation off and jumps to the handler.
@@ -367,7 +370,9 @@ module cpu_execute (/*AUTOARG*/
   task div_start;
     input        is_signed;
     input        want_remainder;
-    begin
+    if (regB_i == 32'b0)
+      exception_enter (4'd0, PC_i);
+    else begin
       busy_o <= 1;
       div_active <= 1;
       div_fixup <= 0;
@@ -640,6 +645,7 @@ module cpu_execute (/*AUTOARG*/
                 end
               `OP_BAD:
                 begin
+                  exception_enter (4'd1, PC_i);
                 end
               `OP_BEQ:
                 begin
