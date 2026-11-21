@@ -50,6 +50,7 @@
 
 ;;; Hold reset high for CYCLES
 (defun reset-cycles (cpu trace cycles)
+  (moxie-set-irq-i cpu 0)
   (moxie-set-rst-i cpu 1)
   (loop for i from 1 to cycles do
        (tick-up cpu trace)
@@ -189,6 +190,9 @@
                             (sim-write-byte mem (+ adr 1) (ldb (byte 8 0) value)))
                            (t
                             (format t "ERROR: INVALID sel~%")))
+                         ;; Writes to 0xF0000010 drive the interrupt line.
+                         (if (eq adr #xF0000010)
+                             (moxie-set-irq-i cpu (if (zerop value) 0 1)))
                          (if (eq adr #xDEAD)
                              (progn
                                         ; (format t "EXITING~%")

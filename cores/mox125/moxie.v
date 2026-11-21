@@ -23,11 +23,14 @@ module moxie (/*AUTOARG*/
   // Outputs
   wb_dat_o, wb_adr_o, wb_sel_o, wb_we_o, wb_cyc_o, wb_stb_o,
   // Inputs
-  rst_i, clk_i, wb_dat_i, wb_ack_i
+  rst_i, clk_i, irq_i, wb_dat_i, wb_ack_i
   );
    
   // --- Clock and Reset ------------------------------------------
   input  rst_i, clk_i;
+
+  // --- Interrupt request, level sensitive -----------------------
+  input  irq_i;
   reg 	 rst;
 
   // --- Wishbone Interconnect ------------------------------------
@@ -248,6 +251,7 @@ module moxie (/*AUTOARG*/
   cpu_execute stage_execute (// Inputs
 			     .rst_i	     (rst_i),
 			     .clk_i	     (clk_i),
+			     .irq_i	     (irq_i),
 			     .busy_o         (stall),
 			     .op_i           (dx_op),
 			     .PC_i           (dx_PC),

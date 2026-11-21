@@ -223,6 +223,7 @@ module muskoka (/*AUTOARG*/
 
   moxie core (.rst_i (rst_i),
 	      .clk_i (clk_i),
+	      .irq_i (1'b0),
 
 	      .wb_dat_i (wb2mx_dat),
 	      .wb_dat_o (mx2wb_dat),

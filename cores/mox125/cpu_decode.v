@@ -102,6 +102,10 @@ module cpu_decode (/*AUTOARG*/
 		            begin
 		              pipeline_control_bits_o <= 6'b101000;
 		            end
+	            4'b1010: // GSR
+		            begin
+		              pipeline_control_bits_o <= 6'b100000;
+		            end
 	            default:
 		            begin
 		              pipeline_control_bits_o <= 6'b000000;
@@ -328,6 +332,7 @@ module cpu_decode (/*AUTOARG*/
 	      8'b00110000:
 		begin
 		  op_o <= `OP_SWI;
+		  operand_o <= operand_i;
 		end
 	      8'b00110001:
 		begin

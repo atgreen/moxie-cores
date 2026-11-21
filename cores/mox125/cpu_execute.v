@@ -27,7 +27,7 @@ module cpu_execute (/*AUTOARG*/
                     reg1_result_o, reg2_result_o, mem_result_o, PC_o, busy_o,
                     branch_flag_o, branch_target_o, sel_o,
                     // Inputs
-                    rst_i, clk_i, dmem_data_i, dmem_ack_i, regA_i,
+                    rst_i, clk_i, irq_i, dmem_data_i, dmem_ack_i, regA_i,
                     regB_i, pipeline_control_bits_i, register1_write_index_i,
                     register2_write_index_i, operand_i, op_i, sp_i, fp_i, PC_i,
                     pcrel_offset_i
@@ -42,6 +42,9 @@ module cpu_execute (/*AUTOARG*/
 
   // --- Clock and Reset ------------------------------------------
   input           rst_i, clk_i;
+
+  // --- Interrupt request, level sensitive -----------------------
+  input           irq_i;
 
   // --- Data memory ----------------------------------------------
   output reg [31:0] dmem_address_o;
@@ -119,6 +122,35 @@ module cpu_execute (/*AUTOARG*/
   reg                     pending_web;
   reg                     load_byte;
   reg                     load_to_b;
+
+  // Special registers, read with gsr and written with ssr.
+  //   sr0  status: bit 0 enables interrupts, bits 8:4 are the
+  //        condition codes
+  //   sr1  exception handler address
+  //   sr2  exception cause: 2 interrupt, 3 swi, 5 brk
+  //   sr3  swi number
+  //   sr4  status as it was when the last exception was taken
+  //   sr5  address to resume at after the exception
+  //   sr6, sr7  scratch
+  // Taking an exception copies sr0 to sr4, disables interrupts and
+  // jumps to sr1.  Writing sr0 sets the condition codes as well as
+  // the interrupt enable.
+  //
+  // To return, a handler writes the status it wants to resume with
+  // to sr4 and then leaves with ret or jmp.  Writing sr4 arms the
+  // restore, and the next ret or jmp copies sr4 back into sr0 as it
+  // branches, so interrupts stay off until the handler is really gone.
+  reg                     sr_ie;
+  reg [31:0]              sr_handler;
+  reg [2:0]               sr_cause;
+  reg [31:0]              sr_swi;
+  reg [5:0]               sr_saved_status;
+  reg [31:0]              sr_resume;
+  reg [31:0]              sr_scratch6;
+  reg [31:0]              sr_scratch7;
+  reg                     sr_restore_armed;
+
+  wire                    take_irq = irq_i & sr_ie;
 
   // One shared restoring divider, a quotient bit per clock.  It works
   // on magnitudes and fixes up the sign of the result at the end.
@@ -203,6 +235,23 @@ module cpu_execute (/*AUTOARG*/
     end
   endtask
 
+  task exception_enter;
+    input [2:0]  cause;
+    input [31:0] resume;
+    begin
+      sr_saved_status <= {CC_result, sr_ie};
+      sr_restore_armed <= 0;
+      sr_ie <= 0;
+      sr_cause <= cause;
+      sr_resume <= resume;
+      branch_target_o <= sr_handler;
+      branch_flag_o <= 1;
+      register_wea_o <= 0;
+      register_web_o <= 0;
+      pipeline_control_bits_o <= 6'b0;
+    end
+  endtask
+
   // Start a divide.  The quotient takes the sign of the two operands
   // combined, the remainder takes the sign of the dividend.
   task div_start;
@@ -230,6 +279,8 @@ module cpu_execute (/*AUTOARG*/
       branch_flag_o <= 0;
       busy_o <= 0;
       div_active <= 0;
+      sr_ie <= 0;
+      sr_restore_armed <= 0;
       register_wea_o <= 0;
       register_web_o <= 0;
       pending_wea <= 0;
@@ -342,6 +393,11 @@ module cpu_execute (/*AUTOARG*/
                     2'd3:
                       begin
                         branch_target_o <= {read_hi, read_lo};
+                        if (sr_restore_armed)
+                          begin
+                            {CC_result, sr_ie} <= sr_saved_status;
+                            sr_restore_armed <= 0;
+                          end
                         reg1_result_o <= fp_i + 12;
                         register1_write_index_o <= 4'd1;
                         register2_write_index_o <= 4'd0;
@@ -375,6 +431,11 @@ module cpu_execute (/*AUTOARG*/
           pending_web <= 0;
           load_byte <= 0;
           load_to_b <= 0;
+            if (take_irq)
+              // Take the interrupt in place of the incoming instruction,
+              // which runs when the handler resumes at its address.
+              exception_enter (3'd2, PC_i);
+            else
             case (op_i)
               `OP_ADD_L:
                 begin
@@ -437,6 +498,7 @@ module cpu_execute (/*AUTOARG*/
                 end
               `OP_BRK:
                 begin
+                  exception_enter (3'd5, PC_plus_2);
                 end
               `OP_CMP:
                 begin
@@ -452,6 +514,16 @@ module cpu_execute (/*AUTOARG*/
                 end
               `OP_GSR:
                 begin
+                  case (incdec_value[2:0])
+                    3'd0: reg1_result_o <= {23'b0, CC_result, 3'b0, sr_ie};
+                    3'd1: reg1_result_o <= sr_handler;
+                    3'd2: reg1_result_o <= {29'b0, sr_cause};
+                    3'd3: reg1_result_o <= sr_swi;
+                    3'd4: reg1_result_o <= {23'b0, sr_saved_status[5:1], 3'b0, sr_saved_status[0]};
+                    3'd5: reg1_result_o <= sr_resume;
+                    3'd6: reg1_result_o <= sr_scratch6;
+                    3'd7: reg1_result_o <= sr_scratch7;
+                  endcase // case (incdec_value[2:0])
                 end
               `OP_INC:
                 begin
@@ -460,6 +532,11 @@ module cpu_execute (/*AUTOARG*/
               `OP_JMP:
                 begin
                   branch_target_o <= regA_i;
+                  if (sr_restore_armed)
+                    begin
+                      {CC_result, sr_ie} <= sr_saved_status;
+                      sr_restore_armed <= 0;
+                    end
                 end
               `OP_JMPA:
                 begin
@@ -615,6 +692,24 @@ module cpu_execute (/*AUTOARG*/
                 end
               `OP_SSR:
                 begin
+                  case (incdec_value[2:0])
+                    3'd0:
+                      begin
+                        sr_ie <= regA_i[0];
+                        CC_result <= regA_i[8:4];
+                      end
+                    3'd1: sr_handler <= regA_i;
+                    3'd2: sr_cause <= regA_i[2:0];
+                    3'd3: sr_swi <= regA_i;
+                    3'd4:
+                      begin
+                        sr_saved_status <= {regA_i[8:4], regA_i[0]};
+                        sr_restore_armed <= 1;
+                      end
+                    3'd5: sr_resume <= regA_i;
+                    3'd6: sr_scratch6 <= regA_i;
+                    3'd7: sr_scratch7 <= regA_i;
+                  endcase // case (incdec_value[2:0])
                 end
               `OP_STA_B:
                 begin
@@ -688,6 +783,8 @@ module cpu_execute (/*AUTOARG*/
                 end
               `OP_SWI:
                 begin
+                  sr_swi <= operand_i;
+                  exception_enter (3'd3, PC_plus_6);
                 end
               `OP_UDIV_L:
                 begin
