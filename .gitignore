@@ -104,3 +104,6 @@ expected-results.lisp
 /cores/mox125/ocicl/
 /cores/mox125/ocicl.csv
 /cores/mox125/bootrom.vh
+
+# Built simulator
+/tools/mox125-iss/mox125-iss

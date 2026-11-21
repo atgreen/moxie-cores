@@ -108,7 +108,7 @@ The repository includes several Common Lisp scripts in `scripts/`:
 - Byte loads read the high lane (`sel=2'b10`, data on `[15:8]`); byte stores drive the low lane (`sel=2'b01`). This matches the memory model in `bench/mox125/test.lisp`.
 
 **Exceptions and interrupts**:
-- Special registers (`gsr`/`ssr`): sr0 status (bit 0 interrupt enable, bits 8:4 condition codes), sr1 handler address, sr2 cause (2 interrupt, 3 `swi`, 5 `brk`), sr3 `swi` number, sr4 status saved at exception entry, sr5 resume address, sr6/sr7 scratch.
+- Special registers (`gsr`/`ssr`): sr0 status (bit 0 interrupt enable, bits 8:4 condition codes), sr1 handler address, sr2 cause (0 divide by zero, 1 undefined instruction, 2 interrupt, 3 `swi`, 5 `brk`; these follow MoxieLite and `firmware/bootrom/tinystub.c`), sr3 `swi` number, sr4 status saved at exception entry, sr5 resume address, sr6/sr7 scratch.
 - `irq_i` is level sensitive. An interrupt is taken in place of the instruction execute was about to accept, so sr5 is that instruction's address.
 - Taking an exception copies sr0 to sr4, then clears the interrupt enable, leaves user mode, turns translation off and jumps to sr1. `eret` (opcode 0x3a) copies sr4 back to sr0 and jumps to sr5 as one step; it is the only way to enter user mode or turn translation on. `wfi` (0x3b) stops the core until `irq_i` is asserted, even with interrupts disabled. `cas.l ($rA), $rB` (0x3c) is an atomic compare and swap: if the word at `$rA` equals `$r0` it is replaced with `$rB`; either way `$r0` gets the old value and the equal condition says whether the write happened. The address must be word aligned. All three are mox125 extensions; `tools/binutils-moxie-extensions.patch` teaches the assembler about them.
 - `gsr`, `ssr`, `eret` and `wfi` are privileged: in user mode they raise cause 12.
@@ -120,6 +120,8 @@ The repository includes several Common Lisp scripts in `scripts/`:
 - Faults are precise: a multi-cycle instruction that faults has changed no register and is restarted from the beginning.
 - The instruction cache is tagged with the virtual address plus the translation and user-mode bits. Changing a mapping does not invalidate it; software must flush.
 - Translation is combinational between the bus sequencer and the bus, which roughly doubled the longest path through the core. Registering it is a known follow-up.
+
+**Instruction-level simulator**: `tools/mox125-iss` models the core an instruction at a time, with the same exception model, TLBs, instruction cache behaviour and simulated board as the RTL bench, plus a 16550 UART. It is hundreds of times faster than the verilated core and is meant for developing software too big to run there. The RTL is the reference: `make check` in that directory runs the bench's test programs on it and both must agree, so a change to the core's behaviour needs the same change there.
 
 **Zephyr**: the port lives on the `moxie` branch of https://github.com/atgreen/zephyr (board `mox125_sim`, toolchain variant `cross-compile` with `CROSS_COMPILE=.../moxie-elf-`, `CONFIG_MINIMAL_LIBC=y`). Run an image with `cd bench/mox125 && sbcl --non-interactive --load zephyr.lisp <zephyr.elf> [max-clocks [trace-from]]`; `zephyr.lisp` is the board (RAM, console, interrupt controller, timer) and documents its register map. The Moxie ABI makes every caller reserve 24 bytes at the bottom of its frame for the callee to store its argument registers; hand-written assembly that calls C must do the same.
 
