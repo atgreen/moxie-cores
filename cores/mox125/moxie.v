@@ -19,7 +19,13 @@
 
 `include "defines.h"
 
-module moxie (/*AUTOARG*/
+module moxie #(// log2 of the number of 32-byte instruction cache lines.
+	       // The default is an 8 KiB cache, which wants RAM that can be
+	       // read without a clock; where there is none, make it small.
+	       parameter ICACHE_SET_BITS = 8,
+	       // Where execution starts after reset.
+	       parameter BOOT_ADDRESS = 32'h00001000
+	       )(/*AUTOARG*/
   // Outputs
   wb_dat_o, wb_adr_o, wb_sel_o, wb_we_o, wb_cyc_o, wb_stb_o,
   // Inputs
@@ -269,7 +275,8 @@ module moxie (/*AUTOARG*/
   wire [31:0] x_fp = (xr_register1_write_enable & (xr_register1_write_index == 4'd0)) ? xr_reg1_result
 	      : ((xr_register2_write_enable & (xr_register2_write_index == 4'd0)) ? xr_reg2_result : rx_fp);
 
-  cpu_fetch stage_fetch (// Outputs
+  cpu_fetch #(.BOOT_ADDRESS (BOOT_ADDRESS),
+	      .ICACHE_SET_BITS (ICACHE_SET_BITS)) stage_fetch (// Outputs
 			 .opcode		(fd_opcode[15:0] ),
 			 .valid		        (fd_valid),
 			 .operand		(fd_operand[31:0]),

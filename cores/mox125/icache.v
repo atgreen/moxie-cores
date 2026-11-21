@@ -43,7 +43,10 @@
 // start and fault_o says so, for as long as the fetch address stays
 // where it is.
 
-module icache (/*AUTOARG*/
+module icache #(// log2 of the number of 32-byte lines: 8 is an 8 KiB
+		// cache.  At least 1, since one fetch can span two lines.
+		parameter SET_BITS = 8
+		)(/*AUTOARG*/
                // Outputs
                hit_o, inst_o, data_o, wb_adr_o, wb_sel_o, wb_cyc_o, wb_stb_o,
                xlate_vaddr_o, fault_o,
@@ -86,32 +89,38 @@ module icache (/*AUTOARG*/
   assign wb_cyc_o = wb_stb_o;
   assign wb_sel_o = 2'b11;
 
-  // 8 KiB I-cache, 32-byte lines => 256 lines, 16 halfwords per line.
-  // Tag bits: 32 - (8 index) - (4 byte offset) - (1 alignment bit) = 19.
+  // 32-byte lines, 16 halfwords per line.  With the default of 256
+  // lines this is an 8 KiB cache.
+  // Tag bits: 32 - (index) - (4 byte offset) - (1 alignment bit),
+  // 19 by default.
+  localparam SETS    = 1 << SET_BITS;
+  localparam TAG_W   = 27 - SET_BITS;
+  localparam IDX_W   = SET_BITS + 4;
 
-  reg               valid[0:255];
-  reg  [20:0]       tags [0:255];
-  reg  [15:0]       line [0:4095];
+  reg               valid[0:SETS-1];
+  reg  [TAG_W+1:0]  tags [0:SETS-1];
+  reg  [15:0]       line [0:SETS*16-1];
 
   // Base tag / word offset within a line (halfword granularity)
-  wire [18:0] tag0 = adr_i[31:13];
+  wire [TAG_W-1:0] tag0 = adr_i[31:SET_BITS+5];
   wire [3:0]  woff = adr_i[4:1];
 
   // Whether the 48-bit fetch crosses into next cache line(s)
   wire carry1 = (woff == 4'hF);  // +1 crosses
   wire carry2 = (woff >= 4'hE);  // +2 crosses
 
-  // 9-bit index arithmetic to detect wrap 255->0; propagate carry into tag
-  wire [8:0] set0_w = {1'b0, adr_i[12:5]};
-  wire [8:0] set1_w = set0_w + {8'd0, carry1};
-  wire [8:0] set2_w = set0_w + {8'd0, carry2};
+  // Index arithmetic with one extra bit, to detect the wrap from the
+  // last line to the first; propagate the carry into the tag
+  wire [SET_BITS:0] set0_w = {1'b0, adr_i[SET_BITS+4:5]};
+  wire [SET_BITS:0] set1_w = set0_w + {{SET_BITS{1'b0}}, carry1};
+  wire [SET_BITS:0] set2_w = set0_w + {{SET_BITS{1'b0}}, carry2};
 
-  wire [7:0] set0 = set0_w[7:0];
-  wire [7:0] set1 = set1_w[7:0];
-  wire [7:0] set2 = set2_w[7:0];
+  wire [SET_BITS-1:0] set0 = set0_w[SET_BITS-1:0];
+  wire [SET_BITS-1:0] set1 = set1_w[SET_BITS-1:0];
+  wire [SET_BITS-1:0] set2 = set2_w[SET_BITS-1:0];
 
-  wire [18:0] tag1 = tag0 + set1_w[8];
-  wire [18:0] tag2 = tag0 + set2_w[8];
+  wire [TAG_W-1:0] tag1 = tag0 + set1_w[SET_BITS];
+  wire [TAG_W-1:0] tag2 = tag0 + set2_w[SET_BITS];
 
   // Hit checks per potentially referenced line (each with its own tag)
   wire hit0 = valid[set0] & (tags[set0] == {mode_i, tag0});
@@ -121,15 +130,15 @@ module icache (/*AUTOARG*/
   assign hit_o = (!rst_i) & hit0 & hit1 & hit2;
 
   // Indices into the line memory
-  wire [11:0] base_idx0 = { set0, 4'b0000 };
-  wire [11:0] base_idx1 = { set1, 4'b0000 };
-  wire [11:0] base_idx2 = { set2, 4'b0000 };
+  wire [IDX_W-1:0] base_idx0 = { set0, 4'b0000 };
+  wire [IDX_W-1:0] base_idx1 = { set1, 4'b0000 };
+  wire [IDX_W-1:0] base_idx2 = { set2, 4'b0000 };
 
-  wire [11:0] inst_idx  = base_idx0 + {8'b0, woff};
-  wire [11:0] data1_idx = carry1 ? base_idx1 : (inst_idx + 12'd1);
-  wire [11:0] data2_idx = carry2 ? (carry1 ? (base_idx2 + 12'd1) : base_idx2) :
-                          (carry1 ? (base_idx1 + 12'd1)
-                                  : (inst_idx + 12'd2));
+  wire [IDX_W-1:0] inst_idx  = { set0, woff };
+  wire [IDX_W-1:0] data1_idx = carry1 ? base_idx1 : (inst_idx + 1'd1);
+  wire [IDX_W-1:0] data2_idx = carry2 ? (carry1 ? (base_idx2 + 1'd1) : base_idx2) :
+                               (carry1 ? (base_idx1 + 1'd1)
+                                       : (inst_idx + 2'd2));
 
   // Outputs from cache memory
   assign inst_o        = line[inst_idx];
@@ -145,15 +154,15 @@ module icache (/*AUTOARG*/
   reg [3:0] count = 4'd0;
 
   // The line being filled, and the mode it is being filled in.
-  reg [7:0]  hold_set;
-  reg [18:0] hold_tag;
+  reg [SET_BITS-1:0] hold_set;
+  reg [TAG_W-1:0]    hold_tag;
   reg [1:0]  hold_mode;
 
   // Fill whichever of the lines we need comes first.  Each fill ends
   // back in idle, where the next one is chosen and translated afresh.
   wire        miss = stb_i & !(hit0 & hit1 & hit2);
-  wire [7:0]  fill_set = !hit0 ? set0 : (!hit1 ? set1 : set2);
-  wire [18:0] fill_tag = !hit0 ? tag0 : (!hit1 ? tag1 : tag2);
+  wire [SET_BITS-1:0] fill_set = !hit0 ? set0 : (!hit1 ? set1 : set2);
+  wire [TAG_W-1:0]    fill_tag = !hit0 ? tag0 : (!hit1 ? tag1 : tag2);
   wire [31:0] fill_vaddr = { fill_tag, fill_set, 5'b00000 };
 
   assign xlate_vaddr_o = fill_vaddr;
@@ -166,11 +175,11 @@ module icache (/*AUTOARG*/
       count    <= 4'd0;
       wb_stb_o <= 1'b0;
       wb_adr_o <= 32'd0;
-      for (i = 0; i < 256; i = i + 1)
+      for (i = 0; i < SETS; i = i + 1)
         valid[i] <= 1'b0;
 
-      hold_set <= 8'd0;
-      hold_tag <= 19'd0;
+      hold_set <= {SET_BITS{1'b0}};
+      hold_tag <= {TAG_W{1'b0}};
       hold_mode <= 2'd0;
 
     end else begin
@@ -200,7 +209,7 @@ module icache (/*AUTOARG*/
 
         ICACHE_FILL: begin
           if (wb_ack_i) begin
-            line[ ({hold_set,4'b0000} + {8'b0, count}) ] <= wb_dat_i;
+            line[ {hold_set, count} ] <= wb_dat_i;
             wb_adr_o <= wb_adr_o + 32'd2;
             count    <= count + 4'd1;
 

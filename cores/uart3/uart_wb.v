@@ -1,4 +1,7 @@
-module uart_wb (input         rst_i,
+module uart_wb #(// Clocks to the bit: the default is 115200 baud
+		 // from a 50 MHz clock.
+		 parameter UART_DIVISOR = 434
+		 )(input         rst_i,
 		input 	      clk_i,
 		input [31:0]  wb_adr_i,
 		output reg [15:0] wb_dat_o,
@@ -46,8 +49,7 @@ module uart_wb (input         rst_i,
 	  
    uart 
 #(
-  /* (/ 50000000 115200) */
-    .UART_DIVISOR(434)
+    .UART_DIVISOR(UART_DIVISOR)
 ) 
 uart_instance (.clk_i (clk_i),
 		       .rst_i (rst_i),

@@ -20,7 +20,9 @@
 // branch_flag_i - set high when we need to flush the pipeline and
 //                 move to a new PC (branch_target_i).
 
-module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
+module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000,
+		   // log2 of the number of 32-byte instruction cache lines
+		   parameter ICACHE_SET_BITS = 8
 		   )(/*AUTOARG*/
    // Outputs
    imem_address_o, imem_stb_o, imem_cyc_o, PC_o, opcode, valid,
@@ -109,7 +111,7 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000
 //  wire [15:0] 	cache_op;
   // assign opcode[15:0] = (valid & !stall_i) ? cache_op : 8'b00001111;
     
-  icache cache (
+  icache #(.SET_BITS (ICACHE_SET_BITS)) cache (
 		// Outputs
 		.inst_o (opcode),
 		.data_o (operand[31:0]),

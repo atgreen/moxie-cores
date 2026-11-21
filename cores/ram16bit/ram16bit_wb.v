@@ -14,9 +14,9 @@ module ram16bit_wb (input         rst_i,
 `ifdef XILINX
 
   reg 				  ack;
-  
+
   assign wb_ack_o = ack;
-   
+
   always @(posedge clk_i)
     begin
        ack <= wb_stb_i & wb_cyc_i;
@@ -29,51 +29,49 @@ module ram16bit_wb (input         rst_i,
 		 .douta (wb_dat_o));
 `else
 
-  reg [15:0] 				  dat;
+  // 4k boot RAM, as two memories a byte wide: the bytes at even
+  // addresses and the bytes at odd ones.  Each is read and written at
+  // one address with a registered read, which is the shape block RAM
+  // has, so this does not turn into thirty thousand flip-flops.
+  reg [7:0] 			  ram_even[0:2047];
+  reg [7:0] 			  ram_odd[0:2047];
+
+  reg [7:0] 			  q_even, q_odd;
+  reg 				  odd_q;
   reg 				  ack;
-  
+
+  wire [10:0] 			  index = wb_adr_i[11:1];
+  wire 				  odd = wb_adr_i[0];
+  wire 				  write = wb_stb_i & wb_cyc_i & wb_we_i;
+
+  // The core's bus convention: a word is the byte at the address and
+  // the one after it.  A byte is read on the high lane, and written
+  // from the low lane with only the low select set.
+  wire 				  byte_write = (wb_sel_i == 2'b01);
+
   assign wb_ack_o = ack;
-  assign wb_dat_o = dat;
-   
-  always @(posedge clk_i)
-    begin
-       ack <= wb_stb_i & wb_cyc_i;
-    end
-
-  // 4k boot RAM
-  reg  [7:0] ram[0:4095];
-  wire [11:0] index;
-
-  // We're just looking at the least significant 4k address bits
-  assign index = wb_adr_i[11:0];
+  assign wb_dat_o = odd_q ? {q_odd, q_even} : {q_even, q_odd};
 
   always @(posedge clk_i)
     begin
-      dat <= {ram[index], ram[index+1]};
       ack <= wb_stb_i & wb_cyc_i;
-      if (wb_stb_i & wb_cyc_i & wb_we_i)
-	begin
-	  ram[index] = wb_dat_i[15:8];
-	  ram[index+1] = wb_dat_i[7:0];
-	end
+      odd_q <= odd;
     end
 
+  always @(posedge clk_i)
+    begin
+      q_even <= ram_even[index];
+      if (write & (byte_write ? !odd : 1'b1))
+	ram_even[index] <= byte_write ? wb_dat_i[7:0] : wb_dat_i[15:8];
+    end
 
- `ifdef ASDFASD
- 
-   lpm_ram_dq ram (.data(wb_dat_i), 
-		   .address(wb_adr_i[12:1]), 
-		   .we(!(wb_stb_i & wb_cyc_i & wb_we_i)),
-		   .inclock(clk_i), 
-                   .q(wb_dat_o));
+  always @(posedge clk_i)
+    begin
+      q_odd <= ram_odd[index];
+      if (write & (byte_write ? odd : 1'b1))
+	ram_odd[index] <= wb_dat_i[7:0];
+    end
 
-// passing the parameter values
-   defparam ram.lpm_width = 16;
-   defparam ram.lpm_widthad = 8;
-   defparam ram.lpm_indata = "REGISTERED";
-   defparam ram.lpm_outdata = "REGISTERED";
-
- `endif
 `endif
 
 endmodule // ram16bit_wb

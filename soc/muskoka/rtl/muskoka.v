@@ -17,7 +17,11 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 // 02110-1301, USA.
 
-module muskoka (/*AUTOARG*/
+module muskoka #(// log2 of the number of 32-byte instruction cache lines
+		 parameter ICACHE_SET_BITS = 8,
+		 // UART clocks to the bit: 115200 baud from a 50 MHz clock
+		 parameter UART_DIVISOR = 434
+		 )(/*AUTOARG*/
    // Outputs
    hex0_o, hex1_o, hex2_o, hex3_o, tx_o,
    // Inputs
@@ -198,7 +202,7 @@ module muskoka (/*AUTOARG*/
 		 .wbs_6_ack_i ()
 );
 
-    uart_wb uart (.rst_i (rst_i),
+    uart_wb #(.UART_DIVISOR (UART_DIVISOR)) uart (.rst_i (rst_i),
 		.clk_i (clk_i),
 		.wb_adr_i (wb2ua_adr),
 		.wb_dat_i (wb2ua_dat),
@@ -221,7 +225,7 @@ module muskoka (/*AUTOARG*/
 		 .wb_stb_i (wb2br_stb),
 		 .wb_ack_o (br2wb_ack));
 
-  moxie core (.rst_i (rst_i),
+  moxie #(.ICACHE_SET_BITS (ICACHE_SET_BITS)) core (.rst_i (rst_i),
 	      .clk_i (clk_i),
 	      .irq_i (1'b0),
 
