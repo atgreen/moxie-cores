@@ -1,0 +1,97 @@
+## The Muskoka SoC on the Digilent Nexys 3.
+##
+## Pin locations are from Digilent's master constraints file for the
+## board, by way of the Marin SoC's copy of it.
+
+## 100 MHz oscillator
+NET "clk_i" LOC = V10 | IOSTANDARD = LVCMOS33;
+NET "clk_i" TNM_NET = sys_clk_pin;
+TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100000 kHz;
+
+## The centre pushbutton is reset.
+NET "btn_reset_i" LOC = B8 | IOSTANDARD = LVCMOS33;
+NET "btn_reset_i" TIG;
+
+## USB serial port
+NET "rx_i" LOC = N17 | IOSTANDARD = LVCMOS33;
+NET "rx_i" TIG;
+NET "tx_o" LOC = N18 | IOSTANDARD = LVCMOS33;
+
+## LEDs
+NET "leds_o<0>" LOC = U16 | IOSTANDARD = LVCMOS33;
+NET "leds_o<1>" LOC = V16 | IOSTANDARD = LVCMOS33;
+NET "leds_o<2>" LOC = U15 | IOSTANDARD = LVCMOS33;
+NET "leds_o<3>" LOC = V15 | IOSTANDARD = LVCMOS33;
+NET "leds_o<4>" LOC = M11 | IOSTANDARD = LVCMOS33;
+NET "leds_o<5>" LOC = N11 | IOSTANDARD = LVCMOS33;
+NET "leds_o<6>" LOC = R11 | IOSTANDARD = LVCMOS33;
+NET "leds_o<7>" LOC = T11 | IOSTANDARD = LVCMOS33;
+
+## Seven segment display
+NET "seg_o<0>" LOC = T17 | IOSTANDARD = LVCMOS33;
+NET "seg_o<1>" LOC = T18 | IOSTANDARD = LVCMOS33;
+NET "seg_o<2>" LOC = U17 | IOSTANDARD = LVCMOS33;
+NET "seg_o<3>" LOC = U18 | IOSTANDARD = LVCMOS33;
+NET "seg_o<4>" LOC = M14 | IOSTANDARD = LVCMOS33;
+NET "seg_o<5>" LOC = N14 | IOSTANDARD = LVCMOS33;
+NET "seg_o<6>" LOC = L14 | IOSTANDARD = LVCMOS33;
+NET "seg_o<7>" LOC = M13 | IOSTANDARD = LVCMOS33;
+NET "an_o<0>" LOC = N16 | IOSTANDARD = LVCMOS33;
+NET "an_o<1>" LOC = N15 | IOSTANDARD = LVCMOS33;
+NET "an_o<2>" LOC = P18 | IOSTANDARD = LVCMOS33;
+NET "an_o<3>" LOC = P17 | IOSTANDARD = LVCMOS33;
+
+## Cellular RAM.  It shares its address and data pins with the two
+## flash memories, whose chip selects are held off.
+NET "mem_cen_o" LOC = L15 | IOSTANDARD = LVCMOS33;
+NET "mem_oen_o" LOC = L18 | IOSTANDARD = LVCMOS33;
+NET "mem_wen_o" LOC = M16 | IOSTANDARD = LVCMOS33;
+NET "mem_adv_o" LOC = H18 | IOSTANDARD = LVCMOS33;
+NET "mem_clk_o" LOC = R10 | IOSTANDARD = LVCMOS33;
+NET "mem_cre_o" LOC = M18 | IOSTANDARD = LVCMOS33;
+NET "mem_ubn_o" LOC = K15 | IOSTANDARD = LVCMOS33;
+NET "mem_lbn_o" LOC = K16 | IOSTANDARD = LVCMOS33;
+NET "flash_cen_o" LOC = L17 | IOSTANDARD = LVCMOS33;
+NET "qspi_csn_o" LOC = V3 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<0>" LOC = K18 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<1>" LOC = K17 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<2>" LOC = J18 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<3>" LOC = J16 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<4>" LOC = G18 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<5>" LOC = G16 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<6>" LOC = H16 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<7>" LOC = H15 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<8>" LOC = H14 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<9>" LOC = H13 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<10>" LOC = F18 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<11>" LOC = F17 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<12>" LOC = K13 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<13>" LOC = K12 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<14>" LOC = E18 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<15>" LOC = E16 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<16>" LOC = G13 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<17>" LOC = H12 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<18>" LOC = D18 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<19>" LOC = D17 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<20>" LOC = G14 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<21>" LOC = F14 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<22>" LOC = C18 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<23>" LOC = C17 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<24>" LOC = F16 | IOSTANDARD = LVCMOS33;
+NET "mem_adr_o<25>" LOC = F15 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<0>" LOC = R13 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<1>" LOC = T14 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<2>" LOC = V14 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<3>" LOC = U5 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<4>" LOC = V5 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<5>" LOC = R3 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<6>" LOC = T3 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<7>" LOC = R5 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<8>" LOC = N5 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<9>" LOC = P6 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<10>" LOC = P12 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<11>" LOC = U13 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<12>" LOC = V13 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<13>" LOC = U10 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<14>" LOC = R8 | IOSTANDARD = LVCMOS33;
+NET "mem_dat_io<15>" LOC = T8 | IOSTANDARD = LVCMOS33;

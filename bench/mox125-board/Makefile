@@ -14,7 +14,9 @@ obj_dir/Vmoxie.mk: $(CORE)/*.v $(CORE)/*.h board.cc
 	-I$(CORE) --top-module moxie $(CORE)/moxie.v \
 	--exe $(CURDIR)/board.cc
 
-board: obj_dir/Vmoxie.mk
+# Verilator leaves its output alone when nothing in it would change,
+# so depend on what the program is really built from as well.
+board: obj_dir/Vmoxie.mk $(CORE)/*.v $(CORE)/*.h board.cc
 	$(MAKE) -C obj_dir -f Vmoxie.mk
 	cp obj_dir/Vmoxie $@
 

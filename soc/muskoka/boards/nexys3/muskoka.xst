@@ -1,12 +1,13 @@
 run
 -ifn muskoka.prj
--ifmt Mixed
--top muskoka
+-top muskoka_nexys3
+-ifmt MIXED
+-vlgincdir { "../../../../cores/mox125" "." }
 -opt_mode Speed
 -opt_level 1
 -fsm_extract NO
 -iuc NO
--keep_hierarchy YES
+-keep_hierarchy NO
 -glob_opt AllClockNets
 -read_cores YES
 -write_timing_constraints NO
@@ -16,6 +17,7 @@ run
 -case maintain
 -slice_utilization_ratio 100
 -safe_implementation NO
+-fsm_style lut
 -ram_extract YES
 -ram_style Auto
 -rom_extract YES
@@ -35,6 +37,5 @@ run
 -iob Auto
 -slice_utilization_ratio_maxmargin 5
 -ofn muskoka.ngc
--ofmt NGC
--p xc3s1000-ft256-5
+-p xc6slx16-3-csg324
 -register_balancing NO
