@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    # Fedora for a current Verilator: Ubuntu 24.04's 5.020 rejects the
+    # instruction cache.
+    container: registry.fedoraproject.org/fedora:44
+    timeout-minutes: 120
+    env:
+      MOXIE_ELF: /opt/moxie-elf
+    steps:
+      - name: Install packages
+        run: |
+          dnf -y install git make gcc gcc-c++ patch xz bzip2 zstd texinfo \
+            bison flex diffutils which findutils verilator sbcl
+          dnf -y config-manager addrepo \
+            --from-repofile=https://ocicl.github.io/ocicl/rpm-repo/ocicl.repo
+          dnf -y install ocicl
+          ocicl setup > ~/.sbclrc
+          verilator --version
+
+      - uses: actions/checkout@v4
+
+      # The toolchain takes the better part of half an hour to build,
+      # so keep it until the script or the binutils patch changes.
+      - name: Restore the moxie-elf toolchain
+        id: toolchain
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.MOXIE_ELF }}
+          key: moxie-elf-fedora44-${{ hashFiles('scripts/build-toolchain.sh', 'tools/binutils-moxie-extensions.patch') }}
+
+      - name: Build the moxie-elf toolchain
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        run: scripts/build-toolchain.sh "$MOXIE_ELF"
+
+      # wrapilator's pinned named-readtables predates SBCL 2.6.
+      - name: Build wrapilator
+        run: |
+          git clone --depth 1 https://github.com/atgreen/wrapilator /tmp/wrapilator
+          cd /tmp/wrapilator
+          ocicl install
+          ocicl latest named-readtables
+          make
+          cp wrapilator /usr/local/bin/
+
+      - name: Run the tests
+        run: |
+          export PATH=$MOXIE_ELF/bin:$PATH
+          scripts/run-tests.sh

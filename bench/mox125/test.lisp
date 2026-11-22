@@ -10,7 +10,7 @@
 ;;; 0101010101010101010101010101010101010101010101010101010101010101010101010101010
 ;;; 1010101010101010101010101010101010101010101010101010101010101010101010101010101
 
-;;; Copyright (C) 2017, 2023  Anthony Green <green@moxielogic.com>
+;;; Copyright (C) 2017, 2023, 2026  Anthony Green <green@moxielogic.com>
 ;;; Distributed under the terms of the GPL v3 or later.
 
 ;;; This test program uses a verilator simulator of the mox125 moxie
@@ -225,9 +225,8 @@
 	  (dolist (binary test-binaries)
 	    (load-and-run binary memory-wait-cycles)))))
 
-(run! 'check-boot-address)
-(run! 'run-nop-sequence)
-(run! 'run-executable-tests)
-
-
-(exit)
+(exit :code (if (every #'identity
+                       (list (run! 'check-boot-address)
+                             (run! 'run-nop-sequence)
+                             (run! 'run-executable-tests)))
+                0 1))

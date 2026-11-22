@@ -10,7 +10,7 @@
 ;;; 0101010101010101010101010101010101010101010101010101010101010101010101010101010
 ;;; 1010101010101010101010101010101010101010101010101010101010101010101010101010101
 
-;;; Copyright (C) 2017, 2023  Anthony Green <green@moxielogic.com>
+;;; Copyright (C) 2017, 2023, 2026  Anthony Green <green@moxielogic.com>
 ;;; Distributed under the terms of the GPL v3 or later.
 
 ;;; This test program uses a verilator simulator of the moxie
@@ -132,8 +132,8 @@
 (test random-read
       (test-random-read 4128 50128 50000))
 
-(explain! (run 'random-read))
-(run! 'sequential-read-boundary)
-(run! 'sequential-read-scan)
-
-(exit)
+(exit :code (if (every #'identity
+                       (list (run! 'random-read)
+                             (run! 'sequential-read-boundary)
+                             (run! 'sequential-read-scan)))
+                0 1))
