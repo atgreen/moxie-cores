@@ -25,13 +25,13 @@ jobs:
           ocicl setup > ~/.sbclrc
           verilator --version
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      # The toolchain takes the better part of half an hour to build,
+      # The toolchain takes about ten minutes to build,
       # so keep it until the script or the binutils patch changes.
       - name: Restore the moxie-elf toolchain
         id: toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.MOXIE_ELF }}
           key: moxie-elf-fedora44-${{ hashFiles('scripts/build-toolchain.sh', 'tools/binutils-moxie-extensions.patch') }}
