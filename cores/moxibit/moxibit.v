@@ -127,7 +127,8 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
   wire sp_ssr     = u_sp == SP_SSR;
   wire sp_exc     = u_sp == SP_EXC;
   wire sp_eret    = u_sp == SP_ERET;
-  wire sp_shamt   = u_sp == SP_SHAMT;
+  wire sp_shamti  = u_sp == SP_SHAMTI;
+  wire sp_shamt   = u_sp == SP_SHAMT | sp_shamti;
   wire sp_shift   = u_sp == SP_SHIFT;
   wire sp_mul     = MDU != 0 && u_sp == SP_MUL;
   wire sp_dsign   = MDU != 0 && u_sp == SP_DSIGN;
@@ -147,13 +148,17 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
 
   // Codes 16-31 are register file slots; the rest name the fields
   // of the instruction, a special register, $fp, $sp or $r0.
+  // The short ldo.l and sto.l, opcodes 0x48-0x4f, have 3-bit A and B
+  // fields, bits 6:4 and 2:0, that name $r0-$r7.
+  wire short3 = ir[15:11] == 5'b01001;
+
   function [4:0] regidx (input [4:0] code);
     if (code[4])
       regidx = code;
     else
       case (code[2:0])
-	3'd1:    regidx = {1'b0, ir[7:4]};
-	3'd2:    regidx = {1'b0, ir[3:0]};
+	3'd1:    regidx = short3 ? {2'b0, ir[6:4]} + 5'd2 : {1'b0, ir[7:4]};
+	3'd2:    regidx = short3 ? {2'b0, ir[2:0]} + 5'd2 : {1'b0, ir[3:0]};
 	3'd3:    regidx = {1'b0, ir[11:8]};
 	3'd4:    regidx = {2'b11, ir[2:0]};
 	3'd6:    regidx = 5'd1;
@@ -211,7 +216,8 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
       4'd6: take = cc_eq | cc_gt;	// bge
       4'd7: take = cc_eq | cc_lt;	// ble
       4'd8: take = cc_eq | cc_gtu;	// bgeu
-      default: take = cc_eq | cc_ltu;	// bleu
+      4'd9: take = cc_eq | cc_ltu;	// bleu
+      default: take = 1'b1;		// bra
     endcase
 
   // The PC adder adds 2 by injecting a carry into bit 1, plus twice
@@ -235,13 +241,45 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
   wire mdu_cout = m_x & m_y | m_x & m_cin | m_y & m_cin;
   wire rs = cnt == 5'd0 ? adr[31] : dly_r;
 
+  // ashli, lshri, ashri and cmpi have a 5-bit immediate, bit 8 and
+  // bits 3:0; imm5 is its bit cnt, sign-extended.  A shift's count
+  // comes from it (sp shamti) or from port B.
+  wire imm5 = cnt < 5'd4 ? ir[{2'b0, cnt[1:0]}] : ir[8];
+
+  // imm_bit is bit cnt of the immediate that y = i8 reads: the 8-bit
+  // value of inc and dec; the 7-bit value of the short ldi.l, bit 10,
+  // bits 9:8 and bits 3:0, sign-extended; the byte offset of the short
+  // ldo.l and sto.l, four times bits 9, 8, 7 and 3; the -4(k + 1) of
+  // their $fp forms, where k is imm5 unsigned; or cmpi's imm5.
+  wire [1:0] cnt_m2 = cnt[1:0] - 2'd2;
+  reg imm_bit;
+  always @(*)
+    if (ir[15:14] == 2'b10)
+      imm_bit = cnt[4:3] == 0 & ir[{1'b0, cnt[2:0]}];
+    else if (ir[15])
+      imm_bit = cnt < 5'd4 ? ir[{2'b0, cnt[1:0]}]
+		: cnt == 5'd4 ? ir[8] : cnt == 5'd5 ? ir[9] : ir[10];
+    else if (short3)
+      case (cnt)
+	5'd2: imm_bit = ir[3];
+	5'd3: imm_bit = ir[7];
+	5'd4: imm_bit = ir[8];
+	5'd5: imm_bit = ir[9];
+	default: imm_bit = 1'b0;
+      endcase
+    else if (ir[15:10] == 6'b010100)
+      imm_bit = cnt < 5'd2 ? 1'b0 : cnt < 5'd6 ? !ir[{2'b0, cnt_m2}]
+		: cnt == 5'd6 ? !ir[8] : 1'b1;
+    else
+      imm_bit = imm5;
+
   // The ALU.
   reg y_raw;
   always @(*)
     case (u_y)
       Y_B:   y_raw = rb;
       Y_A:   y_raw = ra;
-      Y_I8:  y_raw = cnt[4:3] == 0 & ir[{1'b0, cnt[2:0]}];
+      Y_I8:  y_raw = imm_bit;
       Y_DQ:  y_raw = dq;
       Y_O16: y_raw = cnt[4] ? sx : dq;
       Y_K:   y_raw = kbit;
@@ -317,6 +355,7 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
   wire sh_fill = flag | (lsl ? sh != 0 & !sh_past : sh_past);
   wire shift_bit = sh_fill ? u_roff == ROFF_ASR & bi : dbuf[sh];
   wire sh_seen = cnt != 5'd0 & seen;
+  wire sh_bit = sp_shamti ? cnt < 5 & imm5 : rb;
 
   // What is written to the register file.
   reg wd_raw;
@@ -500,10 +539,10 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
 		sx <= u_mask != MASK_NONE ? wd_raw : y_raw;
 	      if (sp_shamt)
 		begin
-		  flag <= cnt != 5'd0 & (flag | rb & cnt >= 5);
+		  flag <= cnt != 5'd0 & (flag | sh_bit & cnt >= 5);
 		  if (cnt < 5)
-		    sh <= {rb ^ (lsl & sh_seen), sh[4:1]};
-		  seen <= sh_seen | rb;
+		    sh <= {sh_bit ^ (lsl & sh_seen), sh[4:1]};
+		  seen <= sh_seen | sh_bit;
 		  if (cnt == 5'd31)
 		    bi <= ra;
 		end
@@ -529,8 +568,8 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
 		      cc_eq <= !(zacc | alu_out);
 		      cc_ltu <= !alu_cout;
 		      cc_gtu <= alu_cout & (zacc | alu_out);
-		      cc_lt <= ra ^ rb ? ra : !alu_cout;
-		      cc_gt <= (ra ^ rb ? !ra : alu_cout) & (zacc | alu_out);
+		      cc_lt <= ra ^ y_raw ? ra : !alu_cout;
+		      cc_gt <= (ra ^ y_raw ? !ra : alu_cout) & (zacc | alu_out);
 		    end
 		  if (sp_caseq)
 		    begin

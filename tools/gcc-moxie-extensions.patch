@@ -1,0 +1,312 @@
+--- a/gcc/config/moxie/constraints.md
++++ b/gcc/config/moxie/constraints.md
+@@ -54,3 +54,13 @@
+   "A constant -(0..255)"
+   (and (match_code "const_int")
+        (match_test "ival >= -255 && ival <= 0")))
++
++(define_constraint "L"
++  "A shift count for ashli, lshri and ashri (0..31)"
++  (and (match_code "const_int")
++       (match_test "TARGET_COMPACT && ival >= 0 && ival <= 31")))
++
++(define_constraint "K"
++  "An immediate for cmpi (-16..15)"
++  (and (match_code "const_int")
++       (match_test "TARGET_COMPACT && ival >= -16 && ival <= 15")))
+--- a/gcc/config/moxie/moxie.cc
++++ b/gcc/config/moxie/moxie.cc
+@@ -108,6 +108,39 @@
+   output_operand_lossage ("%s", msgid);
+ }
+ 
++/* True if X, a MEM or a constant address, is data that -mgp reaches
++   as an offset from _gp in $r13: a writable variable, perhaps plus a
++   constant, that is not an undefined weak symbol or in a section of
++   its own.  The linker puts _gp 32K into .data, so that it reaches
++   the first 64K of .data and .bss.  */
++
++static bool
++moxie_gprel_p (rtx x)
++{
++  tree decl;
++
++  if (!TARGET_GP)
++    return false;
++  if (MEM_P (x))
++    x = XEXP (x, 0);
++  if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == PLUS
++      && CONST_INT_P (XEXP (XEXP (x, 0), 1)))
++    x = XEXP (XEXP (x, 0), 0);
++  if (GET_CODE (x) != SYMBOL_REF || SYMBOL_REF_FUNCTION_P (x))
++    return false;
++  decl = SYMBOL_REF_DECL (x);
++  if (decl == NULL_TREE || TREE_CODE (decl) != VAR_DECL
++      || TREE_READONLY (decl)
++      || (DECL_WEAK (decl) && DECL_EXTERNAL (decl)))
++    return false;
++  if (DECL_SECTION_NAME (decl))
++    {
++      const char *name = DECL_SECTION_NAME (decl);
++      return startswith (name, ".data") || startswith (name, ".bss");
++    }
++  return true;
++}
++
+ /* The PRINT_OPERAND_ADDRESS worker.  */
+ 
+ static void
+@@ -174,6 +207,27 @@
+       /* No code, print as usual.  */
+       break;
+ 
++    case 'Q':
++      /* The letter that ends lda and sta, or ldo and sto with -mgp.  */
++      fputc (moxie_gprel_p (x) ? 'o' : 'a', file);
++      return;
++
++    case 'g':
++      /* An absolute address, or an offset from _gp with -mgp.  */
++      if (moxie_gprel_p (x))
++	{
++	  fputs ("%gprel(", file);
++	  output_addr_const (file, MEM_P (x) ? XEXP (x, 0) : x);
++	  fprintf (file, ")(%s)", reg_names[MOXIE_R13]);
++	  return;
++	}
++      break;
++
++    case 'i':
++      /* ldi.l, or lea for an address that -mgp reaches.  */
++      fputs (moxie_gprel_p (x) ? "lea" : "ldi.l", file);
++      return;
++
+     default:
+       LOSE_AND_RETURN ("invalid operand modifier letter", x);
+     }
+--- a/gcc/config/moxie/moxie.h
++++ b/gcc/config/moxie/moxie.h
+@@ -175,7 +175,7 @@
+ /* The Overall Framework of an Assembler File */
+ 
+ #undef  ASM_SPEC
+-#define ASM_SPEC "%{!mel:-EB} %{mel:-EL}"
++#define ASM_SPEC "%{!mel:-EB} %{mel:-EL} %{mcompact:-mcompact}"
+ #define ASM_COMMENT_START "#"
+ #define ASM_APP_ON ""
+ #define ASM_APP_OFF ""
+@@ -417,6 +417,10 @@
+       builtin_define ("__MOXIE_LITTLE_ENDIAN__");	\
+     else						\
+       builtin_define ("__MOXIE_BIG_ENDIAN__");		\
++    if (TARGET_COMPACT)					\
++      builtin_define ("__MOXIE_COMPACT__");		\
++    if (TARGET_GP)					\
++      builtin_define ("__MOXIE_GP__");			\
+   }
+ 
+ #define HAS_LONG_UNCOND_BRANCH true
+--- a/gcc/config/moxie/moxie.md
++++ b/gcc/config/moxie/moxie.md
+@@ -183,31 +183,31 @@
+ ;; -------------------------------------------------------------------------
+ 
+ (define_insn "ashlsi3"
+-  [(set (match_operand:SI 0 "register_operand" "=r")
+-	(ashift:SI (match_operand:SI 1 "register_operand" "0")
+-		   (match_operand:SI 2 "register_operand" "r")))]
++  [(set (match_operand:SI 0 "register_operand" "=r,r")
++	(ashift:SI (match_operand:SI 1 "register_operand" "0,0")
++		   (match_operand:SI 2 "moxie_shift_operand" "r,L")))]
+   ""
+-{
+-  return "ashl\\t%0, %2";
+-})
++  "@
++   ashl\\t%0, %2
++   ashli\\t%0, %2")
+ 
+ (define_insn "ashrsi3"
+-  [(set (match_operand:SI 0 "register_operand" "=r")
+-	(ashiftrt:SI (match_operand:SI 1 "register_operand" "0")
+-		     (match_operand:SI 2 "register_operand" "r")))]
++  [(set (match_operand:SI 0 "register_operand" "=r,r")
++	(ashiftrt:SI (match_operand:SI 1 "register_operand" "0,0")
++  		   (match_operand:SI 2 "moxie_shift_operand" "r,L")))]
+   ""
+-{
+-  return "ashr\\t%0, %2";
+-})
++  "@
++   ashr\\t%0, %2
++   ashri\\t%0, %2")
+ 
+ (define_insn "lshrsi3"
+-  [(set (match_operand:SI 0 "register_operand" "=r")
+-	(lshiftrt:SI (match_operand:SI 1 "register_operand" "0")
+-		     (match_operand:SI 2 "register_operand" "r")))]
++  [(set (match_operand:SI 0 "register_operand" "=r,r")
++	(lshiftrt:SI (match_operand:SI 1 "register_operand" "0,0")
++  		   (match_operand:SI 2 "moxie_shift_operand" "r,L")))]
+   ""
+-{
+-  return "lshr\\t%0, %2";
+-})
++  "@
++   lshr\\t%0, %2
++   lshri\\t%0, %2")
+ 
+ ;; -------------------------------------------------------------------------
+ ;; Move instructions
+@@ -259,11 +259,11 @@
+   "@
+    xor\\t%0, %0
+    mov\\t%0, %1
+-   ldi.l\\t%0, %1
++   %i1\\t%0, %g1
+    st.l\\t%0, %1
+-   sta.l\\t%0, %1
++   st%Q0.l\\t%g0, %1
+    ld.l\\t%0, %1
+-   lda.l\\t%0, %1
++   ld%Q1.l\\t%0, %g1
+    sto.l\\t%0, %1
+    ldo.l\\t%0, %1"
+   [(set_attr "length"	"2,2,6,2,6,2,6,4,4")])
+@@ -275,7 +275,7 @@
+   "@
+    zex.b\\t%0, %1
+    ld.b\\t%0, %1
+-   lda.b\\t%0, %1
++   ld%Q1.b\\t%0, %g1
+    ldo.b\\t%0, %1"
+   [(set_attr "length" "2,2,6,4")])
+ 
+@@ -286,7 +286,7 @@
+   "@
+    zex.s\\t%0, %1
+    ld.s\\t%0, %1
+-   lda.s\\t%0, %1
++   ld%Q1.s\\t%0, %g1
+    ldo.s\\t%0, %1"
+   [(set_attr "length" "2,2,6,4")])
+ 
+@@ -327,9 +327,9 @@
+    mov\\t%0, %1
+    ldi.b\\t%0, %1
+    st.b\\t%0, %1
+-   sta.b\\t%0, %1
++   st%Q0.b\\t%g0, %1
+    ld.b\\t%0, %1
+-   lda.b\\t%0, %1
++   ld%Q1.b\\t%0, %g1
+    sto.b\\t%0, %1
+    ldo.b\\t%0, %1"
+   [(set_attr "length"	"2,2,6,2,6,2,6,4,4")])
+@@ -355,9 +355,9 @@
+    mov\\t%0, %1
+    ldi.s\\t%0, %1
+    st.s\\t%0, %1
+-   sta.s\\t%0, %1
++   st%Q0.s\\t%g0, %1
+    ld.s\\t%0, %1
+-   lda.s\\t%0, %1
++   ld%Q1.s\\t%0, %g1
+    sto.s\\t%0, %1
+    ldo.s\\t%0, %1"
+   [(set_attr "length"	"2,2,6,2,6,2,6,4,4")])
+@@ -384,17 +384,19 @@
+   /* Force the compare operands into registers.  */
+   if (GET_CODE (operands[1]) != REG)
+ 	operands[1] = force_reg (SImode, operands[1]);
+-  if (GET_CODE (operands[2]) != REG)
++  if (!moxie_cmp_operand (operands[2], SImode))
+ 	operands[2] = force_reg (SImode, operands[2]);
+   ")
+ 
+ (define_insn "*cmpsi"
+   [(set (reg:CC CC_REG)
+ 	(compare
+-	 (match_operand:SI 0 "register_operand" "r")
+-	 (match_operand:SI 1 "register_operand"	"r")))]
++	 (match_operand:SI 0 "register_operand" "r,r")
++	 (match_operand:SI 1 "moxie_cmp_operand" "r,K")))]
+   ""
+-  "cmp\\t%0, %1")
++  "@
++   cmp\\t%0, %1
++   cmpi\\t%0, %1")
+ 
+ 
+ ;; -------------------------------------------------------------------------
+@@ -483,8 +485,17 @@
+   [(set (pc)
+ 	(label_ref (match_operand 0 "" "")))]
+   ""
+-  "jmpa\\t%l0"
+-  [(set_attr "length"	"6")])
++{
++  if (get_attr_length (insn) == 2)
++    return "bra\\t%l0";
++  else
++    return "jmpa\\t%l0";
++}
++  [(set (attr "length")
++        (if_then_else (and (match_test "TARGET_COMPACT")
++			   (lt (abs (minus (pc) (match_dup 0)))
++			       (const_int 1022)))
++                      (const_int 2) (const_int 6)))])
+ 
+ 
+ ;; -------------------------------------------------------------------------
+--- a/gcc/config/moxie/moxie.opt
++++ b/gcc/config/moxie/moxie.opt
+@@ -31,5 +31,13 @@
+ Enable MUL.X and UMUL.X instructions.
+ 
+ ; Ignored by the compiler
++mcompact
++Target Mask(COMPACT)
++Use the compact-code instructions ashli, lshri, ashri, cmpi and bra.
++
++mgp
++Target Mask(GP)
++Address data within 32K bytes of _gp, which the startup code loads into $r13, with 16-bit offsets from $r13.
++
+ mno-crt0
+ Target RejectNegative
+--- a/gcc/config/moxie/predicates.md
++++ b/gcc/config/moxie/predicates.md
+@@ -53,4 +53,17 @@
+ (define_predicate "moxie_sub_operand"
+   (ior (match_code "reg")
+        (and (match_code "const_int")
+-	    (match_test "IN_RANGE (INTVAL (op), 0, 255)"))))
+\ No newline at end of file
++	    (match_test "IN_RANGE (INTVAL (op), 0, 255)"))))
++;; Nonzero if OP can be the count of a shift instruction.
++
++(define_predicate "moxie_shift_operand"
++  (ior (match_operand 0 "register_operand")
++       (and (match_code "const_int")
++	    (match_test "TARGET_COMPACT && IN_RANGE (INTVAL (op), 0, 31)"))))
++
++;; Nonzero if OP can be the second operand of a comparison.
++
++(define_predicate "moxie_cmp_operand"
++  (ior (match_operand 0 "register_operand")
++       (and (match_code "const_int")
++	    (match_test "TARGET_COMPACT && IN_RANGE (INTVAL (op), -16, 15)"))))
+--- a/gcc/config/moxie/t-moxie
++++ b/gcc/config/moxie/t-moxie
+@@ -18,6 +18,8 @@
+ # along with GCC; see the file COPYING3.  If not see
+ # <http://www.gnu.org/licenses/>.
+ 
+-MULTILIB_OPTIONS     = meb/mel
+-MULTILIB_DIRNAMES    = eb el
++MULTILIB_OPTIONS     = meb/mel mcompact
++MULTILIB_DIRNAMES    = eb el compact
+ 
++# Big-endian is the default, so meb/mcompact is the compact multilib.
++MULTILIB_EXCEPTIONS  = meb/mcompact

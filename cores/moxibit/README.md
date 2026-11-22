@@ -8,8 +8,9 @@ same SoCs.
 
 It implements the whole moxie instruction set with mox125's
 exceptions: swi, brk, interrupts, undefined instructions and division
-by zero, gsr/ssr for sr0-sr7, eret, wfi and cas.l.  It has no MMU and
-no caches.
+by zero, gsr/ssr for sr0-sr7, eret, wfi and cas.l, and the
+compact-code extension (../../docs/compact.md).  It has no MMU and no
+caches.
 
 
 How it works
@@ -45,7 +46,7 @@ Parameters
   firmware/moxibit/mdu-emulate.S emulates them.
 - FAST_INC (0) - 1 adds 2 to ADR in parallel most of the time instead
   of in a pass, for about 12% fewer clocks overall (25-30% on code
-  that calls a lot) at the cost of about 23 LUTs.
+  that calls a lot) at the cost of about 35 LUTs.
 
 An instruction takes about 40 clocks for register arithmetic and
 100-300 for memory access and calls; across the bench programs it is
@@ -61,19 +62,23 @@ own, so the fair comparison is moxibit with MDU = 0 against SERV with
 its CSRs, which give it exceptions and interrupts.
 
     iCE40                 LUT4   FF   BRAM
-    moxibit                 429  129     6
-    moxibit, MDU = 0        383  121     6
-    moxibit, FAST_INC = 1   452  130     6
+    moxibit                 459  129     6
+    moxibit, MDU = 0        423  121     6
+    moxibit, FAST_INC = 1   494  130     6
     SERV                   212  164     1
     SERV with CSR          274  182     1
 
     Artix-7               LUT    FF   LUTRAM  BRAM
-    moxibit                 303  131     8      1.5
-    moxibit, MDU = 0        271  123     8      1.5
+    moxibit                 367  131     8      1.5
+    moxibit, MDU = 0        316  123     8      1.5
     SERV                   187  166     8      0
     SERV with CSR          256  184     9      0
 
-Five of moxibit's six iCE40 block RAMs are its two ROMs.
+Five of moxibit's six iCE40 block RAMs are its two ROMs.  The
+compact-code extension accounts for about 30 of the iCE40 LUT4s and 65
+of the Artix-7 LUTs; without it moxibit was 429 and 303.  It is worth
+it for code size: SERV's RV32I code is 45% bigger than moxibit's with
+the extension, by the geometric mean of the Embench-IoT programs.
 
 
 FuseSoC

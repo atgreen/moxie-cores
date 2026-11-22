@@ -7,8 +7,9 @@
 # Build the moxie-elf binutils, a C compiler and newlib's libc from
 # release tarballs and install them under PREFIX.  This is the
 # smallest toolchain that builds the bench test programs and the boot
-# ROMs.  binutils gets tools/binutils-moxie-extensions.patch, which
-# teaches the assembler eret, wfi and cas.l.  libgloss is left out:
+# ROMs.  binutils and GCC get tools/binutils-moxie-extensions.patch and
+# tools/gcc-moxie-extensions.patch: mox125's eret, wfi and cas.l, and
+# the compact-code extension (docs/compact.md).  libgloss is left out:
 # nothing here needs its system calls.
 
 set -e
@@ -35,6 +36,7 @@ tar xf $BINUTILS.tar.xz
 tar xf $GCC.tar.xz
 tar xf $NEWLIB.tar.gz
 patch -d $BINUTILS -p1 < "$TOP/tools/binutils-moxie-extensions.patch"
+patch -d $GCC -p1 < "$TOP/tools/gcc-moxie-extensions.patch"
 (cd $GCC && ./contrib/download_prerequisites)
 
 mkdir build-binutils

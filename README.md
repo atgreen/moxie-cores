@@ -57,6 +57,14 @@ system wants (`eret`, `wfi`, `cas.l`).
 
 **MoxieLite** is a bi-endian, non-pipelined implementation in VHDL.
 
+![MoxieLite block diagram](docs/moxielite-block-diagram.png)
+
+mox125 and moxibit also implement the
+[compact-code extension](docs/compact.md): short forms of constants,
+shifts, compares, loads and stores, and a global pointer.  With it,
+moxie code is about the size of compressed RISC-V (RV32IC), and 31%
+smaller than RV32I.
+
 Both Verilog cores are big-endian and talk to the same 16-bit
 Wishbone bus with 32-bit addresses, so they are interchangeable: each
 provides a `moxie_cpu` module with the same ports.  How they compare,
@@ -64,8 +72,8 @@ synthesized alone for ECP5 with Yosys:
 
 | Core                        | LUT4  | Flip-flops | Block RAM |
 |-----------------------------|------:|-----------:|----------:|
-| moxibit                     |   468 |        129 |         4 |
-| moxibit without mul/div     |   416 |        121 |         4 |
+| moxibit                     |   509 |        129 |         4 |
+| moxibit without mul/div     |   492 |        121 |         4 |
 | mox125, 256-byte icache     | 6,761 |      1,696 |         2 |
 
 [cores/moxibit/README.md](cores/moxibit/README.md) compares moxibit
@@ -96,8 +104,9 @@ Software
 
 * The GNU toolchain: `moxie-elf` binutils, GCC and newlib.
   `scripts/build-toolchain.sh PREFIX` builds it from release tarballs,
-  with a binutils patch for mox125's `eret`, `wfi` and `cas.l`; it
-  takes about ten minutes.
+  with patches for mox125's `eret`, `wfi` and `cas.l` and for the
+  compact-code extension (`-mcompact`, `-mgp`); it takes about ten
+  minutes.
 * `firmware/` has boot loaders and ROMs, `firmware/hello` the program
   above, and `firmware/moxibit/mdu-emulate.S` the multiply and divide
   emulation for moxibit built without them.
@@ -106,7 +115,9 @@ Software
   [atgreen/linux-moxie](https://github.com/atgreen/linux-moxie).
   The boot loader on the Nexys 3 SoC loads programs as S-records
   over its serial port.
-* [docs/abi.org](docs/abi.org) describes the calling convention.
+* [docs/abi.org](docs/abi.org) describes the calling convention, and
+  [docs/compact.md](docs/compact.md) the compact-code extension.
+  `tools/codesize/codesize.sh` measures code size against RISC-V.
 
 
 Simulation and testing

@@ -50,7 +50,7 @@ its slot in the register file, so that decoding it costs nothing.
 | pc    |     2 | 0 +2 br k                                          |
 | k     |     5 | #signed                                            |
 | roff  |     3 | - half lsr asr lsl                                 |
-| sp    |     4 | - cmp caseq gsr ssr exc eret dsign dabs diviter divq divr mul shamt shift |
+| sp    |     4 | - cmp caseq gsr ssr exc eret dsign dabs diviter divq divr mul shamt shift shamti |
 | cond  |     2 | - zero irq done                                    |
 | next  |     8 | #label                                             |
 
@@ -66,12 +66,16 @@ What the values mean:
   shr1 shifts DBUF right by one.
 - x, y, op :: the ALU's operands and operation.  i8 is the 8-bit
   immediate of inc and dec, o16 a 16-bit offset in DBUF with its sign
-  extended, k the constant in column k, mb a multiplier step.
+  extended, k the constant in column k, mb a multiplier step.  i8
+  is the immediate of the other instructions that have one: see
+  imm_bit in moxibit.v.
 - pc :: what the PC adder adds to ADR: 0, 2, a taken branch's offset
   plus 2, or the constant k.
 - roff :: half: port B reads half a turn round, so that a short or
   byte store finds its data's low half in DBUF[31:16]; lsr, asr, lsl:
-  the direction of a shift (sp shamt, then shift).
+  the direction of a shift (sp shamt, then shift).  shamti is shamt
+  with the count from the instruction, as for ashli: bit 8 and bits
+  3:0.
 - sp :: special behaviour; see =moxibit.v=.  caseq sets the
   condition codes as cas.l does: equal, or nothing.
 - cond :: =c:label= goes to label if condition c holds and to next
@@ -110,9 +114,13 @@ What the values mean:
 | zexb    | pass   |     | B   | A   | b    | zb   | pc  |       |   |     |     | +2 |    |      |         |             | fetch   |
 | zexs    | pass   |     | B   | A   | b    | zs   | pc  |       |   |     |     | +2 |    |      |         |             | fetch   |
 | cmp     | pass   | A   | B   |     |      |      | pc  |       | a | b   | sub | +2 |    |      | cmp     |             | fetch   |
+| cmpi    | pass   | A   |     |     |      |      | pc  |       | a | i8  | sub | +2 |    |      | cmp     |             | fetch   |
 | inc     | pass   | C   |     | C   | alu  |      | pc  |       | a | i8  | add | +2 |    |      |         |             | fetch   |
 | dec     | pass   | C   |     | C   | alu  |      | pc  |       | a | i8  | sub | +2 |    |      |         |             | fetch   |
 | ldi     | pass   |     |     | A   | dq   |      | pc  | rot   |   |     |     | +2 |    |      |         |             | fetch   |
+| ldi7    | pass   |     |     | A   | alu  |      | pc  |       | 0 | i8  | add | +2 |    |      |         |             | fetch   |
+| ldi16   | pass   |     |     | A   | alu  |      | pc  | rot   | 0 | o16 | add | +2 |    |      |         |             | fetch   |
+| lea     | pass   | B   |     | A   | alu  |      | pc  | rot   | a | o16 | add | +2 |    |      |         |             | fetch   |
 | jmpa    | pass   |     |     |     |      |      | dq  | rot   |   |     |     |    |    |      |         |             | fetch   |
 | jmp     | pass   | A   |     |     |      |      | a   |       |   |     |     |    |    |      |         |             | fetch   |
 | bcc     | pass   |     |     |     |      |      | pc  |       |   |     |     | br |    |      |         |             | fetch   |
@@ -123,6 +131,9 @@ What the values mean:
 | ashl2   | pass   |     |     | A   |      |      | pc  | rot   |   |     |     | +2 |    | lsl  | shift   |             | fetch   |
 | ashr    | pass   | A   | B   |     |      |      |     | a     |   |     |     |    |    | asr  | shamt   |             | ashr2   |
 | ashr2   | pass   |     |     | A   |      |      | pc  | rot   |   |     |     | +2 |    | asr  | shift   |             | fetch   |
+| lshri   | pass   | A   |     |     |      |      |     | a     |   |     |     |    |    | lsr  | shamti  |             | lshr2   |
+| ashli   | pass   | A   |     |     |      |      |     | a     |   |     |     |    |    | lsl  | shamti  |             | ashl2   |
+| ashri   | pass   | A   |     |     |      |      |     | a     |   |     |     |    |    | asr  | shamti  |             | ashr2   |
 |---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
 | ldl     | pass   | B   |     | pk  | pc   |      | a   |       |   |     |     | +2 |    |      |         |             | tll     |
 | ldb     | pass   | B   |     | pk  | pc   |      | a   |       |   |     |     | +2 |    |      |         |             | tlb     |
@@ -131,6 +142,8 @@ What the values mean:
 | ldab    | pass   |     |     | pk  | pc   |      | dq  | rot   |   |     |     | +2 |    |      |         |             | tlb     |
 | ldas    | pass   |     |     | pk  | pc   |      | dq  | rot   |   |     |     | +2 |    |      |         |             | tls     |
 | ldol    | pass   | B   |     | pk  | pc   |      | alu | rot   | a | o16 | add | +2 |    |      |         |             | tll     |
+| ldl3    | pass   | B   |     | pk  | pc   |      | alu |       | a | i8  | add | +2 |    |      |         |             | tll     |
+| ldlf    | pass   | fp  |     | pk  | pc   |      | alu |       | a | i8  | add | +2 |    |      |         |             | tll     |
 | ldob    | pass   | B   |     | pk  | pc   |      | alu | rot   | a | o16 | add | +2 |    |      |         |             | tlb     |
 | ldos    | pass   | B   |     | pk  | pc   |      | alu | rot   | a | o16 | add | +2 |    |      |         |             | tls     |
 | tll     | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | tll2    |
@@ -149,6 +162,8 @@ What the values mean:
 | stab    | pass   |     | A   | pk  | pc   |      | dq  | b     |   |     |     | +2 |    | half |         |             | tsb     |
 | stas    | pass   |     | A   | pk  | pc   |      | dq  | b     |   |     |     | +2 |    | half |         |             | tss     |
 | stol    | pass   | A   | B   | pk  | pc   |      | alu | b     | a | o16 | add | +2 |    |      |         |             | tsl     |
+| stl3    | pass   | A   | B   | pk  | pc   |      | alu | b     | a | i8  | add | +2 |    |      |         |             | tsl     |
+| stlf    | pass   | fp  | A   | pk  | pc   |      | alu | b     | a | i8  | add | +2 |    |      |         |             | tsl     |
 | stob    | pass   | A   | B   | pk  | pc   |      | alu | b     | a | o16 | add | +2 |    | half |         |             | tsb     |
 | stos    | pass   | A   | B   | pk  | pc   |      | alu | b     | a | o16 | add | +2 |    | half |         |             | tss     |
 | tsl     | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | tsl2    |
@@ -290,8 +305,19 @@ can emulate them.
 | 3a       | eret    |      |     |
 | 3b       | wfi     |      |     |
 | 3c       | cas     |      |     |
+| 40 41    | ashli   |      |     |
+| 42 43    | lshri   |      |     |
+| 44 45    | ashri   |      |     |
+| 46 47    | cmpi    |      |     |
+| 48-4b    | ldl3    |      |     |
+| 4c-4f    | stl3    |      |     |
+| 50 51    | ldlf    |      |     |
+| 52 53    | stlf    |      |     |
+| 54       | p16     | ldi16 |     |
+| 55       | p16     | lea  |     |
 | 80-8f    | inc     |      |     |
 | 90-9f    | dec     |      |     |
 | a0-af    | gsr     |      |     |
 | b0-bf    | ssr     |      |     |
-| c0-e7    | bcc     |      |     |
+| c0-eb    | bcc     |      |     |
+| f0-f7    | ldi7    |      |     |

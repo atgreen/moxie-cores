@@ -73,8 +73,22 @@ module cpu_decode (/*AUTOARG*/
    microcode mcode (.opcode(opcode_i[15:8]),
 		    .q(control));
 
-   assign riA_o = foo ? opcode_i[7:4] : opcode_i[11:8];
-   assign riB_o = opcode_i[3:0];
+   // The short ldo.l and sto.l, 0x48-0x4f, have 3-bit A and B fields
+   // for $r0-$r7; their $fp forms, 0x50-0x53, have $fp as the base
+   // and the register loaded or stored in the A field, as has the
+   // short ldi.l, 0xf0-0xf7.
+   wire 		   short3 = opcode_i[15:11] == 5'b01001;
+   wire 		   fp_ld = opcode_i[15:9] == 7'b0101000;
+   wire 		   fp_st = opcode_i[15:9] == 7'b0101001;
+   wire 		   ldi7 = opcode_i[15:11] == 5'b11110;
+   wire [4:0] 		   fp_k = {opcode_i[8], opcode_i[3:0]};
+
+   assign riA_o = short3 ? {1'b0, opcode_i[6:4]} + 4'd2
+		  : fp_st ? 4'd0
+		  : (foo | ldi7) ? opcode_i[7:4] : opcode_i[11:8];
+   assign riB_o = short3 ? {1'b0, opcode_i[2:0]} + 4'd2
+		  : fp_ld ? 4'd0
+		  : fp_st ? opcode_i[7:4] : opcode_i[3:0];
 
    always @(posedge clk_i)
      begin
@@ -105,6 +119,10 @@ module cpu_decode (/*AUTOARG*/
 	            4'b1010: // GSR
 		            begin
 		              pipeline_control_bits_o <= 6'b100000;
+		            end
+	            4'b1111: // the short ldi.l, 0xf0-0xf7
+		            begin
+		              pipeline_control_bits_o <= {!opcode_i[11], 5'b00000};
 		            end
 	            default:
 		            begin
@@ -398,6 +416,52 @@ module cpu_decode (/*AUTOARG*/
 		begin
 		  op_o <= `OP_BAD;
 		end
+	      8'b0100000?:
+		begin
+		  op_o <= `OP_ASHLI;
+		end
+	      8'b0100001?:
+		begin
+		  op_o <= `OP_LSHRI;
+		end
+	      8'b0100010?:
+		begin
+		  op_o <= `OP_ASHRI;
+		end
+	      8'b0100011?:
+		begin
+		  op_o <= `OP_CMPI;
+		end
+	      8'b010010??:
+		begin
+		  op_o <= `OP_LDO_L;
+		  operand_o <= {26'b0, opcode_i[9:7], opcode_i[3], 2'b0};
+		end
+	      8'b010011??:
+		begin
+		  op_o <= `OP_STO_L;
+		  operand_o <= {26'b0, opcode_i[9:7], opcode_i[3], 2'b0};
+		end
+	      8'b0101000?:
+		begin
+		  op_o <= `OP_LDO_L;
+		  operand_o <= {{25{1'b1}}, ~fp_k, 2'b0};
+		end
+	      8'b0101001?:
+		begin
+		  op_o <= `OP_STO_L;
+		  operand_o <= {{25{1'b1}}, ~fp_k, 2'b0};
+		end
+	      8'b01010100:
+		begin
+		  op_o <= `OP_LDI_L;
+		  operand_o <= {{16{operand_i[31]}},operand_i[31:16]};
+		end
+	      8'b01010101:
+		begin
+		  op_o <= `OP_LEA;
+		  operand_o <= {{16{operand_i[31]}},operand_i[31:16]};
+		end
 	      8'b1000????:
 		begin
 		  op_o <= `OP_INC;
@@ -458,19 +522,16 @@ module cpu_decode (/*AUTOARG*/
 		end
 	      8'b111010??:
 		begin
-		  op_o <= `OP_BAD;
+		  op_o <= `OP_BRA;
 		end
 	      8'b111011??:
 		begin
 		  op_o <= `OP_BAD;
 		end
-	      8'b111100??:
+	      8'b11110???:
 		begin
-		  op_o <= `OP_BAD;
-		end
-	      8'b111101??:
-		begin
-		  op_o <= `OP_BAD;
+		  op_o <= `OP_LDI_L;
+		  operand_o <= {{25{opcode_i[10]}}, opcode_i[10:8], opcode_i[3:0]};
 		end
 	      8'b111110??:
 		begin

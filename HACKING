@@ -7,9 +7,10 @@ What you need
 - Verilator 5, for every simulation.
 - The moxie-elf toolchain: binutils, GCC and newlib.
   `scripts/build-toolchain.sh PREFIX` builds it from release tarballs
-  in about ten minutes, with tools/binutils-moxie-extensions.patch so
-  that the assembler knows mox125's eret, wfi and cas.l.  Put
-  PREFIX/bin on your PATH.
+  in about ten minutes, with tools/binutils-moxie-extensions.patch and
+  tools/gcc-moxie-extensions.patch for mox125's eret, wfi and cas.l
+  and the compact-code extension (docs/compact.md).  Put PREFIX/bin on
+  your PATH.
 - SBCL and ocicl (https://github.com/ocicl/ocicl), for the mox125 test
   bench and the microcode generators.  After installing ocicl, run
   `ocicl setup > ~/.sbclrc`, and `ocicl install` in bench/mox125 and
@@ -51,7 +52,10 @@ Changing a core
 
 tools/mox125-iss and the cores have to agree on what every instruction
 does: mox125's RTL is the reference for the ISS, and moxibit is checked
-against the ISS.  Change both together.
+against the ISS.  Change both together.  A new instruction also wants
+the binutils and GCC patches in tools/ regenerated, and
+tools/codesize/codesize.sh, given an Embench-IoT checkout, shows what
+it does for code size.
 
 mox125's microcode table is cores/mox125/microcode.org; `make` in
 cores/mox125 regenerates microcode.bin.  moxibit's microcode is

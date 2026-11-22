@@ -596,8 +596,16 @@ step (void)
     {
       if (op & 0x4000)
 	{
-	  /* Form 3: conditional branches.  */
+	  /* Form 3: conditional branches, bra, and the short ldi.l, whose
+	     7-bit value is bit 10, bits 9-8 and bits 3-0.  */
 	  int32_t off = op & 0x3ff;
+	  if (((op >> 11) & 7) == 6)
+	    {
+	      int32_t k = ((op >> 4) & 0x70) | (op & 15);
+	      reg[(op >> 4) & 15] = (u32) (k >= 64 ? k - 128 : k);
+	      pc = at + 2;
+	      return;
+	    }
 	  int take = 0;
 	  if (off & 0x200)
 	    off -= 0x400;
@@ -613,6 +621,7 @@ step (void)
 	    case 7: take = cc & (CC_EQ | CC_LT); break;
 	    case 8: take = cc & (CC_EQ | CC_GTU); break;
 	    case 9: take = cc & (CC_EQ | CC_LTU); break;
+	    case 10: take = 1; break;		/* bra */
 	    default: exception (CAUSE_UNDEFINED, at); return;
 	    }
 	  pc = take ? at + 2 + off * 2 : at + 2;
@@ -648,6 +657,16 @@ step (void)
     if (reg[b] == 0) { exception (CAUSE_DIV0, at); return; }		\
     reg[a] = divide (reg[a], reg[b], is_signed, want_remainder);	\
   } while (0)
+/* ashli, lshri, ashri and cmpi keep bit 4 of their immediate in the
+   opcode.  */
+#define IMM5 ((code & 1) << 4 | b)
+/* The short ldo.l and sto.l: 3-bit register fields for $r0-$r7, and a
+   word offset from bits 9, 8, 7 and 3; or $fp less four times one more
+   than IMM5.  */
+#define A3 (((op >> 4) & 7) + R0)
+#define B3 ((op & 7) + R0)
+#define OFF4 ((u32) ((op >> 6 & 12) | (op >> 6 & 2) | (op >> 3 & 1)) * 4)
+#define FPOFF (reg[FP] - 4 * (IMM5 + 1))
 #define OFFSET ((u32) (int32_t) (int16_t) (operand >> 16))
 #define LOAD(addr, bytes) do { if (load (addr, bytes, at, &v)) return; } while (0)
 #define STORE(addr, bytes, val) do { if (store (addr, bytes, at, val)) return; } while (0)
@@ -694,9 +713,9 @@ step (void)
     case 0x0b: STORE (reg[a], 4, reg[b]); break;
     case 0x0c: LOAD (reg[b] + OFFSET, 4); reg[a] = v; next = at + 4; break;
     case 0x0d: STORE (reg[a] + OFFSET, 4, reg[b]); next = at + 4; break;
-    case 0x0e:				/* cmp */
+    case 0x0e: case 0x46: case 0x47:	/* cmp, cmpi */
       {
-	u32 x = reg[a], y = reg[b];
+	u32 x = reg[a], y = code == 0x0e ? reg[b] : (u32) ((IMM5 ^ 16) - 16);
 	cc = (x == y ? CC_EQ : 0)
 	  | ((int32_t) x < (int32_t) y ? CC_LT : 0)
 	  | ((int32_t) x > (int32_t) y ? CC_GT : 0)
@@ -791,6 +810,19 @@ step (void)
 	STORE (t, 4, reg[b]);
       reg[R0] = v;
       break;
+    case 0x40: case 0x41: reg[a] <<= IMM5; break; /* ashli */
+    case 0x42: case 0x43: reg[a] >>= IMM5; break; /* lshri */
+    case 0x44: case 0x45:			/* ashri */
+      reg[a] = (u32) ((int32_t) reg[a] >> IMM5);
+      break;
+    case 0x48: case 0x49: case 0x4a: case 0x4b:	/* ldo.l, short */
+      LOAD (reg[B3] + OFF4, 4); reg[A3] = v; break;
+    case 0x4c: case 0x4d: case 0x4e: case 0x4f:	/* sto.l, short */
+      STORE (reg[A3] + OFF4, 4, reg[B3]); break;
+    case 0x50: case 0x51: LOAD (FPOFF, 4); reg[a] = v; break;
+    case 0x52: case 0x53: STORE (FPOFF, 4, reg[a]); break;
+    case 0x54: reg[a] = OFFSET; next = at + 4; break; /* ldi.l, 16-bit */
+    case 0x55: reg[a] = reg[b] + OFFSET; next = at + 4; break; /* lea */
     default:
       exception (CAUSE_UNDEFINED, at);
       return;

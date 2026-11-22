@@ -30,7 +30,7 @@
 (in-package :microcoder)
 
 (let ((in (open "microcode.org" :if-does-not-exist nil))
-      (opcode-array (make-array 64 :initial-element nil)))
+      (opcode-array (make-array 128 :initial-element nil)))
   (when in
     ;; skip to table contents
     (loop for filepos = (file-position in)
@@ -54,7 +54,7 @@
 				     (declare (ignore junk1 junk2))
 				     (setf (aref opcode-array (parse-integer code :radix 2))
 					   (list name wA? wB? rA? rB? rm? wm?))))))
-     (loop for i from 0 to 63
+     (loop for i from 0 to 127
 	   do (let ((o (aref opcode-array i)))
 		(if o
 		    (mapc (lambda (v)

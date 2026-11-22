@@ -95,3 +95,9 @@
 `define OP_ERET   7'b1000010
 `define OP_WFI    7'b1000100
 `define OP_CAS_L  7'b1000101
+`define OP_ASHLI  7'b1000110
+`define OP_LSHRI  7'b1000111
+`define OP_ASHRI  7'b1001000
+`define OP_CMPI   7'b1001001
+`define OP_BRA    7'b1001010
+`define OP_LEA    7'b1001011

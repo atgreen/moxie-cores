@@ -29,13 +29,13 @@ module microcode (/*AUTOARG*/
    input [7:0] opcode;
    output [`PCB_WIDTH-1:0] q;
 
-   reg [`PCB_WIDTH-1:0] rom[0:63];
+   reg [`PCB_WIDTH-1:0] rom[0:127];
 
    initial $readmemb("microcode.bin", rom);
 
    wire [`PCB_WIDTH-1:0] f1, f2;
    
-   assign f1 = rom[opcode[5:0]];
+   assign f1 = rom[opcode[6:0]];
    assign f2 = 6'b111111;
    
    assign q = (opcode[7] ? f2 : f1);

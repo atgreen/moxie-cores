@@ -272,14 +272,21 @@ module cpu_execute (/*AUTOARG*/
   wire [31:0]             cc_AsubB;
   wire [31:0]             cc_BsubA;
 
-  assign cc_AsubB = regA_i - regB_i;
-  assign cc_BsubA = regB_i - regA_i;
+  // ashli, lshri, ashri and cmpi have a 5-bit immediate: bit 8 of
+  // the instruction, then bits 3:0.  cmpi compares with it
+  // sign-extended.
+  wire [31:0]             imm5 = {{27{pcrel_offset_i[8]}}, pcrel_offset_i[8],
+                                  pcrel_offset_i[3:0]};
+  wire [31:0]             cmp_b = op_i == `OP_CMPI ? imm5 : regB_i;
 
-  assign cc_eq = regA_i == regB_i;
-  assign cc_lt = regA_i[31] ^ regB_i[31] ? regA_i[31] : cc_AsubB[31];
-  assign cc_gt = regA_i[31] ^ regB_i[31] ? regB_i[31] : cc_BsubA[31];
-  assign cc_gtu = regA_i > regB_i;
-  assign cc_ltu = regA_i < regB_i;
+  assign cc_AsubB = regA_i - cmp_b;
+  assign cc_BsubA = cmp_b - regA_i;
+
+  assign cc_eq = regA_i == cmp_b;
+  assign cc_lt = regA_i[31] ^ cmp_b[31] ? regA_i[31] : cc_AsubB[31];
+  assign cc_gt = regA_i[31] ^ cmp_b[31] ? cmp_b[31] : cc_BsubA[31];
+  assign cc_gtu = regA_i > cmp_b;
+  assign cc_ltu = regA_i < cmp_b;
 
   wire                    branch_condition;
   assign branch_condition =
@@ -292,7 +299,8 @@ module cpu_execute (/*AUTOARG*/
               | ((op_i == `OP_BLE) & (CC_result[0] | CC_result[1]))
                 | ((op_i == `OP_BGE) & (CC_result[0] | CC_result[2]))
                   | ((op_i == `OP_BLEU) & (CC_result[0] | CC_result[3]))
-                    | ((op_i == `OP_BGEU) & (CC_result[0] | CC_result[4]));
+                    | ((op_i == `OP_BGEU) & (CC_result[0] | CC_result[4]))
+                      | (op_i == `OP_BRA);
 
   wire [31:0]             pcrel_branch_target;
   assign pcrel_branch_target = {{21{pcrel_offset_i[9]}}, pcrel_offset_i, 1'b0 } + PC_i + 32'd2;
@@ -643,6 +651,14 @@ module cpu_execute (/*AUTOARG*/
                 begin
                   reg1_result_o <= $signed(regA_i) >>> regB_i;
                 end
+              `OP_ASHLI:
+                begin
+                  reg1_result_o <= regA_i << imm5[4:0];
+                end
+              `OP_ASHRI:
+                begin
+                  reg1_result_o <= $signed(regA_i) >>> imm5[4:0];
+                end
               `OP_BAD:
                 begin
                   exception_enter (4'd1, PC_i);
@@ -687,6 +703,10 @@ module cpu_execute (/*AUTOARG*/
                 begin
                   branch_target_o <= pcrel_branch_target;
                 end
+              `OP_BRA:
+                begin
+                  branch_target_o <= pcrel_branch_target;
+                end
               `OP_BRK:
                 begin
                   exception_enter (4'd5, PC_plus_2);
@@ -698,7 +718,7 @@ module cpu_execute (/*AUTOARG*/
                   cas_new <= regB_i;
                   pending_wea <= 1;
                 end
-              `OP_CMP:
+              `OP_CMP, `OP_CMPI:
                 begin
                   CC_result <= {cc_eq, cc_lt, cc_gt, cc_ltu, cc_gtu};
                 end
@@ -813,6 +833,10 @@ module cpu_execute (/*AUTOARG*/
                   pending_wea <= 1;
                   load_byte <= 1;
                 end
+              `OP_LEA:
+                begin
+                  reg1_result_o <= operand_i + regB_i;
+                end
               `OP_LDO_L:
                 begin
                   mem_start (SEQ_LOAD, 2'd1, 1'b0, 2'b11, operand_i + regB_i, 16'b0);
@@ -831,6 +855,10 @@ module cpu_execute (/*AUTOARG*/
               `OP_LSHR:
                 begin
                   reg1_result_o <= regA_i >> regB_i;
+                end
+              `OP_LSHRI:
+                begin
+                  reg1_result_o <= regA_i >> imm5[4:0];
                 end
               `OP_MOD_L:
                 begin

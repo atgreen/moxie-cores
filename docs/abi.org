@@ -149,7 +149,9 @@ Compiled code uses $r12 as a temporary when setting up and tearing
 down stack frames.
 
 $r13 belongs to the execution environment.  Compiled code neither
-reads nor writes it.
+reads nor writes it, except that code compiled with =-mgp= reads it as
+the global pointer: the startup code loads =_gp= into it, and nothing
+may change it after that (see [[file:compact.md][compact.md]]).
 
 The condition codes set by =cmp= are not preserved across calls.
 
@@ -470,6 +472,7 @@ from symbols.
 | 2026-11-21 | Calling convention, stack frame, data layout and ELF        |
 |            | details completed from the behaviour of GCC 15 and binutils |
 |            | 2.45.                                                       |
+| 2026-11-22 | $r13 as the global pointer for =-mgp=.                      |
 
 * References
 - Moxie architecture: http://moxielogic.org/blog/pages/architecture.html

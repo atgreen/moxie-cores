@@ -197,6 +197,7 @@ localparam [3:0] SP_DIVR = 11;
 localparam [3:0] SP_MUL = 12;
 localparam [3:0] SP_SHAMT = 13;
 localparam [3:0] SP_SHIFT = 14;
+localparam [3:0] SP_SHAMTI = 15;
 localparam [1:0] COND_NONE = 0;
 localparam [1:0] COND_ZERO = 1;
 localparam [1:0] COND_IRQ = 2;
@@ -204,5 +205,5 @@ localparam [1:0] COND_DONE = 3;
 
 localparam [7:0] UA_FETCH = 8'd0;
 localparam [7:0] UA_DISP2 = 8'd255;
-localparam [7:0] UA_E_IRQ = 8'd98;
+localparam [7:0] UA_E_IRQ = 8'd109;
 /* verilator lint_on UNUSEDPARAM */
