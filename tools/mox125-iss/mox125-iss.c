@@ -37,8 +37,11 @@
    clocks here, so each instruction is counted as CLOCKS_PER_INSN of
    them.
 
-   usage: mox125-iss [-t] [-n max-insns] [-r] program.elf
+   usage: mox125-iss [-t] [-T] [-n max-insns] [-r] program.elf
      -t  trace every instruction
+     -T  before every instruction, print its address and opcode, the
+	 registers and the condition codes, one line each, for
+	 comparing with bench/moxbit's lockstep trace
      -n  stop after this many instructions
      -r  report the word at 0x0c0ffee0 on exit, as the bench tests do
      -b  each time execution reaches this address (hex), print the
@@ -294,7 +297,7 @@ static struct tlb_entry dtlb[64], itlb[64];
    and the mode they were filled in.  */
 static struct { int valid; u32 tag; u8 data[32]; } icache[256];
 
-static int trace;
+static int trace, lockstep;
 static u32 watch_pc;
 static int watching;
 static int faulted;
@@ -580,6 +583,14 @@ step (void)
   if (trace)
     fprintf (stderr, "%08x: %04x %08x  fp=%08x sp=%08x r0=%08x r1=%08x r2=%08x\n",
 	     at, op, operand, reg[FP], reg[SP], reg[2], reg[3], reg[4]);
+  if (lockstep)
+    {
+      int i;
+      fprintf (stderr, "%08x %04x", at, op);
+      for (i = 0; i < 16; i++)
+	fprintf (stderr, " %08x", reg[i]);
+      fprintf (stderr, " %02x\n", cc);
+    }
 
   if (op & 0x8000)
     {
@@ -836,20 +847,21 @@ main (int argc, char **argv)
   uint64_t max_insns = 0;
   int opt;
 
-  while ((opt = getopt (argc, argv, "tn:rb:")) != -1)
+  while ((opt = getopt (argc, argv, "tTn:rb:")) != -1)
     switch (opt)
       {
       case 't': trace = 1; break;
+      case 'T': lockstep = 1; break;
       case 'n': max_insns = strtoull (optarg, NULL, 0); break;
       case 'r': report = 1; break;
       case 'b': watch_pc = strtoul (optarg, NULL, 16); watching = 1; break;
       default:
-	fprintf (stderr, "usage: %s [-t] [-n max-insns] [-r] program.elf\n", argv[0]);
+	fprintf (stderr, "usage: %s [-t] [-T] [-n max-insns] [-r] program.elf\n", argv[0]);
 	return 2;
       }
   if (optind >= argc)
     {
-      fprintf (stderr, "usage: %s [-t] [-n max-insns] [-r] program.elf\n", argv[0]);
+      fprintf (stderr, "usage: %s [-t] [-T] [-n max-insns] [-r] program.elf\n", argv[0]);
       return 2;
     }
   load_elf (argv[optind]);

@@ -1,0 +1,10 @@
+obj_dir/
+tb
+tb.vcd
+bin/
+obj_trace/
+tb-trace
+obj_nomdu/
+tb-nomdu
+obj_small/
+tb-small

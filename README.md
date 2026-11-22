@@ -10,6 +10,9 @@ Cores
 * mox125 - a big-endian pipelined moxie implementation in Verilog,
   with exceptions, interrupts and a software-refilled MMU.  It runs
   Zephyr and Linux.
+* moxbit - a tiny big-endian bit-serial moxie implementation in
+  Verilog, in the style of SERV, with mox125's exceptions and bus but
+  no MMU.  See cores/moxbit/README.md.
 
 Wishbone peripherals live alongside them in `cores/`.
 
@@ -26,6 +29,7 @@ Simulators
 
 * `bench/mox125` - the verilated mox125 core and its test suite.
 * `bench/mox125-board` - the verilated core on a simulated board.
+* `bench/moxbit` - the verilated moxbit core and its test suite.
 * `bench/nexys3-soc` - the Nexys 3 Muskoka SoC under Verilator.
 * `tools/mox125-iss` - an instruction-level simulator of mox125, for
   software too big to run on the verilated core.

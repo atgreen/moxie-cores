@@ -30,6 +30,11 @@ ocicl install
 make clean
 make check
 
+banner Running verilated moxbit testsuite
+cd "$TOP/bench/moxbit"
+make clean
+make check
+
 banner Running the bench programs on mox125-iss
 cd "$TOP/tools/mox125-iss"
 make clean

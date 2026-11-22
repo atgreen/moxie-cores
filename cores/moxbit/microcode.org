@@ -1,0 +1,297 @@
+#+TITLE: moxbit microcode
+
+moxbit runs every instruction as a short program of micro-operations
+(µops) held in a ROM.  =ucoder.lisp= turns the tables below into
+=moxbit_ucode.v=; run =make= in this directory after changing them.
+
+A µop is one of:
+
+- a *pass*: one clock to prime the register file's read ports, then
+  32 clocks that stream every source through the datapath LSB first
+  and shift every destination;
+- a bus cycle: =read= and =readb= load DBUF[15:0], =write= and
+  =writeb= drive DBUF[31:16], =fetch= loads the instruction register
+  and dispatches on it;
+- a =wait=: one clock, for testing a condition;
+- an =inc=: ADR += 2, and a rotate of DBUF if its dbuf is rot16.
+  It is the pass its other columns describe, except in a core built
+  with FAST_INC when the sum does not carry out of bit 4: then it is
+  done in parallel, in one clock or the 16 of the rotate.
+
+ADR holds the PC between instructions, and an instruction begins with
+ADR at its first byte.  Two bus µops are never adjacent: there is
+always a clock with cyc low between two requests.
+
+* Fields
+
+Each column of the µop table is one field of the µop word.  The first
+value listed for a field is its default, used for a blank cell.
+Register names: A, B and C are the fields of the instruction at bits
+7:4, 3:0 and 11:8; SR is special register (instruction bits 2:0);
+fp, sp and r0 are $fp, $sp and $r0 (registers 0, 1 and 2); pk is r16, where the next PC is parked while ADR
+is busy; t1 and t2 are r17 and r18, scratch; sr1-sr5 are the special
+registers kept in the register file.  A register's code from 16 up is
+its slot in the register file, so that decoding it costs nothing.
+
+#+NAME: fields
+| field | width | values                                             |
+|-------+-------+----------------------------------------------------|
+| kind  |     3 | pass read readb write writeb fetch wait inc        |
+| a     |     5 | - A B C SR fp sp r0 _8 _9 _10 _11 _12 _13 _14 _15 pk t1 t2 _19 _20 _21 _22 _23 _24 sr1 sr2 sr3 sr4 sr5 sr6 sr7 |
+| b     |     5 | - A B C SR fp sp r0 _8 _9 _10 _11 _12 _13 _14 _15 pk t1 t2 _19 _20 _21 _22 _23 _24 sr1 sr2 sr3 sr4 sr5 sr6 sr7 |
+| w     |     5 | - A B C SR fp sp r0 _8 _9 _10 _11 _12 _13 _14 _15 pk t1 t2 _19 _20 _21 _22 _23 _24 sr1 sr2 sr3 sr4 sr5 sr6 sr7 |
+| wd    |     3 | alu pc dq d8 a b stat 0                            |
+| mask  |     3 | - zb zs sb ss                                      |
+| adr   |     3 | - pc alu a b dq rot shl                            |
+| dbuf  |     3 | - rot16 rot a b pc shr1 mdu                        |
+| x     |     1 | a 0                                                |
+| y     |     3 | b a i8 dq o16 k 0 mb                               |
+| op    |     3 | add sub and or xor mov not                         |
+| pc    |     2 | 0 +2 br k                                          |
+| k     |     5 | #signed                                            |
+| roff  |     3 | - half lsr asr lsl                                 |
+| sp    |     4 | - cmp caseq gsr ssr exc eret dsign dabs diviter divq divr mul shamt shift |
+| cond  |     2 | - zero irq done                                    |
+| next  |     8 | #label                                             |
+
+What the values mean:
+
+- a, b :: the registers read on ports A and B.  w :: the register
+  written, from wd: the ALU, the PC adder, DBUF[0], DBUF[8] (a byte
+  on the high lane), port A, port B, the status word, or zero.
+- mask :: zero- or sign-extend what is written above a byte or a
+  short.
+- adr, dbuf :: what is shifted into ADR and DBUF; =-= holds.  rot16
+  rotates DBUF by 16, swapping its halves; shl shifts ADR left;
+  shr1 shifts DBUF right by one.
+- x, y, op :: the ALU's operands and operation.  i8 is the 8-bit
+  immediate of inc and dec, o16 a 16-bit offset in DBUF with its sign
+  extended, k the constant in column k, mb a multiplier step.
+- pc :: what the PC adder adds to ADR: 0, 2, a taken branch's offset
+  plus 2, or the constant k.
+- roff :: half: port B reads half a turn round, so that a short or
+  byte store finds its data's low half in DBUF[31:16]; lsr, asr, lsl:
+  the direction of a shift (sp shamt, then shift).
+- sp :: special behaviour; see =moxbit.v=.  caseq sets the
+  condition codes as cas.l does: equal, or nothing.
+- cond :: =c:label= goes to label if condition c holds and to next
+  otherwise.  next must then be even and label must follow it.
+  zero: the ALU's output (DBUF's, for mul) was zero for the whole
+  pass.  irq: irq_i.  done: the divider's 32nd step.
+- next :: the next µop.  =fetch= ends the instruction; =disp2=
+  dispatches again on the instruction, after its immediate has been
+  read.
+
+* Microcode
+
+#+NAME: ucode
+| label   | kind   | a   | b   | w   | wd   | mask | adr | dbuf  | x | y   | op  | pc | k  | roff | sp      | cond        | next    |
+|---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
+| fetch   | fetch  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             |         |
+|---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
+| p32     | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | p32b    |
+| p32b    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | p32c    |
+| p32c    | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | p32d    |
+| p32d    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | disp2   |
+| p16     | inc    |     |     |     |      |      | pc  |       |   |     |     | +2 |    |      |         |             | p16b    |
+| p16b    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | disp2   |
+|---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
+| nop     | inc    |     |     |     |      |      | pc  |       |   |     |     | +2 |    |      |         |             | fetch   |
+| add     | pass   | A   | B   | A   | alu  |      | pc  |       | a | b   | add | +2 |    |      |         |             | fetch   |
+| sub     | pass   | A   | B   | A   | alu  |      | pc  |       | a | b   | sub | +2 |    |      |         |             | fetch   |
+| and     | pass   | A   | B   | A   | alu  |      | pc  |       | a | b   | and | +2 |    |      |         |             | fetch   |
+| or      | pass   | A   | B   | A   | alu  |      | pc  |       | a | b   | or  | +2 |    |      |         |             | fetch   |
+| xor     | pass   | A   | B   | A   | alu  |      | pc  |       | a | b   | xor | +2 |    |      |         |             | fetch   |
+| mov     | pass   |     | B   | A   | b    |      | pc  |       |   |     |     | +2 |    |      |         |             | fetch   |
+| not     | pass   |     | B   | A   | alu  |      | pc  |       |   | b   | not | +2 |    |      |         |             | fetch   |
+| neg     | pass   |     | B   | A   | alu  |      | pc  |       | 0 | b   | sub | +2 |    |      |         |             | fetch   |
+| sexb    | pass   |     | B   | A   | b    | sb   | pc  |       |   |     |     | +2 |    |      |         |             | fetch   |
+| sexs    | pass   |     | B   | A   | b    | ss   | pc  |       |   |     |     | +2 |    |      |         |             | fetch   |
+| zexb    | pass   |     | B   | A   | b    | zb   | pc  |       |   |     |     | +2 |    |      |         |             | fetch   |
+| zexs    | pass   |     | B   | A   | b    | zs   | pc  |       |   |     |     | +2 |    |      |         |             | fetch   |
+| cmp     | pass   | A   | B   |     |      |      | pc  |       | a | b   | sub | +2 |    |      | cmp     |             | fetch   |
+| inc     | pass   | C   |     | C   | alu  |      | pc  |       | a | i8  | add | +2 |    |      |         |             | fetch   |
+| dec     | pass   | C   |     | C   | alu  |      | pc  |       | a | i8  | sub | +2 |    |      |         |             | fetch   |
+| ldi     | pass   |     |     | A   | dq   |      | pc  | rot   |   |     |     | +2 |    |      |         |             | fetch   |
+| jmpa    | pass   |     |     |     |      |      | dq  | rot   |   |     |     |    |    |      |         |             | fetch   |
+| jmp     | pass   | A   |     |     |      |      | a   |       |   |     |     |    |    |      |         |             | fetch   |
+| bcc     | pass   |     |     |     |      |      | pc  |       |   |     |     | br |    |      |         |             | fetch   |
+|---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
+| lshr    | pass   | A   | B   |     |      |      |     | a     |   |     |     |    |    | lsr  | shamt   |             | lshr2   |
+| lshr2   | pass   |     |     | A   |      |      | pc  | rot   |   |     |     | +2 |    | lsr  | shift   |             | fetch   |
+| ashl    | pass   | A   | B   |     |      |      |     | a     |   |     |     |    |    | lsl  | shamt   |             | ashl2   |
+| ashl2   | pass   |     |     | A   |      |      | pc  | rot   |   |     |     | +2 |    | lsl  | shift   |             | fetch   |
+| ashr    | pass   | A   | B   |     |      |      |     | a     |   |     |     |    |    | asr  | shamt   |             | ashr2   |
+| ashr2   | pass   |     |     | A   |      |      | pc  | rot   |   |     |     | +2 |    | asr  | shift   |             | fetch   |
+|---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
+| ldl     | pass   | B   |     | pk  | pc   |      | a   |       |   |     |     | +2 |    |      |         |             | tll     |
+| ldb     | pass   | B   |     | pk  | pc   |      | a   |       |   |     |     | +2 |    |      |         |             | tlb     |
+| lds     | pass   | B   |     | pk  | pc   |      | a   |       |   |     |     | +2 |    |      |         |             | tls     |
+| ldal    | pass   |     |     | pk  | pc   |      | dq  | rot   |   |     |     | +2 |    |      |         |             | tll     |
+| ldab    | pass   |     |     | pk  | pc   |      | dq  | rot   |   |     |     | +2 |    |      |         |             | tlb     |
+| ldas    | pass   |     |     | pk  | pc   |      | dq  | rot   |   |     |     | +2 |    |      |         |             | tls     |
+| ldol    | pass   | B   |     | pk  | pc   |      | alu | rot   | a | o16 | add | +2 |    |      |         |             | tll     |
+| ldob    | pass   | B   |     | pk  | pc   |      | alu | rot   | a | o16 | add | +2 |    |      |         |             | tlb     |
+| ldos    | pass   | B   |     | pk  | pc   |      | alu | rot   | a | o16 | add | +2 |    |      |         |             | tls     |
+| tll     | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | tll2    |
+| tll2    | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | tll3    |
+| tll3    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | tll4    |
+| tll4    | pass   | pk  |     | A   | dq   |      | a   | rot   |   |     |     |    |    |      |         |             | fetch   |
+| tls     | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | tls2    |
+| tls2    | pass   | pk  |     | A   | dq   | zs   | a   | rot   |   |     |     |    |    |      |         |             | fetch   |
+| tlb     | readb  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | tlb2    |
+| tlb2    | pass   | pk  |     | A   | d8   | zb   | a   | rot   |   |     |     |    |    |      |         |             | fetch   |
+|---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
+| stl     | pass   | A   | B   | pk  | pc   |      | a   | b     |   |     |     | +2 |    |      |         |             | tsl     |
+| stb     | pass   | A   | B   | pk  | pc   |      | a   | b     |   |     |     | +2 |    | half |         |             | tsb     |
+| sts     | pass   | A   | B   | pk  | pc   |      | a   | b     |   |     |     | +2 |    | half |         |             | tss     |
+| stal    | pass   |     | A   | pk  | pc   |      | dq  | b     |   |     |     | +2 |    |      |         |             | tsl     |
+| stab    | pass   |     | A   | pk  | pc   |      | dq  | b     |   |     |     | +2 |    | half |         |             | tsb     |
+| stas    | pass   |     | A   | pk  | pc   |      | dq  | b     |   |     |     | +2 |    | half |         |             | tss     |
+| stol    | pass   | A   | B   | pk  | pc   |      | alu | b     | a | o16 | add | +2 |    |      |         |             | tsl     |
+| stob    | pass   | A   | B   | pk  | pc   |      | alu | b     | a | o16 | add | +2 |    | half |         |             | tsb     |
+| stos    | pass   | A   | B   | pk  | pc   |      | alu | b     | a | o16 | add | +2 |    | half |         |             | tss     |
+| tsl     | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | tsl2    |
+| tsl2    | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | tsl3    |
+| tsl3    | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | restore |
+| tss     | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | restore |
+| tsb     | writeb |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | restore |
+| restore | pass   | pk  |     |     |      |      | a   |       |   |     |     |    |    |      |         |             | fetch   |
+|---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
+| push    | pass   | A   | B   | pk  | pc   |      | alu | b     | a | k   | add | +2 | -4 |      |         |             | push2   |
+| push2   | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | push3   |
+| push3   | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | push4   |
+| push4   | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | push5   |
+| push5   | pass   | pk  |     | A   | pc   |      | a   |       |   |     |     | k  | -2 |      |         |             | fetch   |
+| pop     | pass   | A   |     | pk  | pc   |      | a   |       |   |     |     | +2 |    |      |         |             | pop2    |
+| pop2    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | pop3    |
+| pop3    | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | pop4    |
+| pop4    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | pop5    |
+| pop5    | pass   | pk  |     | A   | pc   |      | a   |       |   |     |     | +2 |    |      |         |             | pop6    |
+| pop6    | pass   |     |     | B   | dq   |      |     | rot   |   |     |     |    |    |      |         |             | fetch   |
+|---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
+| jsr     | pass   | sp  | A   | pk  | b    |      | alu | pc    | a | k   | add | +2 | -8 |      |         |             | jsr2    |
+| jsra    | pass   | sp  |     | pk  | dq   |      | alu | pc    | a | k   | add | +2 | -8 |      |         |             | jsr2    |
+| jsr2    | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | jsr3    |
+| jsr3    | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | jsr4    |
+| jsr4    | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | jsr5    |
+| jsr5    | pass   |     | fp  | fp  | pc   |      | pc  | b     |   |     |     | k  | -6 |      |         |             | jsr6    |
+| jsr6    | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | jsr7    |
+| jsr7    | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | jsr8    |
+| jsr8    | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | jsr9    |
+| jsr9    | pass   | pk  | fp  | sp  | b    |      | a   |       |   |     |     |    |    |      |         |             | fetch   |
+| ret     | pass   | fp  |     |     |      |      | a   |       |   |     |     |    |    |      |         |             | ret2    |
+| ret2    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | ret3    |
+| ret3    | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | ret4    |
+| ret4    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | ret5    |
+| ret5    | pass   |     |     | pk  | dq   |      | pc  | rot   |   |     |     | +2 |    |      |         |             | ret6    |
+| ret6    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | ret7    |
+| ret7    | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | ret8    |
+| ret8    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | ret9    |
+| ret9    | pass   | fp  |     | sp  | alu  |      | dq  | rot   | a | k   | add |    | 12 |      |         |             | ret10   |
+| ret10   | pass   | pk  |     | fp  | a    |      |     |       |   |     |     |    |    |      |         |             | fetch   |
+|---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
+| swi     | pass   |     |     | sr3 | dq   |      |     | rot   |   |     |     |    |    |      |         |             | e_swi   |
+| e_undef | pass   |     |     | sr2 | alu  |      |     |       | 0 | k   | add |    | 1  |      |         |             | ex0     |
+| e_irq   | pass   |     |     | sr2 | alu  |      |     |       | 0 | k   | add |    | 2  |      |         |             | ex0     |
+| e_swi   | pass   |     |     | sr2 | alu  |      |     |       | 0 | k   | add |    | 3  |      |         |             | ex2     |
+| e_brk   | pass   |     |     | sr2 | alu  |      |     |       | 0 | k   | add |    | 5  |      |         |             | ex2     |
+| ex0     | pass   |     |     | sr5 | pc   |      | pc  |       |   |     |     | 0  |    |      |         |             | exc     |
+| ex2     | pass   |     |     | sr5 | pc   |      | pc  |       |   |     |     | +2 |    |      |         |             | exc     |
+| exc     | pass   | sr1 |     | sr4 | stat |      | a   |       |   |     |     |    |    |      | exc     |             | fetch   |
+| eret    | pass   | sr4 | sr5 |     |      |      | b   |       |   |     |     |    |    |      | eret    |             | fetch   |
+| gsr     | pass   | SR  |     | C   |      |      | pc  |       |   |     |     | +2 |    |      | gsr     |             | fetch   |
+| ssr     | pass   | C   |     | SR  | a    |      | pc  |       |   |     |     | +2 |    |      | ssr     |             | fetch   |
+| wfi     | inc    |     |     |     |      |      | pc  |       |   |     |     | +2 |    |      |         |             | wfi2    |
+| wfi2    | wait   |     |     |     |      |      |     |       |   |     |     |    |    |      |         | irq:wfi3    | wfi2    |
+| wfi3    | wait   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | fetch   |
+| cas     | pass   | A   |     | pk  | pc   |      | a   |       |   |     |     | +2 |    |      |         |             | cas2    |
+| cas2    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | cas3    |
+| cas3    | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | cas4    |
+| cas4    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | cas5    |
+| cas5    | pass   | r0  |     | t1  | dq   |      | pc  | rot   | a | dq  | sub | k  | -2 |      | caseq   | zero:casst  | casno   |
+| casno   | pass   | t1  |     | r0  | a    |      |     |       |   |     |     |    |    |      |         |             | restore |
+| casst   | pass   | t1  | B   | r0  | a    |      |     | b     |   |     |     |    |    |      |         |             | tsl     |
+|---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
+| mul     | pass   | A   | B   | pk  | pc   |      | a   | b     |   |     |     | +2 |    |      |         |             | mul1    |
+| mul1    | pass   |     |     | A   | alu  |      | shl | shr1  | 0 | mb  | add |    |    |      | mul     | zero:mulend | mul2    |
+| mul2    | pass   | A   |     | A   | alu  |      | shl | shr1  | a | mb  | add |    |    |      | mul     | zero:mulend | mul2    |
+| mulend  | pass   | pk  |     |     |      |      | a   |       |   |     |     |    |    |      |         |             | fetch   |
+| divq    | pass   | A   | B   | pk  | pc   |      | rot |       |   | b   | mov | +2 |    |      | dsign   | zero:dvzq   | divq1   |
+| divq1   | pass   | A   | B   | t2  | 0    |      | alu | mdu   | 0 | a   | add |    |    |      | dabs    |             | divq2   |
+| dvzq    | pass   |     |     | sr2 | alu  |      |     |       | 0 | k   | add |    | 0  |      |         |             | ex0     |
+| divq2   | pass   | t2  |     | t2  |      |      | shl | rot   |   |     |     |    |    |      | diviter | done:divq3  | divq2   |
+| divq3   | pass   | t2  | pk  | A   | alu  |      | b   | rot   | 0 |     |     |    |    |      | divq    |             | fetch   |
+| divr    | pass   | A   | B   | pk  | pc   |      | rot |       |   | b   | mov | +2 |    |      | dsign   | zero:dvzr   | divr1   |
+| divr1   | pass   | A   | B   | t2  | 0    |      | alu | mdu   | 0 | a   | add |    |    |      | dabs    |             | divr2   |
+| dvzr    | pass   |     |     | sr2 | alu  |      |     |       | 0 | k   | add |    | 0  |      |         |             | ex0     |
+| divr2   | pass   | t2  |     | t2  |      |      | shl | rot   |   |     |     |    |    |      | diviter | done:divr3  | divr2   |
+| divr3   | pass   | t2  | pk  | A   | alu  |      | b   | rot   | 0 |     |     |    |    |      | divr    |             | fetch   |
+
+* Dispatch
+
+An instruction starts at =head=, chosen by its top eight bits;
+=then= is where =disp2= goes once its immediate has been read.
+Opcodes not listed are undefined instructions.  The rows marked in
+=mdu= are undefined when the core is built with MDU = 0, so software
+can emulate them.
+
+#+NAME: dispatch
+| ops      | head    | then | mdu |
+|----------+---------+------+-----|
+| 01 1b 20 | p32     | ldi  |     |
+| 02       | mov     |      |     |
+| 03       | p32     | jsra |     |
+| 04       | ret     |      |     |
+| 05       | add     |      |     |
+| 06       | push    |      |     |
+| 07       | pop     |      |     |
+| 08       | p32     | ldal |     |
+| 09       | p32     | stal |     |
+| 0a       | ldl     |      |     |
+| 0b       | stl     |      |     |
+| 0c       | p16     | ldol |     |
+| 0d       | p16     | stol |     |
+| 0e       | cmp     |      |     |
+| 0f       | nop     |      |     |
+| 10       | sexb    |      |     |
+| 11       | sexs    |      |     |
+| 12       | zexb    |      |     |
+| 13       | zexs    |      |     |
+| 19       | jsr     |      |     |
+| 1a       | p32     | jmpa |     |
+| 1c       | ldb     |      |     |
+| 1d       | p32     | ldab |     |
+| 1e       | stb     |      |     |
+| 1f       | p32     | stab |     |
+| 21       | lds     |      |     |
+| 22       | p32     | ldas |     |
+| 23       | sts     |      |     |
+| 24       | p32     | stas |     |
+| 25       | jmp     |      |     |
+| 26       | and     |      |     |
+| 27       | lshr    |      |     |
+| 28       | ashl    |      |     |
+| 29       | sub     |      |     |
+| 2a       | neg     |      |     |
+| 2b       | or      |      |     |
+| 2c       | not     |      |     |
+| 2d       | ashr    |      |     |
+| 2e       | xor     |      |     |
+| 2f       | mul     |      | y   |
+| 30       | p32     | swi  |     |
+| 31 32    | divq    |      | y   |
+| 33 34    | divr    |      | y   |
+| 35       | e_brk   |      |     |
+| 36       | p16     | ldob |     |
+| 37       | p16     | stob |     |
+| 38       | p16     | ldos |     |
+| 39       | p16     | stos |     |
+| 3a       | eret    |      |     |
+| 3b       | wfi     |      |     |
+| 3c       | cas     |      |     |
+| 80-8f    | inc     |      |     |
+| 90-9f    | dec     |      |     |
+| a0-af    | gsr     |      |     |
+| b0-bf    | ssr     |      |     |
+| c0-e7    | bcc     |      |     |
