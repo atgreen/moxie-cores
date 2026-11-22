@@ -30,8 +30,8 @@ ocicl install
 make clean
 make check
 
-banner Running verilated moxbit testsuite
-cd "$TOP/bench/moxbit"
+banner Running verilated moxibit testsuite
+cd "$TOP/bench/moxibit"
 make clean
 make check
 

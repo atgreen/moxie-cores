@@ -1,7 +1,7 @@
 #!/bin/sh
 # synth.sh [serv-checkout]
 #
-# Synthesize moxbit with Yosys for iCE40 and Artix-7, and print what it
+# Synthesize moxibit with Yosys for iCE40 and Artix-7, and print what it
 # takes.  Given a checkout of SERV (https://github.com/olofk/serv), do
 # the same for it, the same way, to compare against.
 
@@ -35,11 +35,11 @@ synth () { # name family top parameter files...
   fi
 }
 
-moxbit="$here/moxbit.v $here/moxbit_rf.v $here/moxbit_ucode.v"
+moxibit="$here/moxibit.v $here/moxibit_rf.v $here/moxibit_ucode.v"
 for fam in ice40 xc7; do
-  synth moxbit       $fam moxbit "-set MDU 1" $moxbit
-  synth moxbit-mdu0  $fam moxbit "-set MDU 0" $moxbit
-  synth moxbit-fast  $fam moxbit "-set MDU 1 -set FAST_INC 1" $moxbit
+  synth moxibit       $fam moxibit "-set MDU 1" $moxibit
+  synth moxibit-mdu0  $fam moxibit "-set MDU 0" $moxibit
+  synth moxibit-fast  $fam moxibit "-set MDU 1 -set FAST_INC 1" $moxibit
   if [ -n "$serv" ]; then
     files=$(ls "$serv"/rtl/serv_*.v | grep -v serv_debug)
     synth serv         $fam serv_rf_top "-set WITH_CSR 0" $files

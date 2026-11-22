@@ -1,4 +1,4 @@
-// moxbit_ucode.vh - the layout of moxbit's µop word
+// moxibit_ucode.vh - the layout of moxibit's µop word
 //
 // Generated from microcode.org by ucoder.lisp.  Do not edit.
 

@@ -1,4 +1,4 @@
-// moxbit_rf.v - The register file of the bit-serial moxie core
+// moxibit_rf.v - The register file of the bit-serial moxie core
 //
 // Copyright (c) 2026 Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
@@ -33,7 +33,7 @@
 // turn round, from bit 16.  The bit written in an even clock waits for
 // the one after it, and the two are written together.
 
-module moxbit_rf (
+module moxibit_rf (
   input            clk_i,
   input            prep_i,	// the two clocks before a pass
   input            first_i,	// the first of them
@@ -74,4 +74,4 @@ module moxbit_rf (
   assign ra_o = cnt_i[0] ? abuf[1] : abuf[0];
   assign rb_o = cnt_i[0] ? bhi : rdata[0];
 
-endmodule // moxbit_rf
+endmodule // moxibit_rf

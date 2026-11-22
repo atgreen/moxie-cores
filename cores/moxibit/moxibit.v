@@ -1,4 +1,4 @@
-// moxbit.v - A bit-serial moxie core
+// moxibit.v - A bit-serial moxie core
 //
 // Copyright (c) 2026 Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
@@ -17,7 +17,7 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 // 02110-1301, USA.
 
-// moxbit computes one bit per clock, in the style of SERV.  Nothing is
+// moxibit computes one bit per clock, in the style of SERV.  Nothing is
 // pipelined.  Each instruction is a short microprogram, written in
 // microcode.org: a sequence of 16-bit bus cycles and passes, a pass
 // being 32 clocks that stream every operand through the datapath LSB
@@ -43,7 +43,7 @@
 // LUTs on adding 2 to ADR in parallel, for about an eighth fewer
 // clocks.
 
-module moxbit #(parameter BOOT_ADDRESS = 32'h00001000,
+module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
 		parameter MDU = 1,
 		parameter FAST_INC = 0) (
   input             clk_i,
@@ -61,7 +61,7 @@ module moxbit #(parameter BOOT_ADDRESS = 32'h00001000,
   input             irq_i
   );
 
-`include "moxbit_ucode.vh"
+`include "moxibit_ucode.vh"
 
   // S_START is the first clock of every µop: a bus µop stays in it
   // until its ack, and a pass primes the register file there and in
@@ -114,7 +114,7 @@ module moxbit #(parameter BOOT_ADDRESS = 32'h00001000,
 
   wire fetching = state == S_START & u_kind == KIND_FETCH;
 
-  moxbit_ucode #(.MDU (MDU)) ucode (.clk_i (clk_i),
+  moxibit_ucode #(.MDU (MDU)) ucode (.clk_i (clk_i),
 				     .uaddr_i (rom_addr),
 				     .uword_o (uw),
 				     .daddr_i (fetching ? {1'b0, wb_dat_i[15:8]}
@@ -166,7 +166,7 @@ module moxbit #(parameter BOOT_ADDRESS = 32'h00001000,
   wire rf_we = state == S_PASS & u_w != A_NONE & (!sp_ssr | sr_in_rf);
   wire rf_wd;
 
-  moxbit_rf rf (.clk_i (clk_i),
+  moxibit_rf rf (.clk_i (clk_i),
 		.prep_i (state != S_PASS),
 		.first_i (state == S_START),
 		.cnt_i (cnt),
@@ -407,10 +407,10 @@ module moxbit #(parameter BOOT_ADDRESS = 32'h00001000,
 		  : 2'b11;
   assign wb_dat_o = dbuf[31:16];
 
-`ifdef MOXBIT_TRACE
+`ifdef MOXIBIT_TRACE
   // The address and opcode of each instruction, the registers before
   // it runs and the condition codes, as `mox125-iss -T' prints them:
-  // see bench/moxbit/lockstep.sh.
+  // see bench/moxibit/lockstep.sh.
   function [31:0] reg_value (input [4:0] r);
     integer i;
     for (i = 0; i < 16; i = i + 1)
@@ -465,7 +465,7 @@ module moxbit #(parameter BOOT_ADDRESS = 32'h00001000,
 		  begin
 		    ir <= wb_dat_i;
 		    state <= S_DISP;
-`ifdef MOXBIT_TRACE
+`ifdef MOXIBIT_TRACE
 		    trace_insn;
 `endif
 		  end
@@ -561,4 +561,4 @@ module moxbit #(parameter BOOT_ADDRESS = 32'h00001000,
 	endcase
       end
 
-endmodule // moxbit
+endmodule // moxibit

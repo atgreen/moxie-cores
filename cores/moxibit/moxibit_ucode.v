@@ -1,8 +1,8 @@
-// moxbit_ucode.v - moxbit's microcode and dispatch ROMs
+// moxibit_ucode.v - moxibit's microcode and dispatch ROMs
 //
 // Generated from microcode.org by ucoder.lisp.  Do not edit.
 
-module moxbit_ucode #(parameter MDU = 1) (
+module moxibit_ucode #(parameter MDU = 1) (
   input             clk_i,
   input [7:0]       uaddr_i,
   output reg [60:0] uword_o,
@@ -671,4 +671,4 @@ module moxbit_ucode #(parameter MDU = 1) (
       disp_o <= drom[daddr_i];
     end
 
-endmodule // moxbit_ucode
+endmodule // moxibit_ucode

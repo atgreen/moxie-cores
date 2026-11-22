@@ -1,7 +1,7 @@
-moxbit - a bit-serial moxie core
+moxibit - a bit-serial moxie core
 ================================
 
-moxbit is a small, non-pipelined moxie core that computes one bit per
+moxibit is a small, non-pipelined moxie core that computes one bit per
 clock, in the style of SERV (https://github.com/olofk/serv).  It is
 big-endian, speaks mox125's 16-bit Wishbone bus, and so drops into the
 same SoCs.
@@ -31,7 +31,7 @@ registers, sr1-sr7, and three slots the microcode uses as scratch.
 The status word (interrupt enable and the five condition codes) is
 flip-flops.
 
-The comments at the top of moxbit.v and microcode.org go into detail.
+The comments at the top of moxibit.v and microcode.org go into detail.
 
 
 Parameters
@@ -40,7 +40,7 @@ Parameters
 - BOOT_ADDRESS (0x1000) - where execution starts after reset.
 - MDU (1) - 0 drops the multiplier and divider: mul, div, udiv, mod
   and umod become undefined instructions, and
-  firmware/moxbit/mdu-emulate.S emulates them.
+  firmware/moxibit/mdu-emulate.S emulates them.
 - FAST_INC (0) - 1 adds 2 to ADR in parallel most of the time instead
   of in a pass, for about 12% fewer clocks overall (25-30% on code
   that calls a lot) at the cost of about 23 LUTs.
@@ -55,29 +55,29 @@ Size
 
 From `./synth.sh <serv checkout>` with Yosys 0.67, against SERV
 synthesized the same way.  SERV has no multiplier or divider of its
-own, so the fair comparison is moxbit with MDU = 0 against SERV with
+own, so the fair comparison is moxibit with MDU = 0 against SERV with
 its CSRs, which give it exceptions and interrupts.
 
     iCE40                 LUT4   FF   BRAM
-    moxbit                 429  129     6
-    moxbit, MDU = 0        383  121     6
-    moxbit, FAST_INC = 1   452  130     6
+    moxibit                 429  129     6
+    moxibit, MDU = 0        383  121     6
+    moxibit, FAST_INC = 1   452  130     6
     SERV                   212  164     1
     SERV with CSR          274  182     1
 
     Artix-7               LUT    FF   LUTRAM  BRAM
-    moxbit                 303  131     8      1.5
-    moxbit, MDU = 0        271  123     8      1.5
+    moxibit                 303  131     8      1.5
+    moxibit, MDU = 0        271  123     8      1.5
     SERV                   187  166     8      0
     SERV with CSR          256  184     9      0
 
-Five of moxbit's six iCE40 block RAMs are its two ROMs.
+Five of moxibit's six iCE40 block RAMs are its two ROMs.
 
 
 Testing
 -------
 
-bench/moxbit has the tests.  `make check` there runs its own asm/*.S
+bench/moxibit has the tests.  `make check` there runs its own asm/*.S
 programs and every bench/mox125 program that does not need an MMU, on
 the core at 0, 1, 2 and 5 bus wait states, on the default build, and
 on tools/mox125-iss; the asm/m*.S programs also run with MDU = 0.

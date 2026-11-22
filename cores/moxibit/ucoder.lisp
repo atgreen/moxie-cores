@@ -1,4 +1,4 @@
-;;; ucoder.lisp - build moxbit's microcode ROMs from microcode.org
+;;; ucoder.lisp - build moxibit's microcode ROMs from microcode.org
 ;;;
 ;;; Copyright (C) 2026  Anthony Green <green@moxielogic.com>
 ;;; Distributed under the terms of the GPL v3 or later.
@@ -6,8 +6,8 @@
 ;;; Usage: sbcl --script ucoder.lisp
 ;;;
 ;;; Reads the fields, ucode and dispatch tables in microcode.org and
-;;; writes moxbit_ucode.v (the two ROMs) and moxbit_ucode.vh (the
-;;; field positions, value codes and µop addresses moxbit.v uses).
+;;; writes moxibit_ucode.v (the two ROMs) and moxibit_ucode.vh (the
+;;; field positions, value codes and µop addresses moxibit.v uses).
 
 (defun trim (s) (string-trim '(#\Space #\Tab) s))
 
@@ -199,10 +199,10 @@ where disp2 goes for each."
       (check-bus-spacing placed header)
       (let ((with-mdu (dispatch (table tables "dispatch") addresses t))
             (without-mdu (dispatch (table tables "dispatch") addresses nil)))
-        (with-open-file (out "moxbit_ucode.v" :direction :output :if-exists :supersede)
-          (format out "// moxbit_ucode.v - moxbit's microcode and dispatch ROMs~%//~%")
+        (with-open-file (out "moxibit_ucode.v" :direction :output :if-exists :supersede)
+          (format out "// moxibit_ucode.v - moxibit's microcode and dispatch ROMs~%//~%")
           (format out "// Generated from microcode.org by ucoder.lisp.  Do not edit.~%~%")
-          (format out "module moxbit_ucode #(parameter MDU = 1) (~%")
+          (format out "module moxibit_ucode #(parameter MDU = 1) (~%")
           (format out "  input             clk_i,~%")
           (format out "  input [7:0]       uaddr_i,~%")
           (format out "  output reg [~D:0] uword_o,~%" (1- width))
@@ -229,9 +229,9 @@ where disp2 goes for each."
           (format out "  always @(posedge clk_i)~%    begin~%")
           (format out "      uword_o <= urom[uaddr_i];~%")
           (format out "      disp_o <= drom[daddr_i];~%    end~%~%")
-          (format out "endmodule // moxbit_ucode~%"))
-        (with-open-file (out "moxbit_ucode.vh" :direction :output :if-exists :supersede)
-          (format out "// moxbit_ucode.vh - the layout of moxbit's µop word~%//~%")
+          (format out "endmodule // moxibit_ucode~%"))
+        (with-open-file (out "moxibit_ucode.vh" :direction :output :if-exists :supersede)
+          (format out "// moxibit_ucode.vh - the layout of moxibit's µop word~%//~%")
           (format out "// Generated from microcode.org by ucoder.lisp.  Do not edit.~%~%")
           (format out "/* verilator lint_off UNUSEDPARAM */~%")
           (format out "localparam UWIDTH = ~D;~%~%" width)

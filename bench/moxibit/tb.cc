@@ -1,4 +1,4 @@
-/* tb.cc - the verilated moxbit core running a bench test program.
+/* tb.cc - the verilated moxibit core running a bench test program.
 
    The program is loaded at the addresses its ELF file gives, and the
    core boots at 0x1000.  As in bench/mox125, a test stores its result
@@ -26,7 +26,7 @@
 
 #include <verilated.h>
 #include <verilated_vcd_c.h>
-#include <Vmoxbit.h>
+#include <Vmoxibit.h>
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -100,7 +100,7 @@ main (int argc, char **argv)
 
   load_elf (argv[optind]);
 
-  Vmoxbit *cpu = new Vmoxbit;
+  Vmoxibit *cpu = new Vmoxibit;
   VerilatedVcdC *vcd = NULL;
 
   if (trace)

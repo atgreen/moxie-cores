@@ -1,8 +1,8 @@
-#+TITLE: moxbit microcode
+#+TITLE: moxibit microcode
 
-moxbit runs every instruction as a short program of micro-operations
+moxibit runs every instruction as a short program of micro-operations
 (µops) held in a ROM.  =ucoder.lisp= turns the tables below into
-=moxbit_ucode.v=; run =make= in this directory after changing them.
+=moxibit_ucode.v=; run =make= in this directory after changing them.
 
 A µop is one of:
 
@@ -72,7 +72,7 @@ What the values mean:
 - roff :: half: port B reads half a turn round, so that a short or
   byte store finds its data's low half in DBUF[31:16]; lsr, asr, lsl:
   the direction of a shift (sp shamt, then shift).
-- sp :: special behaviour; see =moxbit.v=.  caseq sets the
+- sp :: special behaviour; see =moxibit.v=.  caseq sets the
   condition codes as cas.l does: equal, or nothing.
 - cond :: =c:label= goes to label if condition c holds and to next
   otherwise.  next must then be even and label must follow it.

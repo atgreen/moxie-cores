@@ -4,7 +4,7 @@
    Distributed under the terms of the GNU General Public License
    version 2.
 
-   moxbit built with MDU = 0 has no multiplier or divider: those five
+   moxibit built with MDU = 0 has no multiplier or divider: those five
    instructions are undefined, and raise the undefined instruction
    exception (cause 1) with sr5 pointing at them.  Point sr1 at
    mdu_emulate and it does what the instruction would have done and

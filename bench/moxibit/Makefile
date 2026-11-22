@@ -1,4 +1,4 @@
-# The verilated moxbit core and its tests.  See tb.cc.
+# The verilated moxibit core and its tests.  See tb.cc.
 #
 # `make check' runs each asm/*.S program, and every bench/mox125
 # program but the ones that need an MMU, on the core at several
@@ -6,10 +6,10 @@
 # them to agree with the result on the program's first line.  tb is
 # the core built with FAST_INC; each program runs once more on
 # tb-small, the default build.  The asm/m*.S programs run on a core
-# built with MDU = 0 too, with firmware/moxbit/mdu-emulate.S standing
+# built with MDU = 0 too, with firmware/moxibit/mdu-emulate.S standing
 # in for the multiplier and divider.
 
-CORE = ../../cores/moxbit
+CORE = ../../cores/moxibit
 ISS = ../../tools/mox125-iss/mox125-iss
 WAITS = 0 1 2 5
 
@@ -26,53 +26,53 @@ vpath %.S asm ../mox125/asm
 
 bin/%.x: %.S
 	@mkdir -p bin
-	moxie-elf-as -I ../mox125/asm -I asm -I ../../firmware/moxbit -o bin/$*.o $<
+	moxie-elf-as -I ../mox125/asm -I asm -I ../../firmware/moxibit -o bin/$*.o $<
 	moxie-elf-ld -o $@ bin/$*.o
 	rm bin/$*.o
 
-VSRC = $(CORE)/moxbit.v $(CORE)/moxbit_rf.v $(CORE)/moxbit_ucode.v
+VSRC = $(CORE)/moxibit.v $(CORE)/moxibit_rf.v $(CORE)/moxibit_ucode.v
 
-$(CORE)/moxbit_ucode.v: $(CORE)/microcode.org $(CORE)/ucoder.lisp
+$(CORE)/moxibit_ucode.v: $(CORE)/microcode.org $(CORE)/ucoder.lisp
 	$(MAKE) -C $(CORE)
 
-obj_dir/Vmoxbit.mk: $(VSRC) $(CORE)/moxbit_ucode.vh tb.cc
+obj_dir/Vmoxibit.mk: $(VSRC) $(CORE)/moxibit_ucode.vh tb.cc
 	verilator -Wall -Wno-fatal --trace --cc -O3 -CFLAGS -O2 -GFAST_INC=1 \
-	-I$(CORE) --top-module moxbit $(VSRC) \
+	-I$(CORE) --top-module moxibit $(VSRC) \
 	--exe $(CURDIR)/tb.cc
 
-tb: obj_dir/Vmoxbit.mk $(VSRC) tb.cc
-	$(MAKE) -C obj_dir -f Vmoxbit.mk
-	cp obj_dir/Vmoxbit $@
+tb: obj_dir/Vmoxibit.mk $(VSRC) tb.cc
+	$(MAKE) -C obj_dir -f Vmoxibit.mk
+	cp obj_dir/Vmoxibit $@
 
 # The default build, smallest.
-obj_small/Vmoxbit.mk: $(VSRC) $(CORE)/moxbit_ucode.vh tb.cc
+obj_small/Vmoxibit.mk: $(VSRC) $(CORE)/moxibit_ucode.vh tb.cc
 	verilator -Wno-fatal --cc -O3 -CFLAGS -O2 --Mdir obj_small \
-	-I$(CORE) --top-module moxbit $(VSRC) --trace \
+	-I$(CORE) --top-module moxibit $(VSRC) --trace \
 	--exe $(CURDIR)/tb.cc
 
-tb-small: obj_small/Vmoxbit.mk $(VSRC) tb.cc
-	$(MAKE) -C obj_small -f Vmoxbit.mk
-	cp obj_small/Vmoxbit $@
+tb-small: obj_small/Vmoxibit.mk $(VSRC) tb.cc
+	$(MAKE) -C obj_small -f Vmoxibit.mk
+	cp obj_small/Vmoxibit $@
 
 # The same with no multiplier or divider.
-obj_nomdu/Vmoxbit.mk: $(VSRC) $(CORE)/moxbit_ucode.vh tb.cc
+obj_nomdu/Vmoxibit.mk: $(VSRC) $(CORE)/moxibit_ucode.vh tb.cc
 	verilator -Wno-fatal --cc -O3 -CFLAGS -O2 -GMDU=0 --Mdir obj_nomdu \
-	-I$(CORE) --top-module moxbit $(VSRC) --trace \
+	-I$(CORE) --top-module moxibit $(VSRC) --trace \
 	--exe $(CURDIR)/tb.cc
 
-tb-nomdu: obj_nomdu/Vmoxbit.mk $(VSRC) tb.cc
-	$(MAKE) -C obj_nomdu -f Vmoxbit.mk
-	cp obj_nomdu/Vmoxbit $@
+tb-nomdu: obj_nomdu/Vmoxibit.mk $(VSRC) tb.cc
+	$(MAKE) -C obj_nomdu -f Vmoxibit.mk
+	cp obj_nomdu/Vmoxibit $@
 
 # The same, printing each instruction for lockstep.sh.
-obj_trace/Vmoxbit.mk: $(VSRC) $(CORE)/moxbit_ucode.vh tb.cc
-	verilator -Wno-fatal --cc -O3 -CFLAGS -O2 -DMOXBIT_TRACE -GFAST_INC=1 --Mdir obj_trace \
-	-I$(CORE) --top-module moxbit $(VSRC) --trace \
+obj_trace/Vmoxibit.mk: $(VSRC) $(CORE)/moxibit_ucode.vh tb.cc
+	verilator -Wno-fatal --cc -O3 -CFLAGS -O2 -DMOXIBIT_TRACE -GFAST_INC=1 --Mdir obj_trace \
+	-I$(CORE) --top-module moxibit $(VSRC) --trace \
 	--exe $(CURDIR)/tb.cc
 
-tb-trace: obj_trace/Vmoxbit.mk $(VSRC) tb.cc
-	$(MAKE) -C obj_trace -f Vmoxbit.mk
-	cp obj_trace/Vmoxbit $@
+tb-trace: obj_trace/Vmoxibit.mk $(VSRC) tb.cc
+	$(MAKE) -C obj_trace -f Vmoxibit.mk
+	cp obj_trace/Vmoxibit $@
 
 $(ISS):
 	$(MAKE) -C $(dir $(ISS))

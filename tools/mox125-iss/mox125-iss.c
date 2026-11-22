@@ -41,7 +41,7 @@
      -t  trace every instruction
      -T  before every instruction, print its address and opcode, the
 	 registers and the condition codes, one line each, for
-	 comparing with bench/moxbit's lockstep trace
+	 comparing with bench/moxibit's lockstep trace
      -n  stop after this many instructions
      -r  report the word at 0x0c0ffee0 on exit, as the bench tests do
      -b  each time execution reaches this address (hex), print the
