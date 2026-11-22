@@ -72,4 +72,4 @@
 # - github.token    → use GITHUB_TOKEN env var instead
 
 sync:
-    remote: "git+ssh://git@github.com//atgreen/moxie-cores"
+    remote: "git+ssh://git@github.com/atgreen/moxie-cores"
