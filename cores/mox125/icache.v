@@ -1,6 +1,6 @@
 // icache.v - Direct Mapped Instruction Cache
 //
-// Copyright (c) 2014, 2015, 2016, 2017, 2025  Anthony Green
+// Copyright (c) 2014, 2015, 2016, 2017, 2025, 2026  Anthony Green
 //
 // The above named program is free software; you can redistribute it
 // and/or modify it under the terms of the GNU General Public License

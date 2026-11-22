@@ -1,6 +1,6 @@
 // cpu_registerfile.v - moxie register file
 //
-// Copyright (c) 2010, 2011, 2012, 2017  Anthony Green.  All Rights Reserved.
+// Copyright (c) 2010, 2011, 2012, 2017, 2026  Anthony Green.  All Rights Reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES.
 // 
 // The above named program is free software; you can redistribute it
