@@ -15,6 +15,8 @@ no caches.
 How it works
 ------------
 
+![moxibit block diagram](../../docs/moxibit-block-diagram.png)
+
 Each instruction is a short microprogram, written as a table in
 microcode.org: a sequence of 16-bit bus cycles and passes, where a
 pass streams every operand through a one-bit datapath in 32 clocks,

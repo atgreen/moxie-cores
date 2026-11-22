@@ -46,6 +46,8 @@ microcoded.  It implements the whole instruction set, with mox125's
 exceptions and bus, but no MMU.  Options drop the multiplier and
 divider, for software to emulate, or buy speed with a few more LUTs.
 
+![moxibit block diagram](docs/moxibit-block-diagram.png)
+
 **mox125** is pipelined: fetch with an instruction cache, decode,
 execute and write-back, with forwarding.  It has exceptions,
 interrupts, a software-refilled MMU and the extensions an operating
