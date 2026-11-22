@@ -15,7 +15,8 @@ first time.
 ISE warns that the design uses 9K block RAMs (RAMB8BWER) whose
 initialization data "may be incorrect" (Xilinx Answer Record 39999).
 The boot ROM and mox125's microcode are initialized RAMs, so check
-that before trusting a board.
+that before trusting a board: issue #6
+(https://github.com/atgreen/moxie-cores/issues/6).
 
 ## What you need
 

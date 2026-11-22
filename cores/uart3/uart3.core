@@ -2,7 +2,9 @@ CAPI=2:
 
 name : moxielogic:moxie-cores:uart3:0.1.0
 description : UART with a Wishbone interface
-license : GPL-2.0-only
+license : LGPL-2.1-or-later AND GPL-2.0-only
+# uart.v is Ultra-Embedded's, under the LGPL version 2.1 or later;
+# uart_wb.v is this project's.
 
 filesets:
   rtl:

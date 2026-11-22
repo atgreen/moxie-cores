@@ -2,7 +2,9 @@ CAPI=2:
 
 name : moxielogic:moxie-cores:lvt_regs:0.1.0
 description : Live-value-table multi-ported register memories
-license : GPL-2.0-only
+license : LicenseRef-LaForest-LVT
+# C. E. LaForest's example code: "Permission is granted for any use,
+# and attribution would be nice"; see README.txt.
 
 filesets:
   rtl:

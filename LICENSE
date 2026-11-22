@@ -1,0 +1,40 @@
+moxie-cores licensing
+=====================
+
+Unless a file says otherwise, moxie-cores is
+
+    Copyright (c) Anthony Green <green@moxielogic.com>
+
+and is free software, distributed under the terms of the GNU General
+Public License version 2 as published by the Free Software
+Foundation (GPL-2.0-only).  The license is in COPYING.
+
+Some files say otherwise.  They keep their own licenses, as their
+headers or the files beside them state; these are the ones that do:
+
+  cores/hex_display/hex_display.v, cores/hex_display/seg_7.v
+      From the Zet processor, by Zeus Gomez Marmolejo: GNU GPL
+      version 3 or later (COPYING3).
+
+  cores/uart3/uart.v
+      Ultra-Embedded.com: GNU LGPL version 2.1 or later.
+
+  cores/statled
+      From OpenCores: GNU LGPL version 2.1 or later.
+
+  cores/altera_sdram
+      MIT license.
+
+  cores/LVT-regs
+      Charles Eric LaForest's example code: "Permission is granted for
+      any use, and attribution would be nice."  See its README.txt.
+
+  firmware/bootrom/handler.S, firmware/bootrom/tinystub.c
+      Anthony Green: two-clause BSD license.
+
+  scripts/microcoder.lisp, scripts/msgmaker.lisp,
+  cores/moxibit/ucoder.lisp, bench/mox125/test.lisp,
+  bench/mox125/zephyr.lisp, bench/icache/test.lisp
+      Anthony Green: GNU GPL version 3 or later (COPYING3).
+
+The FuseSoC core files say the same in their license fields.

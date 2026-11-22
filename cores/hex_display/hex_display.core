@@ -2,7 +2,9 @@ CAPI=2:
 
 name : moxielogic:moxie-cores:hex_display:0.1.0
 description : The DE2's seven-segment displays, from Wishbone
-license : GPL-2.0-only
+license : GPL-3.0-or-later AND GPL-2.0-only
+# hex_display.v and seg_7.v come from the Zet processor, under the GPL
+# version 3 or later; hex_display_wb.v is this project's.
 
 filesets:
   rtl:

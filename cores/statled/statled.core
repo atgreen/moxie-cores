@@ -2,7 +2,8 @@ CAPI=2:
 
 name : moxielogic:moxie-cores:statled:0.1.0
 description : A status LED
-license : GPL-2.0-only
+license : LGPL-2.1-or-later
+# From OpenCores, under the LGPL version 2.1 or later.
 
 filesets:
   rtl:

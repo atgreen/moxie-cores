@@ -1,42 +1,93 @@
 Hacking on moxie-cores
-========================
+======================
 
-SBCL and QuickLisp
---------------------
+What you need
+-------------
 
-The build procedure for some cores use scripts written in Common Lisp
-along with libraries from the QuickLisp distriution.  
+- Verilator 5, for every simulation.
+- The moxie-elf toolchain: binutils, GCC and newlib.
+  `scripts/build-toolchain.sh PREFIX` builds it from release tarballs
+  in about ten minutes, with tools/binutils-moxie-extensions.patch so
+  that the assembler knows mox125's eret, wfi and cas.l.  Put
+  PREFIX/bin on your PATH.
+- SBCL and ocicl (https://github.com/ocicl/ocicl), for the mox125 test
+  bench and the microcode generators.  After installing ocicl, run
+  `ocicl setup > ~/.sbclrc`, and `ocicl install` in bench/mox125 and
+  bench/icache to fetch their Lisp libraries.
+- wrapilator (https://github.com/atgreen/wrapilator), built from git:
+  its last release predates Verilator 5.
+- FuseSoC, for the core files (`pip install fusesoc`), and Yosys,
+  nextpnr, icestorm and trellis for the open-source FPGA builds.
+- Xilinx ISE 14.7 for the Nexys 3, and Quartus II 13.0sp1, the last
+  release that knows the Cyclone II, for the DE2.
 
-After installing sbcl, run the following commands:
-
-$ curl -O http://beta.quicklisp.org/quicklisp.lisp
-$ sbcl --load quicklisp.lisp
-
-Then, at the sbcl prompt, "(quicklisp-quickstart:install)", and
-"(ql:add-to-init-file)".
-
-This should be all that is required to prepare your quicklisp
-environment.
+.github/workflows/ci.yml sets all but the FPGA tools up on Fedora, and
+is the most reliable recipe.
 
 
-Programming the Nexys3
------------------------
+Running the tests
+-----------------
 
-The soc/marin/boards/nexys3/Makefile contains a "program" target that
-will download the Marin SoC bitstream to the Nexys3 board.
+`scripts/run-tests.sh` runs what CI runs: the mox125 and moxibit test
+suites, the instruction set simulator's own check, and builds of the
+other simulators.  The suites can be run on their own:
+
+    make -C bench/moxibit check      # moxibit against the ISS
+    make -C bench/moxibit lockstep   # ... every instruction, every register
+    make -C bench/mox125 check       # mox125, in Common Lisp
+    make -C tools/mox125-iss check   # the ISS against the bench programs
+
+`scripts/fusesoc-check.sh` runs every FuseSoC lint and simulation
+target.
+
+The test programs are assembly, in bench/mox125/asm and
+bench/moxibit/asm.  Each stores its result at 0x0c0ffee0 and ends by
+writing to 0xdead; the result it should get is the comment on its
+first line.
 
 
-Programming the DE2
----------------------
+Changing a core
+---------------
 
-The Altera bitstream file that is built for marin is called
-"marin.sof".  Build it with GNU make in the soc/marin/bards/de2
-directory.  Make sure that Altera's jtagd daemon is running as root
-and run something like the following to program the DE2 board:
+tools/mox125-iss and the cores have to agree on what every instruction
+does: mox125's RTL is the reference for the ISS, and moxibit is checked
+against the ISS.  Change both together.
 
-$ quartus_pgm -z -m JTAG -o "p;marin.sof" 
+mox125's microcode table is cores/mox125/microcode.org; `make` in
+cores/mox125 regenerates microcode.bin.  moxibit's microcode is
+cores/moxibit/microcode.org; `make` in cores/moxibit regenerates
+moxibit_ucode.v and moxibit_ucode.vh.  Both generated files are
+checked in, so nothing else needs SBCL.
 
-The on-chip bootloader will display FEED on the 7 segment display and
-a message to the serial port, which you can connect to with any
-terminal program at 9600 N81 (I use minicom on Linux).
+When a moxibit test fails, `make lockstep` in bench/moxibit shows the
+first instruction where the core and the ISS disagree, and the
+registers either side of it.
 
+
+Programming the boards
+----------------------
+
+Marin on the Nexys 3: `make program` in soc/marin/boards/nexys3 loads
+the bitstream with Digilent's djtgcfg.
+
+Marin on the DE2: `make` in soc/marin/boards/de2 builds marin.sof.
+With Altera's jtagd running as root, `make program` there, or
+
+    quartus_pgm -z -m JTAG -o "p;marin.sof"
+
+loads it.  The on-chip boot loader shows FEED on the seven-segment
+display and prints a message on the serial port at 9600 8N1.
+
+Muskoka on the Nexys 3: see soc/muskoka/boards/nexys3/README.md.
+Muskoka on the DE2: `make` and `make program` in
+soc/muskoka/boards/de2; its boot loader talks at 115200 8N1.
+
+Bala: the FuseSoC icebreaker and ulx3s targets build bitstreams (see
+soc/bala/README.md); load them with the board's usual tool, such as
+iceprog or openFPGALoader.  Its serial port runs at 115200 8N1.
+
+
+Reporting bugs
+--------------
+
+Report bugs as GitHub issues: https://github.com/atgreen/moxie-cores/issues

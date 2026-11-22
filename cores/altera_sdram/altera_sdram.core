@@ -2,7 +2,8 @@ CAPI=2:
 
 name : moxielogic:moxie-cores:altera_sdram:0.1.0
 description : SDRAM controller for the DE2
-license : GPL-2.0-only
+license : MIT
+# Under the MIT license; see the files.
 
 filesets:
   rtl:
