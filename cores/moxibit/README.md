@@ -74,6 +74,24 @@ its CSRs, which give it exceptions and interrupts.
 Five of moxibit's six iCE40 block RAMs are its two ROMs.
 
 
+FuseSoC
+-------
+
+moxibit.core describes the core to FuseSoC
+(https://github.com/olofk/fusesoc), and
+bench/moxibit/moxibit-bench.core the bench around it.  From anywhere,
+with this repository as a core library:
+
+    fusesoc --cores-root <moxie-cores> run --target=lint moxielogic:moxie-cores:moxibit
+    fusesoc --cores-root <moxie-cores> run --target=synth moxielogic:moxie-cores:moxibit --MDU=0
+    fusesoc --cores-root <moxie-cores> run --target=sim moxielogic:moxie-cores:moxibit-bench \
+        --program=<moxie-cores>/bench/moxibit/bin/s011.x --wait=2
+
+The sim target prints the program's result, as `make check` sees it;
+`make` in bench/moxibit builds the programs.  MDU and FAST_INC can be
+given to any of the targets.
+
+
 Testing
 -------
 

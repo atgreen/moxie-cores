@@ -1,0 +1,25 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:statled:0.1.0
+description : A status LED
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - rtl/statled_par.v : {is_include_file : true}
+      - rtl/statled.v
+    file_type : verilogSource
+
+targets:
+  default:
+    filesets : [rtl]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl]
+    tools:
+      verilator:
+        mode : lint-only
+    toplevel : statled

@@ -1,0 +1,6 @@
+`verilator_config
+
+// Counters compared with and assigned unsized or narrower constants.
+lint_off -rule WIDTHEXPAND -file "*/sdram_controller.v"
+lint_off -rule WIDTHTRUNC -file "*/sdram_controller.v"
+lint_off -rule WIDTHTRUNC -file "*/sdram_rw.v"

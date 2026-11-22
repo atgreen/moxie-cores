@@ -1,0 +1,23 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:muskoka:0.1.0
+description : Muskoka, the mox125 SoC for the DE2 - boot ROM, RAM, UART and hex displays
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - muskoka.v
+    file_type : verilogSource
+    depend :
+      - moxielogic:moxie-cores:mox125
+      - moxielogic:moxie-cores:muskoka_bootrom
+      - moxielogic:moxie-cores:wishbone
+      - moxielogic:moxie-cores:ram16bit
+      - moxielogic:moxie-cores:uart3
+      - moxielogic:moxie-cores:hex_display
+
+targets:
+  default:
+    filesets : [rtl]
+    toplevel : muskoka

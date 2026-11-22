@@ -357,7 +357,7 @@ module gdb_target_engine (/*AUTOARG*/
 	          end
 	        GDB_COMMAND_g_SEND_WORD:
 	          begin
-	            if (fcount != 4'b0)
+	            if (fcount != 3'b0)
 		            begin
 		              tbyte <= rval[31:24];
 		              rval[31:8] <= rval[23:0];

@@ -1,0 +1,15 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:hello:0.1.0
+description : A program that says hello on the mox125_board console, for RAM preloaded from hello.vh
+license : GPL-2.0-only
+
+filesets:
+  image:
+    files:
+      - hello.vh : {copyto : hello.vh}
+    file_type : user
+
+targets:
+  default:
+    filesets : [image]

@@ -1,0 +1,36 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:altera_sdram:0.1.0
+description : SDRAM controller for the DE2
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - sdram_rw.v
+      - sdram_controller.v
+    file_type : verilogSource
+
+  # A test of the controller on the DE2, with the board's PLL.
+  demo:
+    files:
+      - sdram.v
+    file_type : verilogSource
+
+  waiver:
+    files:
+      - verilator_waiver.vlt
+    file_type : vlt
+
+targets:
+  default:
+    filesets : [rtl, "tool_verilator? (waiver)"]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl, waiver]
+    tools:
+      verilator:
+        mode : lint-only
+    toplevel : sdram_controller

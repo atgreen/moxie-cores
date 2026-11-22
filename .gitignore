@@ -115,3 +115,6 @@ soc/muskoka/boards/de2/microcode.bin
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+
+# FuseSoC
+/build/

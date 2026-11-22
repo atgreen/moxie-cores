@@ -1,0 +1,51 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:muskoka-nexys3:0.1.0
+description : Muskoka on the Digilent Nexys 3 (Spartan-6 XC6SLX16); see README.md here
+license : GPL-2.0-only
+
+filesets:
+  # Everything on the FPGA but the pins and the clock generator; this
+  # is what bench/nexys3-soc simulates.
+  soc:
+    files:
+      - config.v : {is_include_file : true}
+      - nexys3_soc.v
+    file_type : verilogSource
+    depend :
+      - moxielogic:moxie-cores:mox125
+      - moxielogic:moxie-cores:muskoka_bootrom
+      - moxielogic:moxie-cores:mox125_board
+      - moxielogic:moxie-cores:psram
+      - moxielogic:moxie-cores:wishbone
+      - moxielogic:moxie-cores:ram16bit
+      - moxielogic:moxie-cores:uart3
+
+  # The boot loader, firmware/mox125-boot, as it was last built.
+  rom:
+    files:
+      - prebuilt/bootrom.vh : {copyto : bootrom.vh}
+    file_type : user
+
+  board:
+    files:
+      - muskoka_nexys3.v : {file_type : verilogSource}
+      - muskoka_nexys3.ucf : {file_type : UCF}
+    depend : [moxielogic:moxie-cores:nexys7seg]
+
+targets:
+  default:
+    filesets : [soc, rom]
+    toplevel : nexys3_soc
+
+  nexys3:
+    description : Build muskoka.bit with ISE 14.7
+    default_tool : ise
+    filesets : [soc, rom, board]
+    tools:
+      ise:
+        family : spartan6
+        device : xc6slx16
+        package : csg324
+        speed : -3
+    toplevel : muskoka_nexys3

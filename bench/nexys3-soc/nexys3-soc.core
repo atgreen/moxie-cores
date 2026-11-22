@@ -1,0 +1,51 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:nexys3-soc:0.1.0
+description : The Nexys 3 Muskoka SoC under Verilator, with its RAM and a terminal; see sim.cc
+license : GPL-2.0-only
+
+filesets:
+  tb:
+    files:
+      - sim.cc : {file_type : cppSource}
+    depend : [moxielogic:moxie-cores:muskoka-nexys3]
+
+targets:
+  default: &sim
+    description : Run the boot loader, and send it what --srec says
+    default_tool : verilator
+    filesets : [tb]
+    parameters : [srec, elf, go, expect, max_clocks]
+    tools:
+      verilator:
+        mode : cc
+        verilator_options : [--trace, -Wno-fatal]
+    toplevel : nexys3_soc
+
+  sim: *sim
+
+parameters:
+  srec:
+    datatype : file
+    description : S-records to send once the boot loader asks for them
+    paramtype : cmdlinearg
+
+  elf:
+    datatype : file
+    description : A program to put in the RAM beforehand
+    paramtype : cmdlinearg
+
+  go:
+    datatype : bool
+    description : Type g at the boot loader, to start what --elf loaded
+    paramtype : cmdlinearg
+
+  expect:
+    datatype : str
+    description : Succeed as soon as this has been received on the serial port
+    paramtype : cmdlinearg
+
+  max_clocks:
+    datatype : int
+    description : Stop after this many clocks
+    paramtype : cmdlinearg

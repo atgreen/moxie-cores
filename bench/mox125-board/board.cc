@@ -14,10 +14,16 @@
 
    The timer is interrupt source 0 and the UART source 1.
 
-   usage: board [-n max-clocks] [-m megabytes] [-v from-clock] program.elf  */
+   usage: board [-n max-clocks] [-m megabytes] [-v from-clock] program.elf
+
+   The options have long forms too, --max-clocks=N (or --max_clocks,
+   as FuseSoC spells it), --megabytes=N and --vcd-from=N, and the
+   program can be given as --program=FILE, which is how FuseSoC passes
+   them (see mox125-board.core).  */
 
 #include <elf.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -256,23 +262,35 @@ main (int argc, char **argv)
 {
   uint64_t max_cycles = ~0ull, trace_from = ~0ull;
   int opt;
+  static const struct option options[] = {
+    {"max-clocks", required_argument, NULL, 'n'},
+    {"max_clocks", required_argument, NULL, 'n'},
+    {"megabytes", required_argument, NULL, 'm'},
+    {"vcd-from", required_argument, NULL, 'v'},
+    {"program", required_argument, NULL, 'p'},
+    {NULL, 0, NULL, 0}
+  };
+  const char *program = NULL;
 
-  while ((opt = getopt (argc, argv, "n:m:v:")) != -1)
+  while ((opt = getopt_long (argc, argv, "n:m:v:", options, NULL)) != -1)
     switch (opt)
       {
       case 'n': max_cycles = strtoull (optarg, NULL, 0); break;
       case 'm': ram_size = strtoul (optarg, NULL, 0) << 20; break;
       case 'v': trace_from = strtoull (optarg, NULL, 0); break;
+      case 'p': program = optarg; break;
       default:
       usage:
 	fprintf (stderr, "usage: board [-n max-clocks] [-m megabytes] [-v from-clock] program.elf\n");
 	return 2;
       }
-  if (optind + 1 != argc)
+  if (program == NULL && optind < argc)
+    program = argv[optind++];
+  if (program == NULL || optind != argc)
     goto usage;
 
   ram = (u8 *) calloc (1, ram_size);
-  load_elf (argv[optind]);
+  load_elf (program);
   fcntl (0, F_SETFL, fcntl (0, F_GETFL) | O_NONBLOCK);
 
   Vmoxie *cpu = new Vmoxie;

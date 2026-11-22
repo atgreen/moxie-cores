@@ -1,0 +1,24 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:mtimer:0.1.0
+description : A timer
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - mtimer.v
+    file_type : verilogSource
+
+targets:
+  default:
+    filesets : [rtl]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl]
+    tools:
+      verilator:
+        mode : lint-only
+    toplevel : mtimer

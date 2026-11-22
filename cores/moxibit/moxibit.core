@@ -1,0 +1,69 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:moxibit:0.1.0
+description : moxibit, a tiny bit-serial moxie core
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - moxibit_ucode.vh : {is_include_file : true}
+      - moxibit_rf.v
+      - moxibit_ucode.v
+      - moxibit.v
+    file_type : verilogSource
+
+  # moxie_cpu, the moxie:cpu interface; see moxie_cpu.v.
+  cpu:
+    files:
+      - moxie_cpu.v
+    file_type : verilogSource
+
+virtual:
+  - moxielogic:moxie-cores:cpu:0.1.0
+
+targets:
+  default:
+    filesets : [rtl, cpu]
+    parameters :
+      - "is_toplevel? (BOOT_ADDRESS)"
+      - "is_toplevel? (MDU)"
+      - "is_toplevel? (FAST_INC)"
+    toplevel : ["is_toplevel? (moxibit)"]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl]
+    parameters : [MDU, FAST_INC]
+    tools:
+      verilator:
+        mode : lint-only
+        verilator_options : [-Wall]
+    toplevel : moxibit
+
+  synth:
+    description : Synthesize for iCE40 with Yosys, to see how big it is
+    default_tool : yosys
+    filesets : [rtl]
+    parameters : [MDU, FAST_INC]
+    tools:
+      yosys:
+        arch : ice40
+    toplevel : moxibit
+
+parameters:
+  BOOT_ADDRESS:
+    datatype : int
+    description : Where execution starts after reset
+    paramtype : vlogparam
+
+  MDU:
+    datatype : int
+    description : 1 for a multiplier and divider; 0 to trap mul, div, udiv, mod and umod for software to emulate
+    paramtype : vlogparam
+
+  FAST_INC:
+    datatype : int
+    description : 1 to add 2 to the address in parallel most of the time, for about 12% fewer clocks and 23 more LUTs
+    paramtype : vlogparam

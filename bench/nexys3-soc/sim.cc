@@ -17,6 +17,12 @@
    What the serial port sends is printed.  Standard input goes to the
    serial port, once -s and -g are done.
 
+   The options have long forms too, --max_clocks=N, --srec=FILE,
+   --elf=FILE, --go and --vcd_from=N, which is how FuseSoC passes them
+   (see nexys3-soc.core).  --expect=TEXT stops the simulation, and
+   succeeds, once TEXT has been received, and fails it if TEXT never
+   comes.
+
    The RAM model is strict about the things a real one cares about: a
    read returns rubbish unless the address and strobes have been
    steady for a whole clock, and a write whose address or data moves
@@ -24,6 +30,7 @@
 
 #include <elf.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -122,12 +129,22 @@ int
 main (int argc, char **argv)
 {
   uint64_t max_cycles = ~0ull, trace_from = ~0ull;
-  std::string to_send;
-  int opt;
+  std::string to_send, received;
+  const char *expect = NULL;
+  int seen = 0, opt;
+  static const struct option options[] = {
+    {"max_clocks", required_argument, NULL, 'n'},
+    {"srec", required_argument, NULL, 's'},
+    {"elf", required_argument, NULL, 'l'},
+    {"go", no_argument, NULL, 'g'},
+    {"vcd_from", required_argument, NULL, 'v'},
+    {"expect", required_argument, NULL, 'e'},
+    {NULL, 0, NULL, 0}
+  };
 
   ram = (u16 *) calloc (RAM_WORDS, sizeof (u16));
 
-  while ((opt = getopt (argc, argv, "n:s:l:gv:")) != -1)
+  while ((opt = getopt_long (argc, argv, "n:s:l:gv:", options, NULL)) != -1)
     switch (opt)
       {
       case 'n': max_cycles = strtoull (optarg, NULL, 0); break;
@@ -135,6 +152,7 @@ main (int argc, char **argv)
       case 'l': load_elf (optarg); break;
       case 'g': to_send += "g"; break;
       case 'v': trace_from = strtoull (optarg, NULL, 0); break;
+      case 'e': expect = optarg; break;
       default:
 	fprintf (stderr, "usage: sim [-n max-clocks] [-s file.srec] [-l program.elf] [-g] [-v from-clock]\n");
 	return 2;
@@ -178,7 +196,7 @@ main (int argc, char **argv)
   u16 dat_q = 0;
   int wen_low_for = 0;
 
-  while (cycle < max_cycles)
+  while (cycle < max_cycles && !seen)
     {
       soc->clk_i = 1;
       soc->eval ();
@@ -267,6 +285,9 @@ main (int argc, char **argv)
 	    {
 	      putchar (tx_char);
 	      fflush (stdout);
+	      received += (char) tx_char;
+	      if (expect && received.find (expect) != std::string::npos)
+		seen = 1;
 	      if (tx_char == '\n')
 		{
 		  /* The boot loader is ready once it has said what to
@@ -341,5 +362,7 @@ main (int argc, char **argv)
   fflush (stdout);
   fprintf (stderr, "\n[stopped after %llu clocks, display %04x, %d problem%s with the RAM]\n",
 	   (unsigned long long) cycle, soc->display_o, problems, problems == 1 ? "" : "s");
-  return problems != 0;
+  if (expect)
+    fprintf (stderr, "[%s \"%s\"]\n", seen ? "received" : "did not receive", expect);
+  return problems != 0 || (expect && !seen);
 }

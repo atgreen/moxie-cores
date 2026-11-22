@@ -11,7 +11,7 @@ module hex_display_wb (input rst_i,
 		       output [7:0] hex2_o,
 		       output [7:0] hex3_o);
    
-   reg [15:0] 			  value = 15'h00;
+   reg [15:0] 			  value = 16'h0000;
 
    reg 				  ack = 1'b0;
    assign wb_ack_o = ack;

@@ -1,0 +1,15 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:muskoka_bootrom:0.1.0
+description : The Muskoka SoCs' 4 KiB boot ROM, read from bootrom.vh
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - bootrom16.v
+    file_type : verilogSource
+
+targets:
+  default:
+    filesets : [rtl]

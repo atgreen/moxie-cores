@@ -1,0 +1,105 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:bala:0.1.0
+description : Bala, the smallest moxie system - a core, RAM and the mox125_board peripherals
+license : GPL-2.0-only
+
+filesets:
+  # The SoC wants a moxie:cpu.  Which core provides it is the choice
+  # of the cpu_* filesets below: moxibit, or mox125 with --flag=mox125.
+  rtl:
+    files:
+      - rtl/bala_ram.v
+      - rtl/bala.v
+    file_type : verilogSource
+    depend :
+      - moxielogic:moxie-cores:cpu
+      - moxielogic:moxie-cores:mox125_board
+      - moxielogic:moxie-cores:hello
+
+  cpu_moxibit:
+    depend : [moxielogic:moxie-cores:moxibit]
+
+  cpu_mox125:
+    depend : [moxielogic:moxie-cores:mox125]
+
+  tb:
+    files:
+      - bench/bala_tb.cc : {file_type : cppSource}
+
+  icebreaker:
+    files:
+      - boards/icebreaker/bala_icebreaker.v : {file_type : verilogSource}
+      - boards/icebreaker/icebreaker.pcf : {file_type : PCF}
+
+  ulx3s:
+    files:
+      - boards/ulx3s/bala_ulx3s.v : {file_type : verilogSource}
+      - boards/ulx3s/ulx3s.lpf : {file_type : LPF}
+
+targets:
+  default: &default
+    filesets : [rtl, "mox125? (cpu_mox125)", "!mox125? (cpu_moxibit)"]
+    toplevel : bala
+
+  lint:
+    <<: *default
+    description : Check the SoC with Verilator
+    default_tool : verilator
+    tools:
+      verilator:
+        mode : lint-only
+        verilator_options : [-Wno-fatal]
+
+  sim:
+    description : Run the SoC's program, printing what it sends on its serial port
+    default_tool : verilator
+    filesets : [rtl, "mox125? (cpu_mox125)", "!mox125? (cpu_moxibit)", tb]
+    parameters : [expect, max_clocks, MDU, FAST_INC]
+    tools:
+      verilator:
+        mode : cc
+        verilator_options : [--trace, -Wno-fatal]
+    toplevel : bala
+
+  icebreaker:
+    description : The iCEBreaker (iCE40 UP5K); moxibit only, as mox125 does not fit
+    default_tool : icestorm
+    filesets : [rtl, cpu_moxibit, icebreaker]
+    parameters : [MDU, FAST_INC]
+    tools:
+      icestorm:
+        nextpnr_options : [--up5k, --package, sg48, --freq, "12"]
+        pnr : next
+    toplevel : bala_icebreaker
+
+  ulx3s:
+    description : The ULX3S with an LFE5U-85F
+    default_tool : trellis
+    filesets : [rtl, "mox125? (cpu_mox125)", "!mox125? (cpu_moxibit)", ulx3s]
+    parameters : [MDU, FAST_INC]
+    tools:
+      trellis:
+        nextpnr_options : [--85k, --package, CABGA381, --freq, "25"]
+    toplevel : bala_ulx3s
+
+parameters:
+  expect:
+    datatype : str
+    description : Succeed as soon as this has been received on the serial port
+    paramtype : cmdlinearg
+
+  max_clocks:
+    datatype : int
+    description : Stop after this many clocks
+    paramtype : cmdlinearg
+
+  MDU:
+    datatype : int
+    description : moxibit only - 0 for no multiplier or divider
+    paramtype : vlogparam
+
+  FAST_INC:
+    datatype : int
+    description : moxibit only - 1 to add 2 to the address in parallel
+    paramtype : vlogparam

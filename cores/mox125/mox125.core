@@ -1,0 +1,71 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:mox125:0.1.0
+description : mox125, a pipelined moxie core with exceptions and an MMU
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - defines.h : {is_include_file : true}
+      - opcode_def.h : {is_include_file : true}
+      - cpu_fetch.v
+      - cpu_decode.v
+      - cpu_execute.v
+      - cpu_registerfile.v
+      - cpu_write.v
+      - dcache.v
+      - icache.v
+      - microcode.v
+      - tlb.v
+      - moxie.v
+    file_type : verilogSource
+
+  # The microcode is read when the simulation or synthesis starts,
+  # from the directory it runs in.
+  microcode:
+    files:
+      - microcode.bin : {copyto : microcode.bin}
+    file_type : user
+
+  # moxie_cpu, the moxie:cpu interface; see moxie_cpu.v.
+  cpu:
+    files:
+      - moxie_cpu.v
+    file_type : verilogSource
+
+  waiver:
+    files:
+      - verilator_waiver.vlt
+    file_type : vlt
+
+virtual:
+  - moxielogic:moxie-cores:cpu:0.1.0
+
+targets:
+  default:
+    filesets : [rtl, microcode, cpu, "tool_verilator? (waiver)"]
+    parameters :
+      - "is_toplevel? (BOOT_ADDRESS)"
+      - "is_toplevel? (ICACHE_SET_BITS)"
+    toplevel : ["is_toplevel? (moxie)"]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl, microcode, waiver]
+    tools:
+      verilator:
+        mode : lint-only
+    toplevel : moxie
+
+parameters:
+  BOOT_ADDRESS:
+    datatype : int
+    description : Where execution starts after reset
+    paramtype : vlogparam
+
+  ICACHE_SET_BITS:
+    datatype : int
+    description : log2 of the number of 32-byte instruction cache lines (8 is 8 KiB)
+    paramtype : vlogparam

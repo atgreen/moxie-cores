@@ -1,0 +1,25 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:mox125_board:0.1.0
+description : The mox125_sim board's peripherals (console, interrupt controller, timer, 16550 UART) as one Wishbone slave
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - mox125_board_wb.v
+    file_type : verilogSource
+    depend : [moxielogic:moxie-cores:uart3]
+
+targets:
+  default:
+    filesets : [rtl]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl]
+    tools:
+      verilator:
+        mode : lint-only
+    toplevel : mox125_board_wb

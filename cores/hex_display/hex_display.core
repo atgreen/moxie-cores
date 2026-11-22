@@ -1,0 +1,26 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:hex_display:0.1.0
+description : The DE2's seven-segment displays, from Wishbone
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - seg_7.v
+      - hex_display.v
+      - hex_display_wb.v
+    file_type : verilogSource
+
+targets:
+  default:
+    filesets : [rtl]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl]
+    tools:
+      verilator:
+        mode : lint-only
+    toplevel : hex_display_wb

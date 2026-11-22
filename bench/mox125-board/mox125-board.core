@@ -1,0 +1,40 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:mox125-board:0.1.0
+description : mox125 on the simulated board, running an ELF program
+license : GPL-2.0-only
+
+filesets:
+  tb:
+    files:
+      - board.cc : {file_type : cppSource}
+    depend : [moxielogic:moxie-cores:mox125]
+
+targets:
+  default: &sim
+    description : Run a program on the verilated mox125; see board.cc
+    default_tool : verilator
+    filesets : [tb]
+    parameters : [program, max_clocks, ICACHE_SET_BITS]
+    tools:
+      verilator:
+        mode : cc
+        verilator_options : [--trace, -Wno-fatal]
+    toplevel : moxie
+
+  sim: *sim
+
+parameters:
+  program:
+    datatype : file
+    description : The ELF program to run, linked at 0x1000
+    paramtype : cmdlinearg
+
+  max_clocks:
+    datatype : int
+    description : Stop after this many clocks
+    paramtype : cmdlinearg
+
+  ICACHE_SET_BITS:
+    datatype : int
+    paramtype : vlogparam

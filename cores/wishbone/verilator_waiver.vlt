@@ -1,0 +1,5 @@
+`verilator_config
+
+// The slave masks and addresses are parameters wider than the address
+// they are compared with.
+lint_off -rule WIDTHEXPAND -file "*/wb_intercon.v"

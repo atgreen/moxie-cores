@@ -1,0 +1,17 @@
+`verilator_config
+
+// The warnings mox125 has always had, so that `fusesoc run
+// --target=lint' catches new ones.  Each is waived for its file only.
+
+// Only some of the files say what their timescale is.
+lint_off -rule TIMESCALEMOD
+
+// Registers declared [0:N].
+lint_off -rule ASCRANGE -file "*/cpu_execute.v"
+lint_off -rule ASCRANGE -file "*/cpu_registerfile.v"
+
+// The opcode decoders use casex, and one case has no default.
+lint_off -rule CASEX -file "*/cpu_decode.v"
+lint_off -rule CASEINCOMPLETE -file "*/cpu_execute.v"
+
+lint_off -rule WIDTHEXPAND -file "*/icache.v"

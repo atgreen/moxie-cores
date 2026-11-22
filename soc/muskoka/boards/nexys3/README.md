@@ -5,9 +5,17 @@ interrupt controller, enough to run Zephyr.  The memory map is the one
 the mox125 simulators use, so what runs on them runs here.
 
 **Status: this has run under Verilator (`bench/nexys3-soc`), where the
-boot loader comes up and loads and runs Zephyr.  It has not yet been
-built with ISE or run on a board.**  Expect to fix something the first
-time.
+boot loader comes up and loads and runs Zephyr, and it has been built
+with ISE 14.7 through FuseSoC (`fusesoc run --target=nexys3
+moxielogic:moxie-cores:muskoka-nexys3`): 6868 of the 9112 LUTs and
+2094 registers, with timing met (39.5 MHz for the 12.5 MHz core
+clock).  It has not been run on a board.**  Expect to fix something the
+first time.
+
+ISE warns that the design uses 9K block RAMs (RAMB8BWER) whose
+initialization data "may be incorrect" (Xilinx Answer Record 39999).
+The boot ROM and mox125's microcode are initialized RAMs, so check
+that before trusting a board.
 
 ## What you need
 

@@ -1,0 +1,30 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:ram16bit:0.1.0
+description : 4 KiB of 16-bit Wishbone RAM; the SoC supplies config.v
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - ram16bit_wb.v
+    file_type : verilogSource
+
+  # config.v is the SoC's; this one is only for linting.
+  lint_config:
+    files:
+      - lint/config.v : {is_include_file : true}
+    file_type : verilogSource
+
+targets:
+  default:
+    filesets : [rtl]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl, lint_config]
+    tools:
+      verilator:
+        mode : lint-only
+    toplevel : ram16bit_wb

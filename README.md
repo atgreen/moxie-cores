@@ -23,6 +23,8 @@ System-on-Chips
   Cyclone II based DE2 eval boards.
 * muskoka - a mox125-based SoC for the Cyclone II based DE2 and the
   Spartan 6 based Nexys 3 eval boards.
+* bala - the smallest moxie system: either core, RAM and a serial
+  port, for the iCEBreaker and ULX3S.  See soc/bala/README.md.
 
 Simulators
 -----------
@@ -33,6 +35,28 @@ Simulators
 * `bench/nexys3-soc` - the Nexys 3 Muskoka SoC under Verilator.
 * `tools/mox125-iss` - an instruction-level simulator of mox125, for
   software too big to run on the verilated core.
+
+FuseSoC
+--------
+
+The cores, peripherals and SoCs have FuseSoC core files, so this
+repository can be a FuseSoC library
+(`fusesoc library add moxie-cores https://github.com/atgreen/moxie-cores`,
+or `--cores-root` on a checkout).  `fusesoc core list` shows them, and
+`fusesoc core show <name>` their targets.  The core names are
+`moxielogic:moxie-cores:<name>`; the main ones:
+
+* `moxibit`, `mox125` - the cores, with lint (and synth) targets.  Both
+  provide the virtual core `moxielogic:moxie-cores:cpu`, the module
+  `moxie_cpu`, so an SoC can be built with either.
+* `moxibit-bench`, `mox125-board`, `nexys3-soc` - simulations that run a
+  program: `--program=`, or for the Nexys 3 SoC `--srec=` and
+  `--expect=`.
+* `bala` - sim, icebreaker and ulx3s targets.
+* `muskoka-nexys3`, `muskoka-de2` - nexys3 (ISE 14.7) and de2 (Quartus
+  13.0sp1) targets.
+
+`scripts/fusesoc-check.sh` runs every lint and simulation target.
 
 Testing
 --------

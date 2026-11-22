@@ -1,0 +1,31 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:gdbtarget:0.1.0
+description : GDB remote protocol target engine on a UART
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - messages.vh : {is_include_file : true}
+      - gdbte_uart.v
+      - gdb_target_engine.v
+    file_type : verilogSource
+
+  data:
+    files:
+      - messages.bin : {copyto : messages.bin}
+    file_type : user
+
+targets:
+  default:
+    filesets : [rtl, data]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl, data]
+    tools:
+      verilator:
+        mode : lint-only
+    toplevel : gdb_target_engine

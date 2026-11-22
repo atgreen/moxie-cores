@@ -1,0 +1,44 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:moxibit-bench:0.1.0
+description : moxibit on a simulated memory, running a bench test program
+license : GPL-2.0-only
+
+filesets:
+  tb:
+    files:
+      - tb.cc : {file_type : cppSource}
+    depend : [moxielogic:moxie-cores:moxibit]
+
+targets:
+  default: &sim
+    description : Run a program on the verilated core; see tb.cc
+    default_tool : verilator
+    filesets : [tb]
+    parameters : [program, wait, MDU, FAST_INC]
+    tools:
+      verilator:
+        mode : cc
+        verilator_options : [--trace, -Wno-fatal]
+    toplevel : moxibit
+
+  sim: *sim
+
+parameters:
+  program:
+    datatype : file
+    description : The ELF program to run, as built in bench/moxibit/bin
+    paramtype : cmdlinearg
+
+  wait:
+    datatype : int
+    description : Clocks each bus request waits before it is acked
+    paramtype : cmdlinearg
+
+  MDU:
+    datatype : int
+    paramtype : vlogparam
+
+  FAST_INC:
+    datatype : int
+    paramtype : vlogparam

@@ -1,0 +1,24 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:nexys7seg:0.1.0
+description : The Nexys boards' seven-segment display, from Wishbone
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - nexys7seg.v
+    file_type : verilogSource
+
+targets:
+  default:
+    filesets : [rtl]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl]
+    tools:
+      verilator:
+        mode : lint-only
+    toplevel : nexys7seg_wb

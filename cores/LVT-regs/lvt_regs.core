@@ -1,0 +1,29 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:lvt_regs:0.1.0
+description : Live-value-table multi-ported register memories
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - parameters.v : {is_include_file : true}
+      - MUX_WORD_2to1.v
+      - MEM_1w1r.v
+      - MEM_1w4r.v
+      - MEM_2w4r.v
+      - LVT_2w4r.v
+    file_type : verilogSource
+
+targets:
+  default:
+    filesets : [rtl]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl]
+    tools:
+      verilator:
+        mode : lint-only
+    toplevel : LVT_2w4r

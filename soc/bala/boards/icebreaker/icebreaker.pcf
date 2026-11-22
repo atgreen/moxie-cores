@@ -1,0 +1,7 @@
+# The iCEBreaker's pins that Bala uses.
+set_io -nowarn CLK 35
+set_io -nowarn BTN_N 10
+set_io -nowarn RX 6
+set_io -nowarn TX 9
+set_io -nowarn LEDR_N 11
+set_io -nowarn LEDG_N 37

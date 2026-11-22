@@ -13,9 +13,14 @@
    0xF0000000 and up as tools/mox125-iss does: as devices, which read
    as zero and ignore writes.  lockstep.sh uses that.
 
-   usage: tb [-w wait] [-n max-clocks] [-d] [-v] program.x  */
+   usage: tb [-w wait] [-n max-clocks] [-d] [-v] program.x
+
+   The options have long forms too, --wait=N, --max-clocks=N, --devices
+   and --vcd, and the program can be given as --program=FILE, which is
+   how FuseSoC passes them (see moxibit-bench.core).  */
 
 #include <elf.h>
+#include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,22 +88,35 @@ main (int argc, char **argv)
   uint64_t max_cycles = 1000000, cycle = 0;
   int wait = 0, trace = 0, done = 0, devices = 0, opt;
 
-  while ((opt = getopt (argc, argv, "w:n:dv")) != -1)
+  static const struct option options[] = {
+    {"wait", required_argument, NULL, 'w'},
+    {"max-clocks", required_argument, NULL, 'n'},
+    {"devices", no_argument, NULL, 'd'},
+    {"vcd", no_argument, NULL, 'v'},
+    {"program", required_argument, NULL, 'p'},
+    {NULL, 0, NULL, 0}
+  };
+  const char *program = NULL;
+
+  while ((opt = getopt_long (argc, argv, "w:n:dv", options, NULL)) != -1)
     switch (opt)
       {
       case 'w': wait = atoi (optarg); break;
       case 'n': max_cycles = strtoull (optarg, NULL, 0); break;
       case 'd': devices = 1; break;
       case 'v': trace = 1; break;
+      case 'p': program = optarg; break;
       default:
       usage:
 	fprintf (stderr, "usage: tb [-w wait] [-n max-clocks] [-d] [-v] program.x\n");
 	return 2;
       }
-  if (optind + 1 != argc)
+  if (program == NULL && optind < argc)
+    program = argv[optind++];
+  if (program == NULL || optind != argc)
     goto usage;
 
-  load_elf (argv[optind]);
+  load_elf (program);
 
   Vmoxibit *cpu = new Vmoxibit;
   VerilatedVcdC *vcd = NULL;

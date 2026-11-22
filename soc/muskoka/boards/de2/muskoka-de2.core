@@ -1,0 +1,39 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:muskoka-de2:0.1.0
+description : Muskoka on the original Altera DE2 (Cyclone II EP2C35); see the Makefile here
+license : GPL-2.0-only
+
+filesets:
+  board:
+    files:
+      - config.v : {is_include_file : true}
+      - pll.v
+      - muskoka_de2.v
+    file_type : verilogSource
+    depend : [moxielogic:moxie-cores:muskoka]
+
+  constraints:
+    files:
+      - pins.tcl : {file_type : tclSource}
+      - muskoka.sdc : {file_type : SDC}
+
+  rom:
+    files:
+      - prebuilt/bootrom.vh : {copyto : bootrom.vh}
+    file_type : user
+
+targets:
+  default:
+    filesets : [board, rom]
+    toplevel : muskoka_de2
+
+  de2:
+    description : Build muskoka.sof with Quartus II 13.0sp1, the last for Cyclone II
+    default_tool : quartus
+    filesets : [board, constraints, rom]
+    tools:
+      quartus:
+        family : Cyclone II
+        device : EP2C35F672C6
+    toplevel : muskoka_de2

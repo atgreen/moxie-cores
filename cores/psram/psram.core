@@ -1,0 +1,25 @@
+CAPI=2:
+
+name : moxielogic:moxie-cores:psram:0.1.0
+description : Wishbone controller for the cellular RAM on Digilent boards
+license : GPL-2.0-only
+
+filesets:
+  rtl:
+    files:
+      - psram_wb.v
+      - psram_mox125_wb.v
+    file_type : verilogSource
+
+targets:
+  default:
+    filesets : [rtl]
+
+  lint:
+    description : Check the RTL with Verilator
+    default_tool : verilator
+    filesets : [rtl]
+    tools:
+      verilator:
+        mode : lint-only
+    toplevel : psram_mox125_wb
