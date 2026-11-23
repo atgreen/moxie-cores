@@ -3,23 +3,23 @@
 // Generated from microcode.org by ucoder.lisp.  Do not edit.
 
 /* verilator lint_off UNUSEDPARAM */
-localparam UWIDTH = 61;
+localparam UWIDTH = 62;
 
-localparam U_KIND_LSB = 58, U_KIND_W = 3;
-localparam U_A_LSB = 53, U_A_W = 5;
-localparam U_B_LSB = 48, U_B_W = 5;
-localparam U_W_LSB = 43, U_W_W = 5;
-localparam U_WD_LSB = 40, U_WD_W = 3;
-localparam U_MASK_LSB = 37, U_MASK_W = 3;
-localparam U_ADR_LSB = 34, U_ADR_W = 3;
-localparam U_DBUF_LSB = 31, U_DBUF_W = 3;
-localparam U_X_LSB = 30, U_X_W = 1;
-localparam U_Y_LSB = 27, U_Y_W = 3;
-localparam U_OP_LSB = 24, U_OP_W = 3;
-localparam U_PC_LSB = 22, U_PC_W = 2;
-localparam U_K_LSB = 17, U_K_W = 5;
-localparam U_ROFF_LSB = 14, U_ROFF_W = 3;
-localparam U_SP_LSB = 10, U_SP_W = 4;
+localparam U_KIND_LSB = 59, U_KIND_W = 3;
+localparam U_A_LSB = 54, U_A_W = 5;
+localparam U_B_LSB = 49, U_B_W = 5;
+localparam U_W_LSB = 44, U_W_W = 5;
+localparam U_WD_LSB = 41, U_WD_W = 3;
+localparam U_MASK_LSB = 38, U_MASK_W = 3;
+localparam U_ADR_LSB = 35, U_ADR_W = 3;
+localparam U_DBUF_LSB = 32, U_DBUF_W = 3;
+localparam U_X_LSB = 31, U_X_W = 1;
+localparam U_Y_LSB = 28, U_Y_W = 3;
+localparam U_OP_LSB = 25, U_OP_W = 3;
+localparam U_PC_LSB = 23, U_PC_W = 2;
+localparam U_K_LSB = 18, U_K_W = 5;
+localparam U_ROFF_LSB = 15, U_ROFF_W = 3;
+localparam U_SP_LSB = 10, U_SP_W = 5;
 localparam U_COND_LSB = 8, U_COND_W = 2;
 localparam U_NEXT_LSB = 0, U_NEXT_W = 8;
 
@@ -182,22 +182,24 @@ localparam [2:0] ROFF_HALF = 1;
 localparam [2:0] ROFF_LSR = 2;
 localparam [2:0] ROFF_ASR = 3;
 localparam [2:0] ROFF_LSL = 4;
-localparam [3:0] SP_NONE = 0;
-localparam [3:0] SP_CMP = 1;
-localparam [3:0] SP_CASEQ = 2;
-localparam [3:0] SP_GSR = 3;
-localparam [3:0] SP_SSR = 4;
-localparam [3:0] SP_EXC = 5;
-localparam [3:0] SP_ERET = 6;
-localparam [3:0] SP_DSIGN = 7;
-localparam [3:0] SP_DABS = 8;
-localparam [3:0] SP_DIVITER = 9;
-localparam [3:0] SP_DIVQ = 10;
-localparam [3:0] SP_DIVR = 11;
-localparam [3:0] SP_MUL = 12;
-localparam [3:0] SP_SHAMT = 13;
-localparam [3:0] SP_SHIFT = 14;
-localparam [3:0] SP_SHAMTI = 15;
+localparam [4:0] SP_NONE = 0;
+localparam [4:0] SP_CMP = 1;
+localparam [4:0] SP_CASEQ = 2;
+localparam [4:0] SP_GSR = 3;
+localparam [4:0] SP_SSR = 4;
+localparam [4:0] SP_EXC = 5;
+localparam [4:0] SP_ERET = 6;
+localparam [4:0] SP_DSIGN = 7;
+localparam [4:0] SP_DABS = 8;
+localparam [4:0] SP_DIVITER = 9;
+localparam [4:0] SP_DIVQ = 10;
+localparam [4:0] SP_DIVR = 11;
+localparam [4:0] SP_MUL = 12;
+localparam [4:0] SP_SHAMT = 13;
+localparam [4:0] SP_SHIFT = 14;
+localparam [4:0] SP_SHAMTI = 15;
+localparam [4:0] SP_BNEXT = 16;
+localparam [4:0] SP_BPREV = 17;
 localparam [1:0] COND_NONE = 0;
 localparam [1:0] COND_ZERO = 1;
 localparam [1:0] COND_IRQ = 2;
@@ -205,5 +207,5 @@ localparam [1:0] COND_DONE = 3;
 
 localparam [7:0] UA_FETCH = 8'd0;
 localparam [7:0] UA_DISP2 = 8'd255;
-localparam [7:0] UA_E_IRQ = 8'd109;
+localparam [7:0] UA_E_IRQ = 8'd139;
 /* verilator lint_on UNUSEDPARAM */

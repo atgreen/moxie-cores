@@ -8,3 +8,5 @@ obj_nomdu/
 tb-nomdu
 obj_small/
 tb-small
+obj_nocompact/
+tb-nocompact

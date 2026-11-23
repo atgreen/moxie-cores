@@ -22,11 +22,12 @@
 // mox125 or moxibit, provides it.  Both have the same ports and the
 // same 16-bit Wishbone bus.  The parameters are the union of theirs:
 // mox125 uses BOOT_ADDRESS and ICACHE_SET_BITS, moxibit BOOT_ADDRESS,
-// MDU and FAST_INC, and each ignores the others.
+// MDU, COMPACT and FAST_INC, and each ignores the others.
 
 module moxie_cpu #(parameter BOOT_ADDRESS = 32'h00001000,
 		   parameter ICACHE_SET_BITS = 8,
 		   parameter MDU = 1,
+		   parameter COMPACT = 1,
 		   parameter FAST_INC = 0) (
   input             clk_i,
   input             rst_i,

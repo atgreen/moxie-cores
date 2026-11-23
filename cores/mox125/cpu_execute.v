@@ -139,6 +139,7 @@ module cpu_execute (/*AUTOARG*/
   reg [31:0]              PC_o;
   reg [1:0]               sel_o;
   wire [31:0]             PC_plus_2 = PC_i+2;
+  wire [31:0]             PC_plus_4 = PC_i+4;
   wire [31:0]             PC_plus_6 = PC_i+6;
 
   reg [2:0]               seq;
@@ -300,10 +301,16 @@ module cpu_execute (/*AUTOARG*/
                 | ((op_i == `OP_BGE) & (CC_result[0] | CC_result[2]))
                   | ((op_i == `OP_BLEU) & (CC_result[0] | CC_result[3]))
                     | ((op_i == `OP_BGEU) & (CC_result[0] | CC_result[4]))
-                      | (op_i == `OP_BRA);
+                      | (op_i == `OP_BRA)
+                        | ((op_i == `OP_BEQZ) & (regA_i == 32'd0))
+                        | ((op_i == `OP_BNEZ) & (regA_i != 32'd0));
 
   wire [31:0]             pcrel_branch_target;
   assign pcrel_branch_target = {{21{pcrel_offset_i[9]}}, pcrel_offset_i, 1'b0 } + PC_i + 32'd2;
+
+  // beqz and bnez have a 6-bit offset, bits 9-8 and 3-0.
+  wire [31:0]             bz_branch_target = {{25{pcrel_offset_i[9]}}, pcrel_offset_i[9:8],
+                                              pcrel_offset_i[3:0], 1'b0} + PC_i + 32'd2;
 
   wire [7:0]              incdec_value = pcrel_offset_i[7:0];
 
@@ -706,6 +713,18 @@ module cpu_execute (/*AUTOARG*/
               `OP_BRA:
                 begin
                   branch_target_o <= pcrel_branch_target;
+                end
+              `OP_BEQZ, `OP_BNEZ:
+                begin
+                  branch_target_o <= bz_branch_target;
+                end
+              `OP_BSR:
+                begin
+                  mem_start (SEQ_JSR, 2'd3, 1'b1, 2'b11, sp_i - 8, PC_plus_4[31:16]);
+                  return_address <= PC_plus_4;
+                  branch_target_o <= PC_i + 2 + {operand_i[30:0], 1'b0};
+                  pending_wea <= 1;
+                  pending_web <= 1;
                 end
               `OP_BRK:
                 begin

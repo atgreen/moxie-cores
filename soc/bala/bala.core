@@ -55,7 +55,7 @@ targets:
     description : Run the SoC's program, printing what it sends on its serial port
     default_tool : verilator
     filesets : [rtl, "mox125? (cpu_mox125)", "!mox125? (cpu_moxibit)", tb]
-    parameters : [expect, max_clocks, MDU, FAST_INC]
+    parameters : [expect, max_clocks, MDU, COMPACT, FAST_INC]
     tools:
       verilator:
         mode : cc
@@ -66,7 +66,7 @@ targets:
     description : The iCEBreaker (iCE40 UP5K); moxibit only, as mox125 does not fit
     default_tool : icestorm
     filesets : [rtl, cpu_moxibit, icebreaker]
-    parameters : [MDU, FAST_INC]
+    parameters : [MDU, COMPACT, FAST_INC]
     tools:
       icestorm:
         nextpnr_options : [--up5k, --package, sg48, --freq, "12"]
@@ -77,7 +77,7 @@ targets:
     description : The ULX3S with an LFE5U-85F
     default_tool : trellis
     filesets : [rtl, "mox125? (cpu_mox125)", "!mox125? (cpu_moxibit)", ulx3s]
-    parameters : [MDU, FAST_INC]
+    parameters : [MDU, COMPACT, FAST_INC]
     tools:
       trellis:
         nextpnr_options : [--85k, --package, CABGA381, --freq, "25"]
@@ -97,6 +97,11 @@ parameters:
   MDU:
     datatype : int
     description : moxibit only - 0 for no multiplier or divider
+    paramtype : vlogparam
+
+  COMPACT:
+    datatype : int
+    description : moxibit only - 0 to leave out the compact-code extension
     paramtype : vlogparam
 
   FAST_INC:

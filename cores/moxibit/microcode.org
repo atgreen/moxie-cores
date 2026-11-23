@@ -50,7 +50,7 @@ its slot in the register file, so that decoding it costs nothing.
 | pc    |     2 | 0 +2 br k                                          |
 | k     |     5 | #signed                                            |
 | roff  |     3 | - half lsr asr lsl                                 |
-| sp    |     4 | - cmp caseq gsr ssr exc eret dsign dabs diviter divq divr mul shamt shift shamti |
+| sp    |     5 | - cmp caseq gsr ssr exc eret dsign dabs diviter divq divr mul shamt shift shamti bnext bprev |
 | cond  |     2 | - zero irq done                                    |
 | next  |     8 | #label                                             |
 
@@ -75,13 +75,15 @@ What the values mean:
   byte store finds its data's low half in DBUF[31:16]; lsr, asr, lsl:
   the direction of a shift (sp shamt, then shift).  shamti is shamt
   with the count from the instruction, as for ashli: bit 8 and bits
-  3:0.
+  3:0.  bnext and bprev step the instruction's B field up or down, as the
+  µop ends, for pushm and popm; with either, cond done is A = B.
 - sp :: special behaviour; see =moxibit.v=.  caseq sets the
   condition codes as cas.l does: equal, or nothing.
 - cond :: =c:label= goes to label if condition c holds and to next
   otherwise.  next must then be even and label must follow it.
   zero: the ALU's output (DBUF's, for mul) was zero for the whole
-  pass.  irq: irq_i.  done: the divider's 32nd step.
+  pass.  irq: irq_i.  done: the divider's 32nd step, or with sp bnext
+  or bprev, the instruction's A and B fields equal.
 - next :: the next µop.  =fetch= ends the instruction; =disp2=
   dispatches again on the instruction, after its immediate has been
   read.
@@ -102,6 +104,7 @@ What the values mean:
 |---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
 | nop     | inc    |     |     |     |      |      | pc  |       |   |     |     | +2 |    |      |         |             | fetch   |
 | add     | pass   | A   | B   | A   | alu  |      | pc  |       | a | b   | add | +2 |    |      |         |             | fetch   |
+| add3    | pass   | C   | B   | A   | alu  |      | pc  |       | a | b   | add | +2 |    |      |         |             | fetch   |
 | sub     | pass   | A   | B   | A   | alu  |      | pc  |       | a | b   | sub | +2 |    |      |         |             | fetch   |
 | and     | pass   | A   | B   | A   | alu  |      | pc  |       | a | b   | and | +2 |    |      |         |             | fetch   |
 | or      | pass   | A   | B   | A   | alu  |      | pc  |       | a | b   | or  | +2 |    |      |         |             | fetch   |
@@ -124,6 +127,12 @@ What the values mean:
 | jmpa    | pass   |     |     |     |      |      | dq  | rot   |   |     |     |    |    |      |         |             | fetch   |
 | jmp     | pass   | A   |     |     |      |      | a   |       |   |     |     |    |    |      |         |             | fetch   |
 | bcc     | pass   |     |     |     |      |      | pc  |       |   |     |     | br |    |      |         |             | fetch   |
+| beqz    | pass   | A   |     |     |      |      |     |       | a | 0   | add |    |    |      |         | zero:bqt    | bqn     |
+| bqn     | pass   |     |     |     |      |      | pc  |       |   |     |     | +2 |    |      |         |             | fetch   |
+| bqt     | pass   |     |     |     |      |      | pc  |       |   |     |     | br |    |      |         |             | fetch   |
+| bnez    | pass   | A   |     |     |      |      |     |       | a | 0   | add |    |    |      |         | zero:bnn    | bnt     |
+| bnt     | pass   |     |     |     |      |      | pc  |       |   |     |     | br |    |      |         |             | fetch   |
+| bnn     | pass   |     |     |     |      |      | pc  |       |   |     |     | +2 |    |      |         |             | fetch   |
 |---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
 | lshr    | pass   | A   | B   |     |      |      |     | a     |   |     |     |    |    | lsr  | shamt   |             | lshr2   |
 | lshr2   | pass   |     |     | A   |      |      | pc  | rot   |   |     |     | +2 |    | lsr  | shift   |             | fetch   |
@@ -184,9 +193,28 @@ What the values mean:
 | pop4    | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | pop5    |
 | pop5    | pass   | pk  |     | A   | pc   |      | a   |       |   |     |     | +2 |    |      |         |             | pop6    |
 | pop6    | pass   |     |     | B   | dq   |      |     | rot   |   |     |     |    |    |      |         |             | fetch   |
+| pushm   | pass   |     |     | pk  | pc   |      | pc  |       |   |     |     | +2 |    |      |         |             | pml     |
+| pml     | pass   | sp  | B   |     |      |      | alu | b     | a | k   | add |    | -4 |      |         |             | pm2     |
+| pmx     | pass   | pk  |     |     |      |      | a   |       |   |     |     |    |    |      |         |             | fetch   |
+| pm2     | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | pm3     |
+| pm3     | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | pm4     |
+| pm4     | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | pm5     |
+| pm5     | pass   |     |     | sp  | pc   |      | pc  |       |   |     |     | k  | -2 |      | bnext   | done:pmx    | pml     |
+| popm    | pass   |     |     | pk  | pc   |      | pc  |       |   |     |     | +2 |    |      |         |             | ppl     |
+| ppl     | pass   | sp  |     |     |      |      | a   |       |   |     |     |    |    |      |         |             | pp2     |
+| ppx     | pass   | pk  |     |     |      |      | a   |       |   |     |     |    |    |      |         |             | fetch   |
+| pp2     | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | pp3     |
+| pp3     | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | pp4     |
+| pp4     | read   |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | pp5     |
+| pp5     | pass   |     |     | sp  | pc   |      | pc  |       |   |     |     | +2 |    |      |         |             | pp6     |
+| pp6     | pass   |     |     | B   | dq   |      |     | rot   |   |     |     |    |    |      | bprev   | done:ppx    | ppl     |
 |---------+--------+-----+-----+-----+------+------+-----+-------+---+-----+-----+----+----+------+---------+-------------+---------|
 | jsr     | pass   | sp  | A   | pk  | b    |      | alu | pc    | a | k   | add | +2 | -8 |      |         |             | jsr2    |
 | jsra    | pass   | sp  |     | pk  | dq   |      | alu | pc    | a | k   | add | +2 | -8 |      |         |             | jsr2    |
+| bsr1    | pass   |     |     | t1  | alu  |      |     | rot   | 0 | o16 | add |    |    |      |         |             | bsr2    |
+| bsr2    | pass   | t1  |     | t1  | alu  |      | pc  | pc    | a | a   | add | 0  |    |      |         |             | bsr3    |
+| bsr3    | pass   | t1  |     | pk  | alu  |      |     | rot   | a | dq  | add |    |    |      |         |             | bsr4    |
+| bsr4    | pass   | sp  |     |     |      |      | alu | pc    | a | k   | add | +2 | -8 |      |         |             | jsr2    |
 | jsr2    | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | jsr3    |
 | jsr3    | inc    |     |     |     |      |      | pc  | rot16 |   |     |     | +2 |    |      |         |             | jsr4    |
 | jsr4    | write  |     |     |     |      |      |     |       |   |     |     |    |    |      |         |             | jsr5    |
@@ -249,75 +277,83 @@ An instruction starts at =head=, chosen by its top eight bits;
 =then= is where =disp2= goes once its immediate has been read.
 Opcodes not listed are undefined instructions.  The rows marked in
 =mdu= are undefined when the core is built with MDU = 0, so software
-can emulate them.
+can emulate them, and those marked in =ext=, the compact-code
+extension, when it is built with COMPACT = 0.
 
 #+NAME: dispatch
-| ops      | head    | then | mdu |
-|----------+---------+------+-----|
-| 01 1b 20 | p32     | ldi  |     |
-| 02       | mov     |      |     |
-| 03       | p32     | jsra |     |
-| 04       | ret     |      |     |
-| 05       | add     |      |     |
-| 06       | push    |      |     |
-| 07       | pop     |      |     |
-| 08       | p32     | ldal |     |
-| 09       | p32     | stal |     |
-| 0a       | ldl     |      |     |
-| 0b       | stl     |      |     |
-| 0c       | p16     | ldol |     |
-| 0d       | p16     | stol |     |
-| 0e       | cmp     |      |     |
-| 0f       | nop     |      |     |
-| 10       | sexb    |      |     |
-| 11       | sexs    |      |     |
-| 12       | zexb    |      |     |
-| 13       | zexs    |      |     |
-| 19       | jsr     |      |     |
-| 1a       | p32     | jmpa |     |
-| 1c       | ldb     |      |     |
-| 1d       | p32     | ldab |     |
-| 1e       | stb     |      |     |
-| 1f       | p32     | stab |     |
-| 21       | lds     |      |     |
-| 22       | p32     | ldas |     |
-| 23       | sts     |      |     |
-| 24       | p32     | stas |     |
-| 25       | jmp     |      |     |
-| 26       | and     |      |     |
-| 27       | lshr    |      |     |
-| 28       | ashl    |      |     |
-| 29       | sub     |      |     |
-| 2a       | neg     |      |     |
-| 2b       | or      |      |     |
-| 2c       | not     |      |     |
-| 2d       | ashr    |      |     |
-| 2e       | xor     |      |     |
-| 2f       | mul     |      | y   |
-| 30       | p32     | swi  |     |
-| 31 32    | divq    |      | y   |
-| 33 34    | divr    |      | y   |
-| 35       | e_brk   |      |     |
-| 36       | p16     | ldob |     |
-| 37       | p16     | stob |     |
-| 38       | p16     | ldos |     |
-| 39       | p16     | stos |     |
-| 3a       | eret    |      |     |
-| 3b       | wfi     |      |     |
-| 3c       | cas     |      |     |
-| 40 41    | ashli   |      |     |
-| 42 43    | lshri   |      |     |
-| 44 45    | ashri   |      |     |
-| 46 47    | cmpi    |      |     |
-| 48-4b    | ldl3    |      |     |
-| 4c-4f    | stl3    |      |     |
-| 50 51    | ldlf    |      |     |
-| 52 53    | stlf    |      |     |
-| 54       | p16     | ldi16 |     |
-| 55       | p16     | lea  |     |
-| 80-8f    | inc     |      |     |
-| 90-9f    | dec     |      |     |
-| a0-af    | gsr     |      |     |
-| b0-bf    | ssr     |      |     |
-| c0-eb    | bcc     |      |     |
-| f0-f7    | ldi7    |      |     |
+| ops      | head    | then  | mdu | ext |
+|----------+---------+-------+-----+-----|
+| 01 1b 20 | p32     | ldi   |     |     |
+| 02       | mov     |       |     |     |
+| 03       | p32     | jsra  |     |     |
+| 04       | ret     |       |     |     |
+| 05       | add     |       |     |     |
+| 06       | push    |       |     |     |
+| 07       | pop     |       |     |     |
+| 08       | p32     | ldal  |     |     |
+| 09       | p32     | stal  |     |     |
+| 0a       | ldl     |       |     |     |
+| 0b       | stl     |       |     |     |
+| 0c       | p16     | ldol  |     |     |
+| 0d       | p16     | stol  |     |     |
+| 0e       | cmp     |       |     |     |
+| 0f       | nop     |       |     |     |
+| 10       | sexb    |       |     |     |
+| 11       | sexs    |       |     |     |
+| 12       | zexb    |       |     |     |
+| 13       | zexs    |       |     |     |
+| 19       | jsr     |       |     |     |
+| 1a       | p32     | jmpa  |     |     |
+| 1c       | ldb     |       |     |     |
+| 1d       | p32     | ldab  |     |     |
+| 1e       | stb     |       |     |     |
+| 1f       | p32     | stab  |     |     |
+| 21       | lds     |       |     |     |
+| 22       | p32     | ldas  |     |     |
+| 23       | sts     |       |     |     |
+| 24       | p32     | stas  |     |     |
+| 25       | jmp     |       |     |     |
+| 26       | and     |       |     |     |
+| 27       | lshr    |       |     |     |
+| 28       | ashl    |       |     |     |
+| 29       | sub     |       |     |     |
+| 2a       | neg     |       |     |     |
+| 2b       | or      |       |     |     |
+| 2c       | not     |       |     |     |
+| 2d       | ashr    |       |     |     |
+| 2e       | xor     |       |     |     |
+| 2f       | mul     |       | y   |     |
+| 30       | p32     | swi   |     |     |
+| 31 32    | divq    |       | y   |     |
+| 33 34    | divr    |       | y   |     |
+| 35       | e_brk   |       |     |     |
+| 36       | p16     | ldob  |     |     |
+| 37       | p16     | stob  |     |     |
+| 38       | p16     | ldos  |     |     |
+| 39       | p16     | stos  |     |     |
+| 3a       | eret    |       |     |     |
+| 3b       | wfi     |       |     |     |
+| 3c       | cas     |       |     |     |
+| 40 41    | ashli   |       |     | y   |
+| 42 43    | lshri   |       |     | y   |
+| 44 45    | ashri   |       |     | y   |
+| 46 47    | cmpi    |       |     | y   |
+| 48-4b    | ldl3    |       |     | y   |
+| 4c-4f    | stl3    |       |     | y   |
+| 50 51    | ldlf    |       |     | y   |
+| 52 53    | stlf    |       |     | y   |
+| 54       | p16     | ldi16 |     | y   |
+| 55       | p16     | lea   |     | y   |
+| 56       | p16     | bsr1  |     | y   |
+| 57       | pushm   |       |     | y   |
+| 58       | popm    |       |     | y   |
+| 5a 5b    | add3    |       |     | y   |
+| 80-8f    | inc     |       |     |     |
+| 90-9f    | dec     |       |     |     |
+| a0-af    | gsr     |       |     |     |
+| b0-bf    | ssr     |       |     |     |
+| c0-e7    | bcc     |       |     |     |
+| e8-eb    | bcc     |       |     | y   |
+| ec-ef    | beqz    |       |     | y   |
+| f8-fb    | bnez    |       |     | y   |
+| f0-f7    | ldi7    |       |     | y   |

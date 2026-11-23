@@ -137,8 +137,8 @@ for i, (c, t) in enumerate(((ACCENT, "data, one bit per clock"), (CTRL, "control
     ax.plot([lx, lx + 5], [ly - i * 3.2, ly - i * 3.2], color=c, lw=2.4, zorder=4)
     ax.text(lx + 7, ly - i * 3.2, t, fontsize=9, color=MUTED, va="center")
 
-ax.text(156, 0.9, "iCE40, Yosys 0.67: 459 LUT4, 129 flops, 6 block RAMs  ·  "
-        "423 LUT4, 121 flops with MDU = 0",
+ax.text(156, 0.9, "iCE40, Yosys 0.67: 498 LUT4, 129 flops, 6 block RAMs  ·  "
+        "382 LUT4, 121 flops with MDU = 0 and COMPACT = 0",
         fontsize=8.5, color=MUTED, ha="right", va="center")
 
 fig.savefig(sys.argv[1], bbox_inches="tight", pad_inches=0.25, facecolor="white")

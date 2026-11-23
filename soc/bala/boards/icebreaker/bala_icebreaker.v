@@ -23,6 +23,7 @@
 // whichever bala.core's flags choose; moxibit by default.
 
 module bala_icebreaker #(parameter MDU = 1,
+			 parameter COMPACT = 1,
 			 parameter FAST_INC = 0) (
   input             CLK,
   input             BTN_N,
@@ -40,7 +41,7 @@ module bala_icebreaker #(parameter MDU = 1,
 
   wire [15:0] display;
 
-  bala #(.UART_DIVISOR (104), .MDU (MDU), .FAST_INC (FAST_INC))
+  bala #(.UART_DIVISOR (104), .MDU (MDU), .COMPACT (COMPACT), .FAST_INC (FAST_INC))
   soc (.clk_i (CLK), .rst_i (!por[5] | !BTN_N),
        .rx_i (RX), .tx_o (TX), .display_o (display));
 

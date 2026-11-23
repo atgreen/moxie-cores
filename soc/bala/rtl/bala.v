@@ -33,6 +33,7 @@ module bala #(parameter RAM_BYTES = 8192,
 	      parameter UART_DIVISOR = 434,
 	      // Passed to the core: see moxie_cpu.v.
 	      parameter MDU = 1,
+	      parameter COMPACT = 1,
 	      parameter FAST_INC = 0,
 	      parameter ICACHE_SET_BITS = 3) (
   input             clk_i,
@@ -47,7 +48,7 @@ module bala #(parameter RAM_BYTES = 8192,
   wire [15:0] dat_w, dat_r;
   wire [1:0]  sel;
 
-  moxie_cpu #(.MDU (MDU), .FAST_INC (FAST_INC),
+  moxie_cpu #(.MDU (MDU), .COMPACT (COMPACT), .FAST_INC (FAST_INC),
 	      .ICACHE_SET_BITS (ICACHE_SET_BITS))
   cpu (.clk_i (clk_i), .rst_i (rst_i),
        .wb_cyc_o (cyc), .wb_stb_o (stb), .wb_we_o (we),

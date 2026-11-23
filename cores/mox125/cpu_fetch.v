@@ -107,7 +107,8 @@ module cpu_fetch #(parameter BOOT_ADDRESS = 32'h00001000,
 		    | (op == 8'h38) // ldo.s
 		    | (op == 8'h39) // sto.s
 		    | (op == 8'h54) // ldi.l, 16-bit
-		    | (op == 8'h55)); // lea
+		    | (op == 8'h55) // lea
+		    | (op == 8'h56)); // bsr
   endfunction
 
 //  wire [15:0] 	cache_op;

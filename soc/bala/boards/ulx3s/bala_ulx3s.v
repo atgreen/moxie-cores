@@ -21,6 +21,7 @@
 // FTDI's at 115200 8N1.  The eight LEDs show display bits 7:0.
 
 module bala_ulx3s #(parameter MDU = 1,
+		    parameter COMPACT = 1,
 		    parameter FAST_INC = 0) (
   input             clk_25mhz,
   input             ftdi_txd,
@@ -36,7 +37,7 @@ module bala_ulx3s #(parameter MDU = 1,
 
   wire [15:0] display;
 
-  bala #(.UART_DIVISOR (217), .MDU (MDU), .FAST_INC (FAST_INC))
+  bala #(.UART_DIVISOR (217), .MDU (MDU), .COMPACT (COMPACT), .FAST_INC (FAST_INC))
   soc (.clk_i (clk_25mhz), .rst_i (!por[5]),
        .rx_i (ftdi_txd), .tx_o (ftdi_rxd), .display_o (display));
 

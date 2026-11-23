@@ -1,6 +1,6 @@
 --- a/opcodes/moxie-opc.c
 +++ b/opcodes/moxie-opc.c
-@@ -110,34 +110,34 @@
+@@ -110,40 +110,40 @@
      { 0x37, MOXIE_F1_AiB2, "sto.b" },
      { 0x38, MOXIE_F1_ABi2, "ldo.s" },
      { 0x39, MOXIE_F1_AiB2, "sto.s" },
@@ -35,6 +35,9 @@
 -    { 0x53, MOXIE_BAD,     "bad" },
 -    { 0x54, MOXIE_BAD,     "bad" },
 -    { 0x55, MOXIE_BAD,     "bad" },
+-    { 0x56, MOXIE_BAD,     "bad" },
+-    { 0x57, MOXIE_BAD,     "bad" },
+-    { 0x58, MOXIE_BAD,     "bad" },
 +    { 0x40, MOXIE_F1_AU5,  "ashli" },
 +    { 0x41, MOXIE_F1_AU5,  "ashli" },
 +    { 0x42, MOXIE_F1_AU5,  "lshri" },
@@ -57,26 +60,62 @@
 +    { 0x53, MOXIE_F1_FPA,  "sto.l" },
 +    { 0x54, MOXIE_F1_A2,   "ldi.l" },
 +    { 0x55, MOXIE_F1_ABi2, "lea" },
-     { 0x56, MOXIE_BAD,     "bad" },
-     { 0x57, MOXIE_BAD,     "bad" },
-     { 0x58, MOXIE_BAD,     "bad" },
++    { 0x56, MOXIE_F1_PCREL16, "bsr" },
++    { 0x57, MOXIE_F1_AB,   "pushm" },
++    { 0x58, MOXIE_F1_AB,   "popm" },
+     { 0x59, MOXIE_BAD,     "bad" },
+-    { 0x5a, MOXIE_BAD,     "bad" },
+-    { 0x5b, MOXIE_BAD,     "bad" },
++    { 0x5a, MOXIE_F1_ABC3, "add3" },
++    { 0x5b, MOXIE_F1_ABC3, "add3" },
+     { 0x5c, MOXIE_BAD,     "bad" },
+     { 0x5d, MOXIE_BAD,     "bad" },
+     { 0x5e, MOXIE_BAD,     "bad" },
 @@ -202,10 +202,10 @@
      { 0x07, MOXIE_F3_PCREL,"ble" },
      { 0x08, MOXIE_F3_PCREL,"bgeu" },
      { 0x09, MOXIE_F3_PCREL,"bleu" },
 -    { 0x0a, MOXIE_BAD,     "bad" },
-+    { 0x0a, MOXIE_F3_PCREL,"bra" },
-     { 0x0b, MOXIE_BAD,     "bad" },
+-    { 0x0b, MOXIE_BAD,     "bad" },
 -    { 0x0c, MOXIE_BAD,     "bad" },
 -    { 0x0d, MOXIE_BAD,     "bad" },
+-    { 0x0e, MOXIE_BAD,     "bad" },
++    { 0x0a, MOXIE_F3_PCREL,"bra" },
++    { 0x0b, MOXIE_F3_APCREL, "beqz" },
 +    { 0x0c, MOXIE_F3_AI7,  "ldi.l" },
 +    { 0x0d, MOXIE_F3_AI7,  "ldi.l" },
-     { 0x0e, MOXIE_BAD,     "bad" },
++    { 0x0e, MOXIE_F3_APCREL, "bnez" },
      { 0x0f, MOXIE_BAD,     "bad" }  /* Reserved as bad.  */
    };
 --- a/opcodes/moxie-dis.c
 +++ b/opcodes/moxie-dis.c
-@@ -156,6 +156,56 @@
+@@ -24,6 +24,7 @@
+ #define STATIC_TABLE
+ #define DEFINE_TABLE
+ 
++#include <string.h>
+ #include "opcode/moxie.h"
+ #include "disassemble.h"
+ 
+@@ -73,9 +74,14 @@
+ 	       reg_names[OP_A(iword)]);
+ 	  break;
+ 	case MOXIE_F1_AB:
+-	  fpr (stream, "%s\t%s, %s", opcode->name,
+-	       reg_names[OP_A(iword)],
+-	       reg_names[OP_B(iword)]);
++	  /* pushm's first register is in B and its last in A.  */
++	  if (strcmp (opcode->name, "pushm") == 0)
++	    fpr (stream, "%s\t%s, %s", opcode->name,
++		 reg_names[OP_B(iword)], reg_names[OP_A(iword)]);
++	  else
++	    fpr (stream, "%s\t%s, %s", opcode->name,
++		 reg_names[OP_A(iword)],
++		 reg_names[OP_B(iword)]);
+ 	  break;
+ 	case MOXIE_F1_A4:
+ 	  {
+@@ -156,6 +162,77 @@
  	    length = 4;
  	  }
  	  break;
@@ -122,6 +161,27 @@
 +		   reg_names[OP_A(iword)]);
 +	  }
 +	  break;
++	case MOXIE_F1_PCREL16:
++	  {
++	    int imm;
++	    if ((status = info->read_memory_func (addr + 2, buffer, 2, info)))
++	      goto fail;
++	    if (info->endian == BFD_ENDIAN_BIG)
++	      imm = (int16_t) bfd_getb16 (buffer);
++	    else
++	      imm = (int16_t) bfd_getl16 (buffer);
++	    fpr (stream, "%s\t", opcode->name);
++	    info->print_address_func (addr + 2 + imm * 2, info);
++	    length = 4;
++	  }
++	  break;
++	case MOXIE_F1_ABC3:
++	  /* $rD in bits 6-4, $rA in bits 8, 7 and 3, $rB in bits 2-0.  */
++	  fpr (stream, "%s\t%s, %s, %s", opcode->name,
++	       reg_names[(iword >> 4 & 7) + 2],
++	       reg_names[((iword >> 6 & 6) | (iword >> 3 & 1)) + 2],
++	       reg_names[(iword & 7) + 2]);
++	  break;
 +	case MOXIE_F1_AU5:
 +	  fpr (stream, "%s\t%s, %d", opcode->name, reg_names[OP_A(iword)],
 +	       ((iword >> 4) & 0x10) | OP_B(iword));
@@ -133,10 +193,19 @@
  	case MOXIE_F1_ABi2:
  	  {
  	    unsigned imm;
-@@ -212,6 +262,15 @@
+@@ -212,6 +289,24 @@
  	  fpr (stream, "%s\t", opcode->name);
  	  info->print_address_func (addr + INST2OFFSET (iword) + 2, info);
  	  break;
++	case MOXIE_F3_APCREL:
++	  {
++	    /* A 6-bit halfword offset, bits 9-8 and 3-0.  */
++	    int off = ((iword >> 4) & 0x30) | OP_B(iword);
++	    fpr (stream, "%s\t%s, ", opcode->name, reg_names[OP_A(iword)]);
++	    info->print_address_func (addr + 2 + 2 * (off >= 32 ? off - 64 : off),
++				      info);
++	  }
++	  break;
 +	case MOXIE_F3_AI7:
 +	  {
 +	    /* Bit 6 of the value is bit 10, bits 5 and 4 are bits 9 and 8,
@@ -168,14 +237,14 @@
  
    /* Insert names into hash table.  */
 -  for (count = 0, opcode = moxie_form1_opc_info; count++ < 64; opcode++)
-+  for (count = 0, opcode = moxie_form1_opc_info; count++ < 86; opcode++)
++  for (count = 0, opcode = moxie_form1_opc_info; count++ < 92; opcode++)
      str_hash_insert (opcode_hash_control, opcode->name, opcode, 0);
  
    for (count = 0, opcode = moxie_form2_opc_info; count++ < 4; opcode++)
      str_hash_insert (opcode_hash_control, opcode->name, opcode, 0);
  
 -  for (count = 0, opcode = moxie_form3_opc_info; count++ < 10; opcode++)
-+  for (count = 0, opcode = moxie_form3_opc_info; count++ < 14; opcode++)
++  for (count = 0, opcode = moxie_form3_opc_info; count++ < 15; opcode++)
      str_hash_insert (opcode_hash_control, opcode->name, opcode, 0);
  
    bfd_set_arch_mach (stdoutput, TARGET_ARCH, 0);
@@ -263,7 +332,24 @@
  void
  md_assemble (char *str)
  {
-@@ -254,6 +334,23 @@
+@@ -223,7 +303,15 @@
+ 	  as_warn (_("expecting comma delimited register operands"));
+ 	op_end++;
+ 	src  = parse_register_operand (&op_end);
+-	iword += (dest << 4) + src;
++	if ((opcode->opcode == 0x57 || opcode->opcode == 0x58)
++	    && (dest < 2 || dest > src))
++	  as_bad (_("%s needs a range of registers from $r0 up"), opcode->name);
++	/* pushm keeps its first register in B and its last in A, so that
++	   pushm and popm both step through the B field.  */
++	if (opcode->opcode == 0x57)
++	  iword += (src << 4) + dest;
++	else
++	  iword += (dest << 4) + src;
+ 	while (is_whitespace (*op_end))
+ 	  op_end++;
+ 	if (*op_end != 0)
+@@ -254,6 +342,23 @@
  	op_end++;
  
  	op_end = parse_exp_save_ilp (op_end, &arg);
@@ -287,7 +373,7 @@
  	where = frag_more (4);
  	fix_new_exp (frag_now,
  		     (where - frag_now->fr_literal),
-@@ -408,8 +505,8 @@
+@@ -408,8 +513,8 @@
  	op_end++;
        {
  	expressionS arg;
@@ -298,7 +384,7 @@
  
   	a = parse_register_operand (&op_end);
  	while (is_whitespace (*op_end))
-@@ -423,14 +520,7 @@
+@@ -423,14 +528,7 @@
  	  }
  	op_end++;
  
@@ -314,7 +400,7 @@
  
  	if (*op_end != '(')
  	  {
-@@ -453,7 +543,19 @@
+@@ -453,7 +551,19 @@
  	if (*op_end != 0)
  	  as_warn (_("extra stuff on line ignored"));
  
@@ -335,7 +421,7 @@
        }
        break;
      case MOXIE_F1_AiB2:
-@@ -462,17 +564,10 @@
+@@ -462,17 +572,10 @@
  	op_end++;
        {
  	expressionS arg;
@@ -356,7 +442,7 @@
  
  	if (*op_end != '(')
  	  {
-@@ -504,7 +599,46 @@
+@@ -504,7 +607,106 @@
  	if (*op_end != 0)
  	  as_warn (_("extra stuff on line ignored"));
  
@@ -401,10 +487,70 @@
 +	  op_end++;
 +	if (*op_end != 0)
 +	  as_warn (_("extra stuff on line ignored"));
++      }
++      break;
++    case MOXIE_F1_PCREL16:
++      iword = opcode->opcode << 8;
++      while (is_whitespace (*op_end))
++	op_end++;
++      {
++	expressionS arg;
++	char *where;
++
++	op_end = parse_exp_save_ilp (op_end, &arg);
++	where = frag_more (2);
++	fix_new_exp (frag_now, (where - frag_now->fr_literal), 2, &arg,
++		     true, BFD_RELOC_16_PCREL);
++      }
++      break;
++    case MOXIE_F1_ABC3:
++      while (is_whitespace (*op_end))
++	op_end++;
++      {
++	int d, a, b;
++
++	d = short_reg (parse_register_operand (&op_end));
++	if (*op_end != ',')
++	  as_warn (_("expecting comma delimited register operands"));
++	op_end++;
++	a = short_reg (parse_register_operand (&op_end));
++	if (*op_end != ',')
++	  as_warn (_("expecting comma delimited register operands"));
++	op_end++;
++	b = short_reg (parse_register_operand (&op_end));
++	if (d < 0 || a < 0 || b < 0)
++	  as_bad (_("%s takes only $r0-$r7"), opcode->name);
++	/* The first source is bit 8, bit 7 and bit 3.  */
++	iword = ((opcode->opcode | (a >> 2 & 1)) << 8) | ((a >> 1 & 1) << 7)
++	  | ((d & 7) << 4) | ((a & 1) << 3) | (b & 7);
++	while (is_whitespace (*op_end))
++	  op_end++;
++	if (*op_end != 0)
++	  as_warn (_("extra stuff on line ignored"));
++      }
++      break;
++    case MOXIE_F3_APCREL:
++      iword = (3<<14) | (opcode->opcode << 10);
++      while (is_whitespace (*op_end))
++	op_end++;
++      {
++	expressionS arg;
++	int reg;
++
++	reg = parse_register_operand (&op_end);
++	iword += reg << 4;
++	if (*op_end != ',')
++	  as_warn (_("expecting comma delimited operands"));
++	op_end++;
++	op_end = parse_exp_save_ilp (op_end, &arg);
++	/* Resolved here, like the other branches' targets: there is no
++	   relocation for it.  */
++	fix_new_exp (frag_now, (p - frag_now->fr_literal), 2, &arg,
++		     true, BFD_RELOC_8_PCREL);
        }
        break;
      case MOXIE_F2_NARG:
-@@ -601,12 +735,14 @@
+@@ -601,12 +803,14 @@
  {
    OPTION_EB = OPTION_MD_BASE,
    OPTION_EL,
@@ -419,7 +565,7 @@
    { NULL,          no_argument, NULL, 0}
  };
  
-@@ -625,6 +761,9 @@
+@@ -625,6 +829,9 @@
      case OPTION_EL:
        target_big_endian = 0;
        break;
@@ -429,7 +575,7 @@
      default:
        return 0;
      }
-@@ -637,7 +776,9 @@
+@@ -637,7 +844,9 @@
  {
    fprintf (stream, _("\
    -EB                     assemble for a big endian system (default)\n\
@@ -440,10 +586,28 @@
  }
  
  /* Apply a fixup to the object file.  */
-@@ -690,6 +831,13 @@
+@@ -690,6 +899,31 @@
        *buf++ = val;
        break;
  
++    case BFD_RELOC_8_PCREL:
++      /* beqz and bnez: a 6-bit halfword offset in bits 9-8 and 3-0.  */
++      if (val < -64 || val > 62 || (val & 1))
++	as_bad_where (fixP->fx_file, fixP->fx_line,
++		      _("beqz or bnez target out of range"));
++      val >>= 1;
++      newval = md_chars_to_number (buf, 2);
++      newval |= ((val >> 4 & 3) << 8) | (val & 15);
++      md_number_to_chars (buf, newval, 2);
++      break;
++
++    case BFD_RELOC_16_PCREL:
++      /* bsr: a halfword offset from the field.  */
++      if (val & 1)
++	as_bad_where (fixP->fx_file, fixP->fx_line, _("odd bsr target"));
++      md_number_to_chars (buf, (val >> 1) & 0xffff, 2);
++      break;
++
 +    case BFD_RELOC_GPREL16:
 +      /* Always a relocation, against _gp, which the linker defines.  */
 +      if (fixP->fx_addsy == NULL)
@@ -454,17 +618,31 @@
      case BFD_RELOC_MOXIE_10_PCREL:
        if (!val)
  	break;
-@@ -765,6 +913,7 @@
+@@ -765,6 +999,8 @@
        code = fixP->fx_r_type;
        break;
      case BFD_RELOC_MOXIE_10_PCREL:
 +    case BFD_RELOC_GPREL16:
++    case BFD_RELOC_16_PCREL:
        code = fixP->fx_r_type;
        break;
      default:
+@@ -836,8 +1072,12 @@
+     case BFD_RELOC_32:
+       return addr + 4;
+     case BFD_RELOC_MOXIE_10_PCREL:
++    case BFD_RELOC_8_PCREL:
+       /* Offset is from the end of the instruction.  */
+       return addr + 2;
++    case BFD_RELOC_16_PCREL:
++      /* bsr's offset is from the field itself.  */
++      return addr;
+     default:
+       abort ();
+       return addr;
 --- a/include/opcode/moxie.h
 +++ b/include/opcode/moxie.h
-@@ -30,6 +30,17 @@
+@@ -30,6 +30,19 @@
      Some consume a 4 byte immediate value and use X (MOXIE_F1_4A)
      Some use B and an indirect A plus 2 byte offset (MOXIE_F1_AiB2)
      Some use A and an indirect B plus 2 byte offset (MOXIE_F1_ABi2)
@@ -476,23 +654,26 @@
 +    Some use B and an indirect A likewise           (MOXIE_F1_AiB3)
 +    Some use A and $fp less a 5-bit word offset     (MOXIE_F1_AFP)
 +    Some store A at $fp less a 5-bit word offset    (MOXIE_F1_FPA)
++    Some use a 2 byte PC relative offset            (MOXIE_F1_PCREL16)
++    Some use three 3-bit register fields            (MOXIE_F1_ABC3)
 +
 +   The 5-bit immediates take two opcodes: bit 4 of the value is the
 +   low bit of the opcode and bits 3-0 are the B field.
  
    Form 2 instructions also come in different flavors:
  
-@@ -39,7 +50,8 @@
+@@ -39,7 +52,9 @@
    Form 3 instructions also come in different flavors:
  
      Some have no arguments                          (MOXIE_F3_NARG)
 -    Some have a 10-bit PC relative operand          (MOXIE_F3_PCREL).  */
 +    Some have a 10-bit PC relative operand          (MOXIE_F3_PCREL)
-+    Some use A and a 7-bit signed immediate value   (MOXIE_F3_AI7).  */
++    Some use A and a 7-bit signed immediate value   (MOXIE_F3_AI7)
++    Some use A and a 6-bit PC relative operand      (MOXIE_F3_APCREL).  */
  
  #define MOXIE_F1_NARG 0x100
  #define MOXIE_F1_A    0x101
-@@ -53,12 +65,20 @@
+@@ -53,12 +68,23 @@
  #define MOXIE_F1_AiB2 0x109
  #define MOXIE_F1_ABi2 0x10a
  #define MOXIE_F1_M    0x10b
@@ -503,6 +684,8 @@
 +#define MOXIE_F1_AiB3 0x110
 +#define MOXIE_F1_AFP  0x111
 +#define MOXIE_F1_FPA  0x112
++#define MOXIE_F1_PCREL16 0x113
++#define MOXIE_F1_ABC3 0x114
  
  #define MOXIE_F2_NARG 0x200
  #define MOXIE_F2_A8V  0x201
@@ -510,22 +693,24 @@
  #define MOXIE_F3_NARG  0x300
  #define MOXIE_F3_PCREL 0x301
 +#define MOXIE_F3_AI7   0x302
++#define MOXIE_F3_APCREL 0x303
  
  #define MOXIE_BAD     0x400
  
 --- a/include/elf/moxie.h
 +++ b/include/elf/moxie.h
-@@ -27,6 +27,7 @@
+@@ -27,6 +27,8 @@
    RELOC_NUMBER (R_MOXIE_NONE, 0)
    RELOC_NUMBER (R_MOXIE_32, 1)
    RELOC_NUMBER (R_MOXIE_PCREL10, 2)
 +  RELOC_NUMBER (R_MOXIE_GPREL16, 3)
++  RELOC_NUMBER (R_MOXIE_PCREL16, 4)
  END_RELOC_NUMBERS (R_MOXIE_max)
  
  #endif /* _ELF_MOXIE_H */
 --- a/bfd/elf32-moxie.c
 +++ b/bfd/elf32-moxie.c
-@@ -75,6 +75,21 @@
+@@ -75,6 +75,37 @@
  	 0,			/* src_mask.  */
  	 0x000003FF,		/* dst_mask.  */
  	 true),			/* pcrel_offset.  */
@@ -544,18 +729,35 @@
 +	 0,			/* src_mask.  */
 +	 0x0000ffff,		/* dst_mask.  */
 +	 false),		/* pcrel_offset.  */
++
++  /* A 16 bit PC-relative relocation, in halfwords from the field,
++     for bsr.  */
++  HOWTO (R_MOXIE_PCREL16,	/* type.  */
++	 1,			/* rightshift.  */
++	 2,			/* size.  */
++	 16,			/* bitsize.  */
++	 true,			/* pc_relative.  */
++	 0,			/* bitpos.  */
++	 complain_overflow_signed, /* complain_on_overflow.  */
++	 bfd_elf_generic_reloc,	/* special_function.  */
++	 "R_MOXIE_PCREL16",	/* name.  */
++	 false,			/* partial_inplace.  */
++	 0,			/* src_mask.  */
++	 0x0000ffff,		/* dst_mask.  */
++	 true),			/* pcrel_offset.  */
  };
  
  /* Map BFD reloc types to MOXIE ELF reloc types.  */
-@@ -90,6 +105,7 @@
+@@ -90,6 +121,8 @@
    { BFD_RELOC_NONE,	       R_MOXIE_NONE },
    { BFD_RELOC_32,	       R_MOXIE_32 },
    { BFD_RELOC_MOXIE_10_PCREL,  R_MOXIE_PCREL10 },
 +  { BFD_RELOC_GPREL16,	       R_MOXIE_GPREL16 },
++  { BFD_RELOC_16_PCREL,	       R_MOXIE_PCREL16 },
  };
  
  static reloc_howto_type *
-@@ -147,7 +163,8 @@
+@@ -147,7 +180,8 @@
     routines, but a few relocs, we have to do them ourselves.  */
  
  static bfd_reloc_status_type
@@ -565,7 +767,7 @@
  			   bfd *input_bfd,
  			   asection *input_section,
  			   bfd_byte *contents,
-@@ -158,6 +175,28 @@
+@@ -158,6 +192,28 @@
  
    switch (howto->type)
      {
@@ -594,7 +796,7 @@
      default:
        r = _bfd_final_link_relocate (howto, input_bfd, input_section,
  				    contents, rel->r_offset,
-@@ -265,7 +304,7 @@
+@@ -265,7 +321,7 @@
        if (bfd_link_relocatable (info))
  	continue;
  

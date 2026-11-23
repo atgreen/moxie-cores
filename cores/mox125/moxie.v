@@ -153,6 +153,8 @@ module moxie #(// log2 of the number of 32-byte instruction cache lines.
 
   // High while execute is busy with a multi-cycle instruction.
   wire        stall;
+  wire        decode_hold;
+  wire [3:0]  dx_readA, dx_readB;
 
   // --- Memory management ----------------------------------------
   wire        mmu;
@@ -251,13 +253,13 @@ module moxie #(// log2 of the number of 32-byte instruction cache lines.
   // on the execute outputs (forward_*), and the one before that was
   // being written to the register file as we read it (maybe_forward_*).
   wire forward_1_to_1 = xr_register1_write_enable
-       & (xr_register1_write_index == dx_register1_write_index);
+       & (xr_register1_write_index == dx_readA);
   wire forward_1_to_2 = xr_register1_write_enable
-       & (xr_register1_write_index == dx_register2_write_index);
+       & (xr_register1_write_index == dx_readB);
   wire forward_2_to_1 = xr_register2_write_enable
-       & (xr_register2_write_index == dx_register1_write_index);
+       & (xr_register2_write_index == dx_readA);
   wire forward_2_to_2 = xr_register2_write_enable
-       & (xr_register2_write_index == dx_register2_write_index);
+       & (xr_register2_write_index == dx_readB);
   reg maybe_forward_1_to_1;
   reg maybe_forward_1_to_2;
   reg maybe_forward_2_to_1;
@@ -291,7 +293,7 @@ module moxie #(// log2 of the number of 32-byte instruction cache lines.
 			 .clk_i			(clk_i),
 			 .branch_flag_i         (xf_branch_flag),
 			 .branch_target_i       (xf_branch_target),
-			 .stall_i               (stall),
+			 .stall_i               (stall | decode_hold),
 			 .mode_i                ({mmu, um}),
 			 .xlate_vaddr_o         (itlb_vaddr),
 			 .xlate_ppn_i           (itlb_ppn),
@@ -317,6 +319,10 @@ module moxie #(// log2 of the number of 32-byte instruction cache lines.
 			   .riA_o (dr_reg_index1),
 			   .riB_o (dr_reg_index2),
 			   .pcrel_offset_o (dx_pcrel_offset),
+			   .readA_o (dx_readA),
+			   .readB_o (dx_readB),
+			   .hold_o (decode_hold),
+			   .branch_i (xf_branch_flag),
 			   .op_o (dx_op));
 
   cpu_execute stage_execute (// Inputs

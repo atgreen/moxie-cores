@@ -622,6 +622,13 @@ step (void)
 	    case 8: take = cc & (CC_EQ | CC_GTU); break;
 	    case 9: take = cc & (CC_EQ | CC_LTU); break;
 	    case 10: take = 1; break;		/* bra */
+	    case 11: case 14:			/* beqz, bnez */
+	      /* $rA is bits 7-4, and the offset is 6 bits: 9-8, 3-0.  */
+	      off = ((op >> 4) & 0x30) | (op & 15);
+	      if (off & 0x20)
+		off -= 0x40;
+	      take = (reg[(op >> 4) & 15] == 0) == (((op >> 10) & 15) == 11);
+	      break;
 	    default: exception (CAUSE_UNDEFINED, at); return;
 	    }
 	  pc = take ? at + 2 + off * 2 : at + 2;
@@ -676,10 +683,11 @@ step (void)
     case 0x01: case 0x1b: case 0x20:	/* ldi.l, ldi.b, ldi.s */
       reg[a] = operand; next = at + 6; break;
     case 0x02: reg[a] = reg[b]; break;
-    case 0x03: case 0x19:		/* jsra, jsr */
+    case 0x03: case 0x19: case 0x56:	/* jsra, jsr, bsr */
       {
-	u32 target = code == 0x03 ? operand : reg[a];
-	u32 ret = code == 0x03 ? at + 6 : at + 2;
+	u32 target = code == 0x03 ? operand
+	  : code == 0x56 ? at + 2 + 2 * OFFSET : reg[a];
+	u32 ret = code == 0x03 ? at + 6 : code == 0x56 ? at + 4 : at + 2;
 	u32 sp = reg[SP];
 	STORE (sp - 8, 4, ret);
 	STORE (sp - 12, 4, reg[FP]);
@@ -822,6 +830,32 @@ step (void)
     case 0x50: case 0x51: LOAD (FPOFF, 4); reg[a] = v; break;
     case 0x52: case 0x53: STORE (FPOFF, 4, reg[a]); break;
     case 0x54: reg[a] = OFFSET; next = at + 4; break; /* ldi.l, 16-bit */
+    case 0x57:				/* pushm: push $rB to $rA */
+      {
+	/* Every store is made before $sp changes, so that a fault
+	   leaves the registers as they were.  */
+	u32 sp = reg[SP], r;
+	for (r = b; r <= a; r++)
+	  STORE (sp - 4 * (r - b + 1), 4, reg[r]);
+	reg[SP] = sp - 4 * (a - b + 1);
+      }
+      break;
+    case 0x58:				/* popm: pop $rB down to $rA */
+      {
+	u32 sp = reg[SP], val[16], r;
+	for (r = b; r + 1 > a; r--)
+	  {
+	    LOAD (sp + 4 * (b - r), 4);
+	    val[r] = v;
+	  }
+	for (r = a; r <= b; r++)
+	  reg[r] = val[r];
+	reg[SP] = sp + 4 * (b - a + 1);
+      }
+      break;
+    case 0x5a: case 0x5b:		/* add3 */
+      reg[A3] = reg[(((op >> 6) & 6) | ((op >> 3) & 1)) + R0] + reg[B3];
+      break;
     case 0x55: reg[a] = reg[b] + OFFSET; next = at + 4; break; /* lea */
     default:
       exception (CAUSE_UNDEFINED, at);

@@ -39,12 +39,14 @@
 // so a slave that registers its ack cannot ack the next one early.
 //
 // With MDU = 0, mul, div, udiv, mod and umod are undefined
-// instructions, for software to emulate.  FAST_INC = 1 spends about 20
-// LUTs on adding 2 to ADR in parallel, for about an eighth fewer
-// clocks.
+// instructions, for software to emulate.  With COMPACT = 0, so are the
+// compact-code extension's (docs/compact.md), for about 15% fewer LUTs.
+// FAST_INC = 1 spends about 20 LUTs on adding 2 to ADR in parallel,
+// for about an eighth fewer clocks.
 
 module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
 		parameter MDU = 1,
+		parameter COMPACT = 1,
 		parameter FAST_INC = 0) (
   input             clk_i,
   input             rst_i,
@@ -114,7 +116,7 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
 
   wire fetching = state == S_START & u_kind == KIND_FETCH;
 
-  moxibit_ucode #(.MDU (MDU)) ucode (.clk_i (clk_i),
+  moxibit_ucode #(.MDU (MDU), .COMPACT (COMPACT)) ucode (.clk_i (clk_i),
 				     .uaddr_i (rom_addr),
 				     .uword_o (uw),
 				     .daddr_i (fetching ? {1'b0, wb_dat_i[15:8]}
@@ -127,7 +129,9 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
   wire sp_ssr     = u_sp == SP_SSR;
   wire sp_exc     = u_sp == SP_EXC;
   wire sp_eret    = u_sp == SP_ERET;
-  wire sp_shamti  = u_sp == SP_SHAMTI;
+  wire sp_shamti  = COMPACT != 0 && u_sp == SP_SHAMTI;
+  wire sp_bnext   = COMPACT != 0 && u_sp == SP_BNEXT;
+  wire sp_bprev   = COMPACT != 0 && u_sp == SP_BPREV;
   wire sp_shamt   = u_sp == SP_SHAMT | sp_shamti;
   wire sp_shift   = u_sp == SP_SHIFT;
   wire sp_mul     = MDU != 0 && u_sp == SP_MUL;
@@ -148,18 +152,26 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
 
   // Codes 16-31 are register file slots; the rest name the fields
   // of the instruction, a special register, $fp, $sp or $r0.
-  // The short ldo.l and sto.l, opcodes 0x48-0x4f, have 3-bit A and B
-  // fields, bits 6:4 and 2:0, that name $r0-$r7.
-  wire short3 = ir[15:11] == 5'b01001;
+  // The short ldo.l and sto.l, opcodes 0x48-0x4f, and add3, 0x5a-0x5b,
+  // have 3-bit A and B fields, bits 6:4 and 2:0, that name $r0-$r7;
+  // add3's first source is the C field, bits 8, 7 and 3.
+  wire add3 = COMPACT != 0 && ir[15:9] == 7'b0101101;
+  wire short3 = COMPACT != 0 && (ir[15:11] == 5'b01001 | add3);
+
+  // The A, B and C fields as register numbers, decoded once for the
+  // three ports.
+  wire [3:0] field_a = short3 ? {1'b0, ir[6:4]} + 4'd2 : ir[7:4];
+  wire [3:0] field_b = short3 ? {1'b0, ir[2:0]} + 4'd2 : ir[3:0];
+  wire [3:0] field_c = add3 ? {1'b0, ir[8:7], ir[3]} + 4'd2 : ir[11:8];
 
   function [4:0] regidx (input [4:0] code);
     if (code[4])
       regidx = code;
     else
       case (code[2:0])
-	3'd1:    regidx = short3 ? {2'b0, ir[6:4]} + 5'd2 : {1'b0, ir[7:4]};
-	3'd2:    regidx = short3 ? {2'b0, ir[2:0]} + 5'd2 : {1'b0, ir[3:0]};
-	3'd3:    regidx = {1'b0, ir[11:8]};
+	3'd1:    regidx = {1'b0, field_a};
+	3'd2:    regidx = {1'b0, field_b};
+	3'd3:    regidx = {1'b0, field_c};
 	3'd4:    regidx = {2'b11, ir[2:0]};
 	3'd6:    regidx = 5'd1;
 	3'd7:    regidx = 5'd2;
@@ -222,7 +234,11 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
 
   // The PC adder adds 2 by injecting a carry into bit 1, plus twice
   // the branch offset when a branch is taken.
-  wire [31:0] off = {{21{ir[9]}}, ir[9:0], 1'b0};
+  // beqz and bnez, conditions 11 and 14, have a 6-bit offset, bits 9:8
+  // and 3:0.
+  wire bz = COMPACT != 0 && (ir[13:10] == 4'd11 | ir[13:10] == 4'd14);
+  wire [31:0] off = bz ? {{25{ir[9]}}, ir[9:8], ir[3:0], 1'b0}
+		    : {{21{ir[9]}}, ir[9:0], 1'b0};
   wire pc_y = u_pc == PC_BR ? take & off[cnt] : u_pc == PC_K & kbit;
   wire pc_cin = c_pc | (u_pc == PC_P2 | u_pc == PC_BR) & cnt == 5'd1;
   wire pc_sum = aq ^ pc_y ^ pc_cin;
@@ -279,7 +295,8 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
     case (u_y)
       Y_B:   y_raw = rb;
       Y_A:   y_raw = ra;
-      Y_I8:  y_raw = imm_bit;
+      Y_I8:  y_raw = COMPACT != 0 ? imm_bit
+			  : cnt[4:3] == 0 & ir[{1'b0, cnt[2:0]}];
       Y_DQ:  y_raw = dq;
       Y_O16: y_raw = cnt[4] ? sx : dq;
       Y_K:   y_raw = kbit;
@@ -408,7 +425,8 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
     case (u_cond)
       COND_ZERO: cond_true = !(zacc | zbit);
       COND_IRQ:  cond_true = irq_i;
-      COND_DONE: cond_true = it == 5'd31;
+      COND_DONE: cond_true = sp_bnext | sp_bprev ? ir[7:4] == ir[3:0]
+			     : it == 5'd31;
       default:   cond_true = 1'b0;
     endcase
 
@@ -479,6 +497,10 @@ module moxibit #(parameter BOOT_ADDRESS = 32'h00001000,
       begin
 	if (last)
 	  upc <= next;
+	// pushm and popm step through their registers in the instruction's
+	// B field.
+	if (last & (sp_bnext | sp_bprev))
+	  ir[3:0] <= ir[3:0] + {{3{sp_bprev}}, 1'b1};
 
 	case (state)
 	  S_START:

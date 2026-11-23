@@ -1,6 +1,6 @@
 --- a/gcc/config/moxie/constraints.md
 +++ b/gcc/config/moxie/constraints.md
-@@ -54,3 +54,13 @@
+@@ -54,3 +54,16 @@
    "A constant -(0..255)"
    (and (match_code "const_int")
         (match_test "ival >= -255 && ival <= 0")))
@@ -14,9 +14,21 @@
 +  "An immediate for cmpi (-16..15)"
 +  (and (match_code "const_int")
 +       (match_test "TARGET_COMPACT && ival >= -16 && ival <= 15")))
++
++(define_register_constraint "t" "TARGET_COMPACT ? SHORT_REGS : NO_REGS"
++  "$r0 to $r7, which add3 takes")
 --- a/gcc/config/moxie/moxie.cc
 +++ b/gcc/config/moxie/moxie.cc
-@@ -108,6 +108,39 @@
+@@ -40,6 +40,8 @@
+ #include "calls.h"
+ #include "expr.h"
+ #include "builtins.h"
++#include "insn-config.h"
++#include "recog.h"
+ 
+ /* This file should be included last.  */
+ #include "target-def.h"
+@@ -108,6 +110,39 @@
    output_operand_lossage ("%s", msgid);
  }
  
@@ -56,7 +68,7 @@
  /* The PRINT_OPERAND_ADDRESS worker.  */
  
  static void
-@@ -174,6 +207,27 @@
+@@ -174,6 +209,27 @@
        /* No code, print as usual.  */
        break;
  
@@ -84,9 +96,254 @@
      default:
        LOSE_AND_RETURN ("invalid operand modifier letter", x);
      }
+@@ -274,6 +330,115 @@
+        ? (HOST_WIDE_INT) crtl->outgoing_args_size : 0);
+ }
+ 
++/* True if a call to X can be a bsr, which reaches 64K bytes either
++   way.  */
++
++bool
++moxie_bsr_p (rtx x)
++{
++  return TARGET_COMPACT && !TARGET_LONG_CALLS && GET_CODE (x) == SYMBOL_REF;
++}
++
++/* The pushm or popm (PUSH false) of PAR, a PARALLEL that moves $sp and
++   then stores or loads a run of registers.  */
++
++const char *
++moxie_output_multiple (rtx par, bool push)
++{
++  static char buf[64];
++  int i, lo = FIRST_PSEUDO_REGISTER, hi = 0;
++
++  for (i = 1; i < XVECLEN (par, 0); i++)
++    {
++      rtx set = XVECEXP (par, 0, i);
++      int regno = REGNO (push ? SET_SRC (set) : SET_DEST (set));
++      lo = MIN (lo, regno);
++      hi = MAX (hi, regno);
++    }
++  sprintf (buf, "%s\t%s, %s", push ? "pushm" : "popm",
++	   reg_names[lo], reg_names[hi]);
++  return buf;
++}
++
++/* True if MEM, the memory operand of an ldo.l or sto.l of REG, has a
++   2-byte form with -mcompact: an offset of 0 to 60 from $r0-$r7 to or
++   from $r0-$r7, or of -4 to -128 from $fp.  */
++
++static bool
++moxie_short_offset_p (rtx mem, rtx reg)
++{
++  rtx addr = XEXP (mem, 0);
++  HOST_WIDE_INT off;
++  int base;
++
++  if (!TARGET_COMPACT || GET_MODE (mem) != SImode || !REG_P (reg)
++      || GET_CODE (addr) != PLUS || !REG_P (XEXP (addr, 0))
++      || !CONST_INT_P (XEXP (addr, 1)))
++    return false;
++  off = INTVAL (XEXP (addr, 1));
++  base = REGNO (XEXP (addr, 0));
++  if (off & 3)
++    return false;
++  if (base == MOXIE_FP)
++    return off >= -128 && off <= -4;
++  return (off >= 0 && off <= 60
++	  && IN_RANGE (base, MOXIE_R0, MOXIE_R0 + 7)
++	  && IN_RANGE (REGNO (reg), MOXIE_R0, MOXIE_R0 + 7));
++}
++
++/* The length of INSN, a *movsi, *movhi or *movqi, as the assembler
++   will encode it.  */
++
++int
++moxie_move_length (rtx_insn *insn)
++{
++  rtx *ops = recog_data.operand;
++  bool si;
++
++  extract_constrain_insn_cached (insn);
++  si = GET_MODE (ops[0]) == SImode;
++  switch (which_alternative)
++    {
++    case 2:			/* ldi */
++      if (si && TARGET_COMPACT && CONST_INT_P (ops[1]))
++	{
++	  HOST_WIDE_INT v = INTVAL (ops[1]);
++	  if (IN_RANGE (v, -64, 63))
++	    return 2;
++	  if (IN_RANGE (v, -32768, 32767))
++	    return 4;
++	}
++      return si && moxie_gprel_p (ops[1]) ? 4 : 6;
++    case 4:			/* sta */
++      return moxie_gprel_p (ops[0]) ? 4 : 6;
++    case 6:			/* lda */
++      return moxie_gprel_p (ops[1]) ? 4 : 6;
++    case 7:			/* sto */
++      return moxie_short_offset_p (ops[0], ops[1]) ? 2 : 4;
++    case 8:			/* ldo */
++      return moxie_short_offset_p (ops[1], ops[0]) ? 2 : 4;
++    default:
++      return 2;
++    }
++}
++
++/* The registers from LO to HI that the prologue saves form a run that
++   pushm and popm can move, if there are two or more of them.  Return
++   the last register of the run that starts at LO.  */
++
++static int
++moxie_saved_run (int lo)
++{
++  int hi = lo;
++
++  if (!TARGET_COMPACT || crtl->calls_eh_return || lo < MOXIE_R0)
++    return lo;
++  while (hi + 1 <= MOXIE_R13
++	 && df_regs_ever_live_p (hi + 1) && !call_used_or_fixed_reg_p (hi + 1))
++    hi++;
++  return hi;
++}
++
+ void
+ moxie_expand_prologue (void)
+ {
+@@ -285,14 +450,52 @@
+   if (flag_stack_usage_info)
+     current_function_static_stack_size = cfun->machine->size_for_adjusting_sp;
+ 
+-  /* Save callee-saved registers.  */
++  /* Save callee-saved registers, a run at a time with pushm.  */
+   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+     {
+       if (df_regs_ever_live_p (regno)
+ 	  && !call_used_or_fixed_reg_p (regno))
+ 	{
+-	  insn = emit_insn (gen_movsi_push (gen_rtx_REG (Pmode, regno)));
++	  int hi = moxie_saved_run (regno), n = hi - regno + 1, i;
++
++	  if (n == 1)
++	    {
++	      insn = emit_insn (gen_movsi_push (gen_rtx_REG (Pmode, regno)));
++	      RTX_FRAME_RELATED_P (insn) = 1;
++	      continue;
++	    }
++
++	  /* The PARALLEL addresses the stores from the old $sp; the
++	     note describes them as the unwinder wants, from the new.  */
++	  rtx par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (n + 1));
++	  rtx note = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (n + 1));
++	  rtx adjust = gen_rtx_SET (stack_pointer_rtx,
++				    plus_constant (Pmode, stack_pointer_rtx,
++						   -4 * n));
++	  XVECEXP (par, 0, 0) = adjust;
++	  XVECEXP (note, 0, 0) = copy_rtx (adjust);
++	  RTX_FRAME_RELATED_P (XVECEXP (note, 0, 0)) = 1;
++	  for (i = 0; i < n; i++)
++	    {
++	      rtx reg = gen_rtx_REG (SImode, regno + i);
++	      XVECEXP (par, 0, i + 1)
++		= gen_rtx_SET (gen_frame_mem (SImode,
++					      plus_constant (Pmode,
++							     stack_pointer_rtx,
++							     -4 * (i + 1))),
++			       reg);
++	      XVECEXP (note, 0, i + 1)
++		= gen_rtx_SET (gen_frame_mem (SImode,
++					      plus_constant (Pmode,
++							     stack_pointer_rtx,
++							     4 * (n - 1 - i))),
++			       reg);
++	      RTX_FRAME_RELATED_P (XVECEXP (note, 0, i + 1)) = 1;
++	    }
++	  insn = emit_insn (par);
+ 	  RTX_FRAME_RELATED_P (insn) = 1;
++	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, note);
++	  regno = hi;
+ 	}
+     }
+ 
+@@ -333,7 +536,48 @@
+   int regno;
+   rtx reg;
+ 
+-  if (cfun->machine->callee_saved_reg_size != 0)
++  if (cfun->machine->callee_saved_reg_size != 0
++      && cfun->machine->callee_saved_reg_size <= 255
++      && TARGET_COMPACT && !crtl->calls_eh_return)
++    {
++      /* Point $sp at the saved registers, which ret will put right,
++	 and pop them a run at a time with popm.  */
++      emit_insn (gen_blockage ());
++      emit_move_insn (stack_pointer_rtx, hard_frame_pointer_rtx);
++      emit_insn (gen_subsi3 (stack_pointer_rtx, stack_pointer_rtx,
++			     GEN_INT (cfun->machine->callee_saved_reg_size)));
++      for (regno = FIRST_PSEUDO_REGISTER; regno-- > 0; )
++	if (!call_used_or_fixed_reg_p (regno) && df_regs_ever_live_p (regno))
++	  {
++	    int lo = regno, n, i;
++	    while (lo - 1 >= MOXIE_R0
++		   && df_regs_ever_live_p (lo - 1)
++		   && !call_used_or_fixed_reg_p (lo - 1)
++		   && moxie_saved_run (lo - 1) == regno)
++	      lo--;
++	    n = regno - lo + 1;
++	    if (n == 1)
++	      emit_insn (gen_movsi_pop (stack_pointer_rtx,
++					gen_rtx_REG (Pmode, regno)));
++	    else
++	      {
++		rtx par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (n + 1));
++		XVECEXP (par, 0, 0)
++		  = gen_rtx_SET (stack_pointer_rtx,
++				 plus_constant (Pmode, stack_pointer_rtx, 4 * n));
++		for (i = 0; i < n; i++)
++		  XVECEXP (par, 0, i + 1)
++		    = gen_rtx_SET (gen_rtx_REG (SImode, regno - i),
++				   gen_frame_mem (SImode,
++						  plus_constant (Pmode,
++								 stack_pointer_rtx,
++								 4 * i)));
++		emit_insn (par);
++	      }
++	    regno = lo;
++	  }
++    }
++  else if (cfun->machine->callee_saved_reg_size != 0)
+     {
+       reg = gen_rtx_REG (Pmode, MOXIE_R12);
+       if (cfun->machine->callee_saved_reg_size <= 255)
 --- a/gcc/config/moxie/moxie.h
 +++ b/gcc/config/moxie/moxie.h
-@@ -175,7 +175,7 @@
+@@ -127,6 +127,7 @@
+ enum reg_class
+ {
+   NO_REGS,
++  SHORT_REGS,
+   GENERAL_REGS,
+   SPECIAL_REGS,
+   CC_REGS,
+@@ -137,6 +138,7 @@
+ 
+ #define REG_CLASS_CONTENTS \
+ { { 0x00000000 }, /* Empty */			   \
++  { 0x000003FC }, /* $r0 to $r7 */		   \
+   { 0x0003FFFF }, /* $fp, $sp, $r0 to $r13, ?fp */ \
+   { 0x00040000 }, /* $pc */	                   \
+   { 0x00080000 }, /* ?cc */                        \
+@@ -147,6 +149,7 @@
+ 
+ #define REG_CLASS_NAMES {\
+     "NO_REGS", \
++    "SHORT_REGS", \
+     "GENERAL_REGS", \
+     "SPECIAL_REGS", \
+     "CC_REGS", \
+@@ -175,7 +178,7 @@
  /* The Overall Framework of an Assembler File */
  
  #undef  ASM_SPEC
@@ -95,7 +352,7 @@
  #define ASM_COMMENT_START "#"
  #define ASM_APP_ON ""
  #define ASM_APP_OFF ""
-@@ -417,6 +417,10 @@
+@@ -417,6 +420,10 @@
        builtin_define ("__MOXIE_LITTLE_ENDIAN__");	\
      else						\
        builtin_define ("__MOXIE_BIG_ENDIAN__");		\
@@ -108,7 +365,28 @@
  #define HAS_LONG_UNCOND_BRANCH true
 --- a/gcc/config/moxie/moxie.md
 +++ b/gcc/config/moxie/moxie.md
-@@ -183,31 +183,31 @@
+@@ -42,15 +42,16 @@
+ ;; -------------------------------------------------------------------------
+ 
+ (define_insn "addsi3"
+-  [(set (match_operand:SI 0 "register_operand" "=r,r,r")
++  [(set (match_operand:SI 0 "register_operand" "=r,r,r,t")
+ 	  (plus:SI
+-	   (match_operand:SI 1 "register_operand" "0,0,0")
+-	   (match_operand:SI 2 "moxie_add_operand" "I,N,r")))]
++	   (match_operand:SI 1 "register_operand" "%0,0,0,t")
++	   (match_operand:SI 2 "moxie_add_operand" "I,N,r,t")))]
+   ""
+   "@
+   inc\\t%0, %2
+   dec\\t%0, -%2
+-  add\\t%0, %2")
++  add\\t%0, %2
++  add3\\t%0, %1, %2")
+ 
+ (define_insn "subsi3"
+   [(set (match_operand:SI 0 "register_operand" "=r,r")
+@@ -183,31 +184,31 @@
  ;; -------------------------------------------------------------------------
  
  (define_insn "ashlsi3"
@@ -158,7 +436,30 @@
  
  ;; -------------------------------------------------------------------------
  ;; Move instructions
-@@ -259,11 +259,11 @@
+@@ -223,6 +224,22 @@
+   "push\\t$sp, %0")
+ 
+ ;; Pop a register from the stack
++(define_insn "*pushm"
++  [(match_parallel 0 "moxie_multiple_operation"
++     [(set (reg:SI 1) (plus:SI (reg:SI 1) (match_operand:SI 1 "const_int_operand")))
++      (set (match_operand:SI 2 "memory_operand" "=m")
++	   (match_operand:SI 3 "register_operand" "r"))])]
++  "TARGET_COMPACT && INTVAL (operands[1]) < 0"
++  "* return moxie_output_multiple (operands[0], true);")
++
++(define_insn "*popm"
++  [(match_parallel 0 "moxie_multiple_operation"
++     [(set (reg:SI 1) (plus:SI (reg:SI 1) (match_operand:SI 1 "const_int_operand")))
++      (set (match_operand:SI 2 "register_operand" "=r")
++	   (match_operand:SI 3 "memory_operand" "m"))])]
++  "TARGET_COMPACT && INTVAL (operands[1]) > 0"
++  "* return moxie_output_multiple (operands[0], false);")
++
+ (define_insn "movsi_pop"
+   [(set (match_operand:SI 1 "register_operand" "=r")
+   	(mem:SI (post_inc:SI (match_operand:SI 0 "register_operand" "r"))))]
+@@ -259,14 +276,14 @@
    "@
     xor\\t%0, %0
     mov\\t%0, %1
@@ -172,8 +473,12 @@
 +   ld%Q1.l\\t%0, %g1
     sto.l\\t%0, %1
     ldo.l\\t%0, %1"
-   [(set_attr "length"	"2,2,6,2,6,2,6,4,4")])
-@@ -275,7 +275,7 @@
+-  [(set_attr "length"	"2,2,6,2,6,2,6,4,4")])
++  [(set (attr "length") (symbol_ref "moxie_move_length (insn)"))])
+ 
+ (define_insn "zero_extendqisi2"
+   [(set (match_operand:SI 0 "register_operand" "=r,r,r,r")
+@@ -275,7 +292,7 @@
    "@
     zex.b\\t%0, %1
     ld.b\\t%0, %1
@@ -182,7 +487,7 @@
     ldo.b\\t%0, %1"
    [(set_attr "length" "2,2,6,4")])
  
-@@ -286,7 +286,7 @@
+@@ -286,7 +303,7 @@
    "@
     zex.s\\t%0, %1
     ld.s\\t%0, %1
@@ -191,7 +496,7 @@
     ldo.s\\t%0, %1"
    [(set_attr "length" "2,2,6,4")])
  
-@@ -327,9 +327,9 @@
+@@ -327,12 +344,12 @@
     mov\\t%0, %1
     ldi.b\\t%0, %1
     st.b\\t%0, %1
@@ -202,8 +507,12 @@
 +   ld%Q1.b\\t%0, %g1
     sto.b\\t%0, %1
     ldo.b\\t%0, %1"
-   [(set_attr "length"	"2,2,6,2,6,2,6,4,4")])
-@@ -355,9 +355,9 @@
+-  [(set_attr "length"	"2,2,6,2,6,2,6,4,4")])
++  [(set (attr "length") (symbol_ref "moxie_move_length (insn)"))])
+ 
+ (define_expand "movhi"
+   [(set (match_operand:HI 0 "general_operand" "")
+@@ -355,12 +372,12 @@
     mov\\t%0, %1
     ldi.s\\t%0, %1
     st.s\\t%0, %1
@@ -214,8 +523,25 @@
 +   ld%Q1.s\\t%0, %g1
     sto.s\\t%0, %1
     ldo.s\\t%0, %1"
-   [(set_attr "length"	"2,2,6,2,6,2,6,4,4")])
-@@ -384,17 +384,19 @@
+-  [(set_attr "length"	"2,2,6,2,6,2,6,4,4")])
++  [(set (attr "length") (symbol_ref "moxie_move_length (insn)"))])
+ 
+ ;; -------------------------------------------------------------------------
+ ;; Compare instructions
+@@ -381,20 +398,32 @@
+                       (pc)))]
+   ""
+   "
++  /* beqz and bnez compare with zero and branch in one.  */
++  if (TARGET_COMPACT && operands[2] == const0_rtx
++      && (GET_CODE (operands[0]) == EQ || GET_CODE (operands[0]) == NE))
++    {
++      emit_jump_insn (gen_cbranchsi_zero (operands[0],
++					  force_reg (SImode, operands[1]),
++					  operands[3]));
++      DONE;
++    }
++
    /* Force the compare operands into registers.  */
    if (GET_CODE (operands[1]) != REG)
  	operands[1] = force_reg (SImode, operands[1]);
@@ -239,7 +565,91 @@
  
  
  ;; -------------------------------------------------------------------------
-@@ -483,8 +485,17 @@
+@@ -426,6 +455,47 @@
+         (if_then_else (lt (abs (minus (pc) (match_dup 0))) (const_int 1022))
+                       (const_int 2) (const_int 8)))])
+ 
++;; beqz and bnez, or cmpi and a branch when the target is too far.
++(define_insn "cbranchsi_zero"
++  [(set (pc)
++	(if_then_else (match_operator 0 "moxie_eqne_operator"
++			[(match_operand:SI 1 "register_operand" "r")
++			 (const_int 0)])
++		      (label_ref (match_operand 2 "" ""))
++		      (pc)))
++   (clobber (reg:CC CC_REG))]
++  "TARGET_COMPACT"
++{
++  bool eq = GET_CODE (operands[0]) == EQ;
++  switch (get_attr_length (insn))
++    {
++    case 2:
++      return eq ? "beqz\t%1, %l2" : "bnez\t%1, %l2";
++    case 4:
++      return eq ? "cmpi\t%1, 0\n\tbeq\t%l2" : "cmpi\t%1, 0\n\tbne\t%l2";
++    default:
++      return (eq ? "cmpi\t%1, 0\n\tbne\t.+6\n\tjmpa\t%l2"
++	      : "cmpi\t%1, 0\n\tbeq\t.+6\n\tjmpa\t%l2");
++    }
++}
++  [(set (attr "length")
++	(if_then_else (and (ge (minus (match_dup 2) (pc)) (const_int -60))
++			   (le (minus (match_dup 2) (pc)) (const_int 60)))
++		      (const_int 2)
++		      (if_then_else (lt (abs (minus (match_dup 2) (pc)))
++					(const_int 1020))
++				    (const_int 4)
++				    (const_int 10))))])
++
++;; Keeps the epilogue's loads from the frame above its move of $sp.
++(define_c_enum "unspecv" [UNSPECV_BLOCKAGE])
++
++(define_insn "blockage"
++  [(unspec_volatile [(const_int 0)] UNSPECV_BLOCKAGE)]
++  ""
++  ""
++  [(set_attr "length" "0")])
++
+ ;; -------------------------------------------------------------------------
+ ;; Call and Jump instructions
+ ;; -------------------------------------------------------------------------
+@@ -443,10 +513,16 @@
+ 		  0 "nonmemory_operand" "i,r"))
+ 	 (match_operand 1 "" ""))]
+   ""
+-  "@
+-   jsra\\t%0
+-   jsr\\t%0"
+-  [(set_attr "length"	"6,2")])
++{
++  if (which_alternative == 1)
++    return "jsr\t%0";
++  return moxie_bsr_p (operands[0]) ? "bsr\t%0" : "jsra\t%0";
++}
++  [(set (attr "length")
++	(if_then_else (eq_attr "alternative" "1")
++		      (const_int 2)
++		      (if_then_else (match_test "moxie_bsr_p (operands[0])")
++				    (const_int 4) (const_int 6))))])
+ 
+ (define_expand "call_value"
+   [(set (match_operand 0 "" "")
+@@ -463,8 +539,12 @@
+ 		       1 "immediate_operand" "i"))
+ 	      (match_operand 2 "" "")))]
+   ""
+-  "jsra\\t%1"
+-  [(set_attr "length"	"6")])
++{
++  return moxie_bsr_p (operands[1]) ? "bsr\t%1" : "jsra\t%1";
++}
++  [(set (attr "length")
++	(if_then_else (match_test "moxie_bsr_p (operands[1])")
++		      (const_int 4) (const_int 6)))])
+ 
+ (define_insn "*call_value_indirect"
+   [(set (match_operand 0 "register_operand" "=r")
+@@ -483,8 +563,17 @@
    [(set (pc)
  	(label_ref (match_operand 0 "" "")))]
    ""
@@ -261,7 +671,7 @@
  ;; -------------------------------------------------------------------------
 --- a/gcc/config/moxie/moxie.opt
 +++ b/gcc/config/moxie/moxie.opt
-@@ -31,5 +31,13 @@
+@@ -31,5 +31,17 @@
  Enable MUL.X and UMUL.X instructions.
  
  ; Ignored by the compiler
@@ -273,11 +683,24 @@
 +Target Mask(GP)
 +Address data within 32K bytes of _gp, which the startup code loads into $r13, with 16-bit offsets from $r13.
 +
++mlong-calls
++Target Mask(LONG_CALLS)
++Call with jsra, which reaches anywhere, even with -mcompact, whose bsr reaches 64K bytes either way.
++
  mno-crt0
  Target RejectNegative
+--- a/gcc/config/moxie/moxie-protos.h
++++ b/gcc/config/moxie/moxie-protos.h
+@@ -21,3 +21,6 @@
+ extern void  moxie_expand_epilogue (void);
+ extern int   moxie_initial_elimination_offset (int, int);
+ extern bool  moxie_offset_address_p (rtx);
++extern bool  moxie_bsr_p (rtx);
++extern const char *moxie_output_multiple (rtx, bool);
++extern int   moxie_move_length (rtx_insn *);
 --- a/gcc/config/moxie/predicates.md
 +++ b/gcc/config/moxie/predicates.md
-@@ -53,4 +53,17 @@
+@@ -53,4 +53,30 @@
  (define_predicate "moxie_sub_operand"
    (ior (match_code "reg")
         (and (match_code "const_int")
@@ -297,6 +720,19 @@
 +  (ior (match_operand 0 "register_operand")
 +       (and (match_code "const_int")
 +	    (match_test "TARGET_COMPACT && IN_RANGE (INTVAL (op), -16, 15)"))))
++
++;; The PARALLELs of pushm and popm, built by the prologue and epilogue.
++
++(define_predicate "moxie_multiple_operation"
++  (match_code "parallel")
++{
++  return XVECLEN (op, 0) > 1;
++})
++
++;; eq or ne, the comparisons of beqz and bnez.
++
++(define_predicate "moxie_eqne_operator"
++  (match_code "eq,ne"))
 --- a/gcc/config/moxie/t-moxie
 +++ b/gcc/config/moxie/t-moxie
 @@ -18,6 +18,8 @@

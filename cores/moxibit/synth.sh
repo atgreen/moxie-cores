@@ -39,6 +39,8 @@ moxibit="$here/moxibit.v $here/moxibit_rf.v $here/moxibit_ucode.v"
 for fam in ice40 xc7; do
   synth moxibit       $fam moxibit "-set MDU 1" $moxibit
   synth moxibit-mdu0  $fam moxibit "-set MDU 0" $moxibit
+  synth moxibit-plain $fam moxibit "-set MDU 1 -set COMPACT 0" $moxibit
+  synth moxibit-small $fam moxibit "-set MDU 0 -set COMPACT 0" $moxibit
   synth moxibit-fast  $fam moxibit "-set MDU 1 -set FAST_INC 1" $moxibit
   if [ -n "$serv" ]; then
     files=$(ls "$serv"/rtl/serv_*.v | grep -v serv_debug)

@@ -7,7 +7,10 @@
 # the core built with FAST_INC; each program runs once more on
 # tb-small, the default build.  The asm/m*.S programs run on a core
 # built with MDU = 0 too, with firmware/moxibit/mdu-emulate.S standing
-# in for the multiplier and divider.
+# in for the multiplier and divider.  tb-nocompact, built with
+# COMPACT = 0, runs every program that does not use the compact-code
+# extension, and asm/n*.S, which checks that its instructions are
+# undefined there.
 
 CORE = ../../cores/moxibit
 ISS = ../../tools/mox125-iss/mox125-iss
@@ -15,12 +18,17 @@ WAITS = 0 1 2 5
 
 MOX125_FILES := $(shell grep -L mmu.inc ../mox125/asm/test*.S)
 
-ASM_FILES := $(wildcard asm/*.S) $(MOX125_FILES)
+ASM_FILES := $(filter-out asm/n%.S,$(wildcard asm/*.S)) $(MOX125_FILES)
 BIN_FILES := $(patsubst %.S,bin/%.x,$(notdir $(ASM_FILES)))
 
 MDU_FILES := $(wildcard asm/m*.S)
 
-all: tb tb-small tb-nomdu $(BIN_FILES)
+# The programs that use the compact-code extension, and those that
+# check a core built without it.
+COMPACT_FILES := ../mox125/asm/test103.S ../mox125/asm/test104.S ../mox125/asm/test105.S
+NOCOMPACT_FILES := $(wildcard asm/n*.S) $(filter-out $(COMPACT_FILES),$(ASM_FILES))
+
+all: tb tb-small tb-nomdu tb-nocompact $(BIN_FILES) bin/n000.x
 
 vpath %.S asm ../mox125/asm
 
@@ -64,6 +72,16 @@ tb-nomdu: obj_nomdu/Vmoxibit.mk $(VSRC) tb.cc
 	$(MAKE) -C obj_nomdu -f Vmoxibit.mk
 	cp obj_nomdu/Vmoxibit $@
 
+# The same without the compact-code extension.
+obj_nocompact/Vmoxibit.mk: $(VSRC) $(CORE)/moxibit_ucode.vh tb.cc
+	verilator -Wno-fatal --cc -O3 -CFLAGS -O2 -GCOMPACT=0 --Mdir obj_nocompact \
+	-I$(CORE) --top-module moxibit $(VSRC) --trace \
+	--exe $(CURDIR)/tb.cc
+
+tb-nocompact: obj_nocompact/Vmoxibit.mk $(VSRC) tb.cc
+	$(MAKE) -C obj_nocompact -f Vmoxibit.mk
+	cp obj_nocompact/Vmoxibit $@
+
 # The same, printing each instruction for lockstep.sh.
 obj_trace/Vmoxibit.mk: $(VSRC) $(CORE)/moxibit_ucode.vh tb.cc
 	verilator -Wno-fatal --cc -O3 -CFLAGS -O2 -DMOXIBIT_TRACE -GFAST_INC=1 --Mdir obj_trace \
@@ -101,6 +119,13 @@ check: all $(ISS)
 	  if [ "$$want" = "$$got" ]; then pass=$$((pass+1)); \
 	  else fail=$$((fail+1)); echo "$$x with MDU = 0: expecting $$want, got $$got"; fi; \
 	done; \
+	for s in $(NOCOMPACT_FILES); do \
+	  x=bin/$$(basename $$s .S).x; \
+	  want=$$(head -1 $$s | sed 's/^# //' | tr a-f A-F); \
+	  got=$$(./tb-nocompact -w 1 $$x 2>/dev/null); \
+	  if [ "$$want" = "$$got" ]; then pass=$$((pass+1)); \
+	  else fail=$$((fail+1)); echo "$$x with COMPACT = 0: expecting $$want, got $$got"; fi; \
+	done; \
 	echo "$$pass passed, $$fail failed"; test $$fail -eq 0
 
 # Compare every instruction of every program with the ISS: the
@@ -113,4 +138,4 @@ lockstep: tb-trace $(BIN_FILES) $(ISS)
 	echo "$(words $(BIN_FILES)) programs, $$fail differ"; test $$fail -eq 0
 
 clean:
-	-rm -rf obj_dir obj_trace obj_nomdu obj_small tb tb-trace tb-nomdu tb-small tb.vcd bin
+	-rm -rf obj_dir obj_trace obj_nomdu obj_small obj_nocompact tb tb-trace tb-nomdu tb-small tb-nocompact tb.vcd bin

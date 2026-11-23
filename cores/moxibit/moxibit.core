@@ -28,6 +28,7 @@ targets:
     parameters :
       - "is_toplevel? (BOOT_ADDRESS)"
       - "is_toplevel? (MDU)"
+      - "is_toplevel? (COMPACT)"
       - "is_toplevel? (FAST_INC)"
     toplevel : ["is_toplevel? (moxibit)"]
 
@@ -35,7 +36,7 @@ targets:
     description : Check the RTL with Verilator
     default_tool : verilator
     filesets : [rtl]
-    parameters : [MDU, FAST_INC]
+    parameters : [MDU, COMPACT, FAST_INC]
     tools:
       verilator:
         mode : lint-only
@@ -46,7 +47,7 @@ targets:
     description : Synthesize for iCE40 with Yosys, to see how big it is
     default_tool : yosys
     filesets : [rtl]
-    parameters : [MDU, FAST_INC]
+    parameters : [MDU, COMPACT, FAST_INC]
     tools:
       yosys:
         arch : ice40
@@ -63,7 +64,12 @@ parameters:
     description : 1 for a multiplier and divider; 0 to trap mul, div, udiv, mod and umod for software to emulate
     paramtype : vlogparam
 
+  COMPACT:
+    datatype : int
+    description : 1 for the compact-code extension (docs/compact.md); 0 to make its instructions undefined, for about 15% fewer LUTs
+    paramtype : vlogparam
+
   FAST_INC:
     datatype : int
-    description : 1 to add 2 to the address in parallel most of the time, for about 12% fewer clocks and 23 more LUTs
+    description : 1 to add 2 to the address in parallel most of the time, for about 12% fewer clocks and 35 more LUTs
     paramtype : vlogparam

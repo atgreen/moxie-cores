@@ -101,3 +101,6 @@
 `define OP_CMPI   7'b1001001
 `define OP_BRA    7'b1001010
 `define OP_LEA    7'b1001011
+`define OP_BEQZ   7'b1001100
+`define OP_BNEZ   7'b1001101
+`define OP_BSR    7'b1001110

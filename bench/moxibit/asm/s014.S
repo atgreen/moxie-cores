@@ -1,6 +1,6 @@
 # d8298e8f
-	/* Undefined instructions, including branches with conditions
-	   11-15, resume at themselves with cause 1; the handler skips
+	/* Undefined instructions, including the branch with condition
+	   15, resume at themselves with cause 1; the handler skips
 	   them.  brk resumes after itself with cause 5.  */
 	.include "mix.inc"
 	.section .text
@@ -11,7 +11,7 @@ _start:
 	ssr	$r0, 1
 	.word	0x0000
 	.word	0x1400
-	.word	0xec00
+	.word	0x5900
 	.word	0xfc00
 	.word	0x3d00
 	brk

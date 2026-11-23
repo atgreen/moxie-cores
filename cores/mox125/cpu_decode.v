@@ -23,10 +23,10 @@ module cpu_decode (/*AUTOARG*/
   // Outputs
   pipeline_control_bits_o, register1_write_index_o,
   register2_write_index_o, operand_o, pcrel_offset_o, riA_o, riB_o,
-  op_o, PC_o,
+  op_o, PC_o, readA_o, readB_o, hold_o,
   // Inputs
   rst_i, clk_i, stall_i, opcode_i, operand_i,
-  valid_i, PC_i
+  valid_i, PC_i, branch_i
   );
 
    // --- Clock and Reset ------------------------------------------
@@ -34,6 +34,8 @@ module cpu_decode (/*AUTOARG*/
 
    // --- Pipeline interlock ---------------------------------------
    input  stall_i;
+   input  branch_i;		// execute is branching: drop any sequence
+   output hold_o;		// hold fetch while pushm or popm runs
 
    // --- Instructions ---------------------------------------------
    input [15:0] opcode_i;
@@ -51,6 +53,8 @@ module cpu_decode (/*AUTOARG*/
    output [3:0] 	   riB_o;
    output [6:0] 	   op_o;
    output [31:0] 	   PC_o;
+   output [3:0] 	   readA_o;	// the registers the operands came
+   output [3:0] 	   readB_o;	// from, for forwarding
 
    reg [6:0] 		   op_o;
    reg [9:0] 		   pcrel_offset_o;
@@ -61,6 +65,8 @@ module cpu_decode (/*AUTOARG*/
    reg [`PCB_WIDTH-1:0]    pipeline_control_bits_o;
    reg [3:0] 		   register1_write_index_o;
    reg [3:0] 		   register2_write_index_o;
+   reg [3:0] 		   readA_o;
+   reg [3:0] 		   readB_o;
 
    wire 		   foo = !opcode_i[15:15];
    wire [3:0] 		   b1 = opcode_i[3:0];
@@ -83,29 +89,91 @@ module cpu_decode (/*AUTOARG*/
    wire 		   ldi7 = opcode_i[15:11] == 5'b11110;
    wire [4:0] 		   fp_k = {opcode_i[8], opcode_i[3:0]};
 
-   assign riA_o = short3 ? {1'b0, opcode_i[6:4]} + 4'd2
+   // add3, 0x5a-0x5b, writes its 3-bit A field and reads its B field
+   // and its C field, bits 8, 7 and 3.  beqz and bnez, form 3
+   // conditions 11 and 14, test the register in their A field.
+   wire 		   add3 = opcode_i[15:9] == 7'b0101101;
+   wire [3:0] 		   add3_c = {1'b0, opcode_i[8:7], opcode_i[3]} + 4'd2;
+   wire 		   bz3 = opcode_i[15:14] == 2'b11
+			 & (opcode_i[13:10] == 4'd11 | opcode_i[13:10] == 4'd14);
+
+   // pushm and popm run as a sequence: stores (or loads) of each
+   // register at an offset from $sp, which does not change until the
+   // last step, a dec (or inc) of $sp.  A fault or an interrupt part
+   // of the way through restarts the whole instruction, which is then
+   // harmless.  Fetch holds while the sequence runs.
+   wire 		   is_pushm = opcode_i[15:8] == 8'h57;
+   wire 		   is_popm = opcode_i[15:8] == 8'h58;
+   reg 			   seq, seq_pop, seq_adj;
+   reg [3:0] 		   seq_cur, seq_end, seq_k, seq_n;
+   // A taken branch in execute squashes what decode holds, and fetch
+   // has held its target: a running sequence ends with a bubble.
+   wire 		   kill = seq & branch_i;
+   wire 		   mop = seq & !branch_i | !seq & valid_i & (is_pushm | is_popm);
+   wire 		   m_pop = seq ? seq_pop : is_popm;
+   wire 		   m_adj = seq & seq_adj;
+   // Both step through the B field: pushm's first register is in B
+   // and its last in A, popm's the other way round.
+   wire [3:0] 		   m_reg = seq ? seq_cur : opcode_i[3:0];
+   wire [3:0] 		   m_end = seq ? seq_end : opcode_i[7:4];
+   wire [3:0] 		   m_k = seq ? seq_k : 4'd0;
+   wire [3:0] 		   m_n = seq ? seq_n : is_popm ? opcode_i[3:0] - opcode_i[7:4] + 4'd1
+				 : opcode_i[7:4] - opcode_i[3:0] + 4'd1;
+
+   assign hold_o = seq;
+
+   assign riA_o = mop ? (m_adj | !m_pop ? 4'd1 : m_reg)
+		  : add3 ? add3_c
+		  : short3 ? {1'b0, opcode_i[6:4]} + 4'd2
 		  : fp_st ? 4'd0
-		  : (foo | ldi7) ? opcode_i[7:4] : opcode_i[11:8];
-   assign riB_o = short3 ? {1'b0, opcode_i[2:0]} + 4'd2
+		  : (foo | ldi7 | bz3) ? opcode_i[7:4] : opcode_i[11:8];
+   assign riB_o = mop ? (m_pop ? 4'd1 : m_reg)
+		  : (short3 | add3) ? {1'b0, opcode_i[2:0]} + 4'd2
 		  : fp_ld ? 4'd0
 		  : fp_st ? opcode_i[7:4] : opcode_i[3:0];
 
    always @(posedge clk_i)
+     if (rst_i | kill)
+       seq <= 1'b0;
+     else if (! stall_i & mop)
+       if (m_adj)
+	 seq <= 1'b0;
+       else
+	 begin
+	    seq <= 1'b1;
+	    seq_pop <= m_pop;
+	    seq_end <= m_end;
+	    seq_n <= m_n;
+	    seq_adj <= m_reg == m_end;
+	    seq_cur <= m_pop ? m_reg - 4'd1 : m_reg + 4'd1;
+	    seq_k <= m_k + 4'd1;
+	 end
+
+   always @(posedge clk_i)
      begin
-	if (! stall_i) begin
+	if (! stall_i & ! seq) begin
 	   PC_o <= PC_i;
 	end
      end
 
   always @(posedge clk_i)
     if (! stall_i) begin
-      if (! valid_i)
+      if (kill)
+	pipeline_control_bits_o <= 6'b000000;
+      else if (mop)
+	begin
+	  pcrel_offset_o <= {4'b0, m_n, 2'b0};
+	  pipeline_control_bits_o <= m_adj ? 6'b101000 : m_pop ? 6'b101101 : 6'b001110;
+	end
+      else if (! valid_i)
 	      pipeline_control_bits_o <= 6'b000000;
       else
 	      begin
 	        pcrel_offset_o <= opcode_i[9:0];
 	        if (opcode_i[15] == 0)
 	          pipeline_control_bits_o <= control;
+	        else if (bz3)
+	          pipeline_control_bits_o <= 6'b001000;
 	        else
 	          casex (opcode_i[15:12])
 	            4'b1000: // INC
@@ -136,11 +204,24 @@ module cpu_decode (/*AUTOARG*/
     begin
       if (! stall_i)
 	begin
-	  if (! valid_i)
+	  if (kill)
+	    op_o <= `OP_NOP;
+	  else if (mop)
+	    begin
+	      op_o <= m_adj ? (m_pop ? `OP_INC : `OP_DEC) : (m_pop ? `OP_LDO_L : `OP_STO_L);
+	      operand_o <= m_pop ? {26'b0, m_k, 2'b0} : -{26'b0, m_k + 4'd1, 2'b0};
+	      register1_write_index_o <= riA_o;
+	      register2_write_index_o <= riB_o;
+	      readA_o <= riA_o;
+	      readB_o <= riB_o;
+	    end
+	  else if (! valid_i)
 	    op_o <= `OP_NOP;
 	  else begin
-	    register1_write_index_o <= riA_o;
+	    register1_write_index_o <= add3 ? {1'b0, opcode_i[6:4]} + 4'd2 : riA_o;
 	    register2_write_index_o <= riB_o;
+	    readA_o <= riA_o;
+	    readB_o <= riB_o;
 	    casex (opcode_i[15:8])
 	      8'b00000000:
 		begin
@@ -432,6 +513,15 @@ module cpu_decode (/*AUTOARG*/
 		begin
 		  op_o <= `OP_CMPI;
 		end
+	      8'b01010110:
+		begin
+		  op_o <= `OP_BSR;
+		  operand_o <= {{16{operand_i[31]}},operand_i[31:16]};
+		end
+	      8'b0101101?:
+		begin
+		  op_o <= `OP_ADD_L;
+		end
 	      8'b010010??:
 		begin
 		  op_o <= `OP_LDO_L;
@@ -526,7 +616,7 @@ module cpu_decode (/*AUTOARG*/
 		end
 	      8'b111011??:
 		begin
-		  op_o <= `OP_BAD;
+		  op_o <= `OP_BEQZ;
 		end
 	      8'b11110???:
 		begin
@@ -535,7 +625,7 @@ module cpu_decode (/*AUTOARG*/
 		end
 	      8'b111110??:
 		begin
-		  op_o <= `OP_BAD;
+		  op_o <= `OP_BNEZ;
 		end
 	      8'b111111??:
 		begin

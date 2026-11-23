@@ -61,9 +61,10 @@ system wants (`eret`, `wfi`, `cas.l`).
 
 mox125 and moxibit also implement the
 [compact-code extension](docs/compact.md): short forms of constants,
-shifts, compares, loads and stores, and a global pointer.  With it,
-moxie code is about the size of compressed RISC-V (RV32IC), and 31%
-smaller than RV32I.
+shifts, compares, branches, calls, loads and stores, a 3-operand add,
+multiple-register push and pop, and a global pointer.  With it, moxie
+code is 10% smaller than compressed RISC-V (RV32IC), about the size of
+RV32IMC, and 37% smaller than RV32I.
 
 Both Verilog cores are big-endian and talk to the same 16-bit
 Wishbone bus with 32-bit addresses, so they are interchangeable: each
@@ -72,8 +73,9 @@ synthesized alone for ECP5 with Yosys:
 
 | Core                        | LUT4  | Flip-flops | Block RAM |
 |-----------------------------|------:|-----------:|----------:|
-| moxibit                     |   509 |        129 |         4 |
-| moxibit without mul/div     |   492 |        121 |         4 |
+| moxibit                     |   564 |        129 |         4 |
+| moxibit without mul/div     |   519 |        121 |         4 |
+| moxibit without mul/div or the extension | 446 | 121 | 4 |
 | mox125, 256-byte icache     | 6,761 |      1,696 |         2 |
 
 [cores/moxibit/README.md](cores/moxibit/README.md) compares moxibit
